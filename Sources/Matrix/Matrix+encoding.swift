@@ -11,7 +11,7 @@ extension Matrix {
     
     // MARK: Encoding
     
-    static func encodeEventContent(content: Codable, of type: MatrixEventType, to encoder: Encoder) throws {
+    static func encodeEventContent(content: Codable, of type: Matrix.EventType, to encoder: Encoder) throws {
         enum CodingKeys: String, CodingKey {
             case content
         }
@@ -56,7 +56,7 @@ extension Matrix {
             try container.encode(powerlevelsContent, forKey: .content)
             
         case .mRoomMessage:
-            guard let messageContent = content as? MatrixMessageContent else {
+            guard let messageContent = content as? Matrix.MessageContent else {
                 throw Matrix.Error("Couldn't convert content")
             }
             switch messageContent.msgtype {
