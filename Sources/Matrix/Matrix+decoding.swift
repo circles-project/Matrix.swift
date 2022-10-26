@@ -106,13 +106,14 @@ extension Matrix {
             throw Matrix.Error("Not implemented")
             
         case .mIgnoredUserList:
-            throw Matrix.Error("Not implemented")
-
+            let content = try container.decode(IgnoredUserListContent.self, forKey: .content)
+            return content
+            
         case .mFullyRead:
             throw Matrix.Error("Not implemented")
 
         case .mDirect:
-            let content = try container.decode(mDirectContent.self, forKey: .content)
+            let content = try container.decode(DirectContent.self, forKey: .content)
             return content
 
         case .mSecretStorageKey(let string):
