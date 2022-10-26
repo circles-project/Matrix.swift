@@ -1,6 +1,137 @@
-public struct Matrix {
-    public private(set) var text = "Hello, World!"
+//
+//  Matrix.swift
+//  Circles
+//
+//  Created by Charles Wright on 6/14/22.
+//
 
-    public init() {
+import Foundation
+#if !os(macOS)
+import UIKit
+#endif
+import AnyCodable
+
+enum Matrix {
+    
+    // MARK: Error Types
+    
+    struct Error: Swift.Error {
+        var msg: String
+        
+        init(_ msg: String) {
+            self.msg = msg
+        }
     }
+    
+    struct RateLimitError: Swift.Error, Codable {
+        var errcode: String
+        var error: String?
+        var retryAfterMs: Int?
+    }
+
+    // MARK: Utility Functions
+    
+    static func getDomainFromUserId(_ userId: String) -> String? {
+        let toks = userId.split(separator: ":")
+        if toks.count != 2 {
+            return nil
+        }
+
+        let domain = String(toks[1])
+        return domain
+    }
+    
+    // MARK: Well-Known
+    
+    struct WellKnown: Codable {
+        struct ServerConfig: Codable {
+            var baseUrl: String
+        }
+        var homeserver: ServerConfig
+        var identityserver: ServerConfig
+
+        enum CodingKeys: String, CodingKey {
+            case homeserver = "m.homeserver"
+            case identityserver = "m.identityServer"
+        }
+    }
+    
+    @available(macOS 12.0, *)
+    static func fetchWellKnown(for domain: String) async throws -> WellKnown {
+        
+        guard let url = URL(string: "https://\(domain)/.well-known/matrix/client") else {
+            let msg = "Couldn't construct well-known URL"
+            print("WELLKNOWN\t\(msg)")
+            throw Matrix.Error(msg)
+        }
+        print("WELLKNOWN\tURL is \(url)")
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        //request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.cachePolicy = .returnCacheDataElseLoad
+
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            let msg = "Couldn't decode HTTP response"
+            print("WELLKNOWN\t\(msg)")
+            throw Matrix.Error(msg)
+        }
+        guard httpResponse.statusCode == 200 else {
+            let msg = "HTTP request failed"
+            print("WELLKNOWN\t\(msg)")
+            throw Matrix.Error(msg)
+        }
+        
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let stuff = String(data: data, encoding: .utf8)!
+        print("WELLKNOWN\tGot response data:\n\(stuff)")
+        guard let wellKnown = try? decoder.decode(WellKnown.self, from: data) else {
+            let msg = "Couldn't decode response data"
+            print("WELLKNOWN\t\(msg)")
+            throw Matrix.Error(msg)
+        }
+        print("WELLKNOWN\tSuccess!")
+        return wellKnown
+    }
+        
+
+    // MARK: Events
+    typealias EventType = _MatrixEventType
+    typealias Event = _MatrixEvent
+    
+}
+
+// Swift doesn't allow you to nest protocols inside other types, because fuck you.
+// Well fuck Swift too, we're doing it anyway.
+
+enum _MatrixEventType: String, Codable {
+    case mRoomCanonicalAlias = "m.room.canonical_alias"
+    case mRoomCreate = "m.room.create"
+    case mRoomJoinRules = "m.room.join_rules"
+    case mRoomMember = "m.room.member"
+    case mRoomPowerLevels = "m.room.power_levels"
+    case mRoomMessage = "m.room.message"
+    case mRoomEncryption = "m.room.encryption"
+    case mEncrypted = "m.encrypted"
+    
+    case mRoomName = "m.room.name"
+    case mRoomAvatar = "m.room.avatar"
+    case mRoomTopic = "m.room.topic"
+    
+    case mTag = "m.tag"
+    // case mRoomPinnedEvents = "m.room.pinned_events" // https://spec.matrix.org/v1.2/client-server-api/#mroompinned_events
+    
+    case mSpaceChild = "m.space.child"
+    case mSpaceParent = "m.space.parent"
+    
+    // Add types for extensible events here
+}
+
+protocol _MatrixEvent: Codable {
+    var type: Matrix.EventType {get}
+    var content: Codable {get}
 }
