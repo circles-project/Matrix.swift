@@ -9,5 +9,5 @@ import Foundation
 
 struct RoomAvatarContent: Codable {
     var url: String
-    var info: mImageInfo
+    var info: Matrix.mImageInfo
 }
