@@ -99,15 +99,19 @@ enum Matrix {
     }
         
 
-    // MARK: Events
+    // MARK: Types
+    // Swift doesn't allow you to nest protocols inside other types, because fuck you.
+    // Well fuck you too Swift, we're doing it anyway.
+    // See below for the "real" type definitions.
     typealias EventType = _MatrixEventType
     typealias Event = _MatrixEvent
     typealias AccountDataType = _MatrixAccountDataType
+    typealias MessageType = _MatrixMessageType
+    typealias MessageContent = _MatrixMessageContent
 }
 
-// Swift doesn't allow you to nest protocols inside other types, because fuck you.
-// Well fuck Swift too, we're doing it anyway.
 
+// MARK: EventType
 enum _MatrixEventType: String, Codable {
     case mRoomCanonicalAlias = "m.room.canonical_alias"
     case mRoomCreate = "m.room.create"
@@ -131,11 +135,13 @@ enum _MatrixEventType: String, Codable {
     // Add types for extensible events here
 }
 
+// MARK: Event
 protocol _MatrixEvent: Codable {
     var type: Matrix.EventType {get}
     var content: Codable {get}
 }
 
+// MARK: AccountDataType
 enum _MatrixAccountDataType: Codable {
     case mIdentityServer // "m.identity_server"
     case mFullyRead // "m.fully_read"
@@ -182,4 +188,22 @@ enum _MatrixAccountDataType: Codable {
             throw Matrix.Error(msg)
         }
     }
+}
+
+// MARK: MessageType
+enum _MatrixMessageType: String, Codable {
+    case text = "m.text"
+    case emote = "m.emote"
+    case notice = "m.notice"
+    case image = "m.image"
+    case file = "m.file"
+    case audio = "m.audio"
+    case video = "m.video"
+    case location = "m.location"
+}
+
+// MARK: MessageContent
+protocol _MatrixMessageContent: Codable {
+    var body: String {get}
+    var msgtype: Matrix.MessageType {get}
 }

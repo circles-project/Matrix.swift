@@ -41,7 +41,7 @@ extension Matrix {
             return content
             
         case .mTag:
-            let content = try container.decode(TagContent.self, forKey: .content)
+            let content = try container.decode(RoomTagContent.self, forKey: .content)
             return content
             
         case .mRoomEncryption:
@@ -63,7 +63,7 @@ extension Matrix {
         case .mRoomMessage:
             // Peek into the content struct to examine the `msgtype`
             struct MinimalMessageContent: Codable {
-                var msgtype: MatrixMessageType
+                var msgtype: Matrix.MessageType
             }
             let mmc = try container.decode(MinimalMessageContent.self, forKey: .content)
             // Now use the msgtype to determine how we decode the content
@@ -97,7 +97,7 @@ extension Matrix {
         }
     }
     
-    static func decodeAccountData(of dataType: MatrixAccountDataType, from decoder: Decoder) throws -> Decodable {
+    static func decodeAccountData(of dataType: Matrix.AccountDataType, from decoder: Decoder) throws -> Decodable {
         let container = try decoder.container(keyedBy: MinimalEvent.CodingKeys.self)
 
         switch dataType {
