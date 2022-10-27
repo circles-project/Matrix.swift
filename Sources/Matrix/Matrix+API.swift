@@ -205,8 +205,7 @@ class API {
         return responseBody.avatarUrl
     }
     
-    #if !os(macOS)
-    func getAvatarImage(userId: UserId) async throws -> UIImage? {
+    func getAvatarImage(userId: UserId) async throws -> Matrix.NativeImage? {
         // Download the bytes from the given uri
         guard let uri = try await getAvatarUrl(userId: userId)
         else {
@@ -223,37 +222,13 @@ class API {
         
         let data = try await downloadData(mxc: mxc)
         
-        // Create a UIImage
-        let image = UIImage(data: data)
+        // Create a UIImage or NSImage as appropriate
+        let image = Matrix.NativeImage(data: data)
         
         // return the UIImage
         return image
     }
-    #else
-    func getAvatarImage(userId: UserId) async throws -> NSImage? {
-        // Download the bytes from the given uri
-        guard let uri = try await getAvatarUrl(userId: userId)
-        else {
-            let msg = "Couldn't get mxc:// URI"
-            print("USER\t\(msg)")
-            throw Matrix.Error(msg)
-        }
-        guard let mxc = MXC(uri)
-        else {
-            let msg = "Invalid mxc:// URI"
-            print("USER\t\(msg)")
-            throw Matrix.Error(msg)
-        }
-        
-        let data = try await downloadData(mxc: mxc)
-        
-        // Create a NSImage
-        let image = NSImage(data: data)
-        
-        // return the UIImage
-        return image
-    }
-    #endif
+
     
     func getProfileInfo(userId: String) async throws -> (String?,String?) {
                
@@ -608,8 +583,7 @@ class API {
     }
     #endif
     
-    #if !os(macOS)
-    func getAvatarImage(roomId: RoomId) async throws -> UIImage? {
+    func getAvatarImage(roomId: RoomId) async throws -> Matrix.NativeImage? {
         guard let content = try? await getRoomState(roomId: roomId, for: .mRoomAvatar, of: RoomAvatarContent.self)
         else {
             // No avatar for this room???
@@ -624,29 +598,9 @@ class API {
         }
         
         let data = try await downloadData(mxc: mxc)
-        let image = UIImage(data: data)
+        let image = Matrix.NativeImage(data: data)
         return image
     }
-    #else
-    func getAvatarImage(roomId: RoomId) async throws -> NSImage? {
-        guard let content = try? await getRoomState(roomId: roomId, for: .mRoomAvatar, of: RoomAvatarContent.self)
-        else {
-            // No avatar for this room???
-            return nil
-        }
-        
-        guard let mxc = MXC(content.url)
-        else {
-            let msg = "Invalid avatar image URL"
-            print(msg)
-            throw Matrix.Error(msg)
-        }
-        
-        let data = try await downloadData(mxc: mxc)
-        let image = NSImage(data: data)
-        return image
-    }
-    #endif
     
     func setTopic(roomId: RoomId, topic: String) async throws {
         let _ = try await sendStateEvent(to: roomId, type: .mRoomTopic, content: ["topic": topic])

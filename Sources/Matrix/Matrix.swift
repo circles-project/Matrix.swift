@@ -8,8 +8,11 @@
 import Foundation
 #if !os(macOS)
 import UIKit
+#else
+import AppKit
 #endif
 import AnyCodable
+import AppKit
 
 @available(macOS 12.0, *)
 enum Matrix {
@@ -109,6 +112,13 @@ enum Matrix {
     typealias AccountDataType = _MatrixAccountDataType
     typealias MessageType = _MatrixMessageType
     typealias MessageContent = _MatrixMessageContent
+    
+    // We're still in this dumb situation where Apple uses UIImage everywhere except MacOS
+    #if os(macOS)
+    typealias NativeImage = NSImage
+    #else
+    typealias NativeImage = UIImage
+    #endif
 }
 
 
