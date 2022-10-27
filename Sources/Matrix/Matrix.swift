@@ -11,6 +11,7 @@ import UIKit
 #endif
 import AnyCodable
 
+@available(macOS 12.0, *)
 enum Matrix {
     
     // MARK: Error Types
