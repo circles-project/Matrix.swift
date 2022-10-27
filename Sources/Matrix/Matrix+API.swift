@@ -8,6 +8,8 @@
 import Foundation
 #if !os(macOS)
 import UIKit
+#else
+import AppKit
 #endif
 
 import AnyCodable
@@ -140,6 +142,10 @@ class API {
         // Then set that as our avatar
         try await setMyAvatarUrl(url)
     }
+    #else
+    func setMyAvatarImage(_ image: NSImage) async throws {
+        throw Matrix.Error("Not implemented")
+    }
     #endif
     
     func setMyAvatarUrl(_ url: String) async throws {
@@ -222,6 +228,10 @@ class API {
         
         // return the UIImage
         return image
+    }
+    #else
+    func getAvatarImage(userId: UserId) async throws -> NSImage? {
+        throw Matrix.Error("Not implemented")
     }
     #endif
     
@@ -545,7 +555,7 @@ class API {
     func setAvatarImage(roomId: RoomId, image: UIImage) async throws {
         let maxSize = CGSize(width: 640, height: 640)
         
-        guard let scaledImage = downscale_image(from: image, to: maxSize)
+        guard let scaledImage = image.downscale(to: maxSize)
         else {
             let msg = "Failed to downscale image"
             print(msg)
@@ -572,6 +582,10 @@ class API {
         
         let _ = try await sendStateEvent(to: roomId, type: Matrix.EventType.mRoomAvatar, content: RoomAvatarContent(url: uri, info: info))
     }
+    #else
+    func setAvatarImage(roomId: RoomId, image: NSImage) async throws {
+        throw Matrix.Error("Not implemented")
+    }
     #endif
     
     #if !os(macOS)
@@ -592,6 +606,10 @@ class API {
         let data = try await downloadData(mxc: mxc)
         let image = UIImage(data: data)
         return image
+    }
+    #else
+    func getAvatarImage(roomId: RoomId) async throws -> NSImage? {
+        throw Matrix.Error("Not implemented")
     }
     #endif
     
@@ -834,7 +852,7 @@ class API {
     
     #if !os(macOS)
     func uploadImage(_ original: UIImage, maxSize: CGSize, quality: CGFloat = 0.90) async throws -> String {
-        guard let scaled = downscale_image(from: original, to: maxSize)
+        guard let scaled = original.downscale(to: maxSize)
         else {
             let msg = "Failed to downscale image"
             print(msg)
@@ -843,6 +861,10 @@ class API {
         
         let uri = try await uploadImage(scaled, quality: quality)
         return uri
+    }
+    #else
+    func uploadImage(_ original: NSImage, maxSize: CGSize, quality: CGFloat = 0.90) async throws -> String {
+        throw Matrix.Error("Not implemented")
     }
     #endif
     
@@ -857,6 +879,10 @@ class API {
         }
         
         return try await uploadData(data: jpeg, contentType: "image/jpeg")
+    }
+    #else
+    func uploadImage(_ image: NSImage, quality: CGFloat = 0.90) async throws -> String {
+        throw Matrix.Error("Not implemented")
     }
     #endif
     
