@@ -231,7 +231,27 @@ class API {
     }
     #else
     func getAvatarImage(userId: UserId) async throws -> NSImage? {
-        throw Matrix.Error("Not implemented")
+        // Download the bytes from the given uri
+        guard let uri = try await getAvatarUrl(userId: userId)
+        else {
+            let msg = "Couldn't get mxc:// URI"
+            print("USER\t\(msg)")
+            throw Matrix.Error(msg)
+        }
+        guard let mxc = MXC(uri)
+        else {
+            let msg = "Invalid mxc:// URI"
+            print("USER\t\(msg)")
+            throw Matrix.Error(msg)
+        }
+        
+        let data = try await downloadData(mxc: mxc)
+        
+        // Create a NSImage
+        let image = NSImage(data: data)
+        
+        // return the UIImage
+        return image
     }
     #endif
     
@@ -609,7 +629,22 @@ class API {
     }
     #else
     func getAvatarImage(roomId: RoomId) async throws -> NSImage? {
-        throw Matrix.Error("Not implemented")
+        guard let content = try? await getRoomState(roomId: roomId, for: .mRoomAvatar, of: RoomAvatarContent.self)
+        else {
+            // No avatar for this room???
+            return nil
+        }
+        
+        guard let mxc = MXC(content.url)
+        else {
+            let msg = "Invalid avatar image URL"
+            print(msg)
+            throw Matrix.Error(msg)
+        }
+        
+        let data = try await downloadData(mxc: mxc)
+        let image = NSImage(data: data)
+        return image
     }
     #endif
     
