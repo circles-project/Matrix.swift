@@ -17,7 +17,7 @@ import AnyCodable
 extension Matrix {
     
 @available(macOS 12.0, *)
-class API {
+class Client {
     var creds: Matrix.Credentials
     var baseUrl: URL
     let version: String
