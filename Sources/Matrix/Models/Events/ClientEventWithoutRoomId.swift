@@ -67,3 +67,13 @@ struct ClientEventWithoutRoomId: Matrix.Event {
         try Matrix.encodeEventContent(content: content, of: type, to: encoder)
     }
 }
+
+extension ClientEventWithoutRoomId: Hashable {
+    static func == (lhs: ClientEventWithoutRoomId, rhs: ClientEventWithoutRoomId) -> Bool {
+        lhs.eventId == rhs.eventId
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(eventId)
+    }    
+}
