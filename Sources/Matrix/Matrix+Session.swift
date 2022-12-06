@@ -17,32 +17,37 @@ extension Matrix {
     class Session: Matrix.Client, ObservableObject {
         @Published var displayName: String?
         @Published var avatarUrl: URL?
-        #if !os(macOS)
-        @Published var avatar: UIImage?
-        #else
-        @Published var avatar: NSImage?
-        #endif
+        @Published var avatar: Matrix.NativeImage?
         @Published var statusMessage: String?
         
-        /* // cvw: Leaving these as comments for now, as they require us to define even more types
-        @Published var device: MatrixDevice
+        // cvw: Leaving these as comments for now, as they require us to define even more types
+        //@Published var device: MatrixDevice
         
         @Published var rooms: [RoomId: Matrix.Room]
-        @Published var invitations: [RoomId: Matrix.InvitedRoom]
+        //@Published var invitations: [RoomId: Matrix.InvitedRoom]
 
         // Need some private stuff that outside callers can't see
-        private var syncTask: Task?
-        private var userCache: [String: Matrix.User]
-        private var roomCache: [String: Matrix.Room]
-        private var deviceCache: [String: Matrix.Device]
-        private var ignoreUserIds: Set<String>
-
-        */
+        //private var syncTask: Task?
+        private var userCache: [UserId: Matrix.User]
+        //private var roomCache: [String: Matrix.Room]
+        //private var deviceCache: [String: Matrix.Device]
+        private var ignoreUserIds: Set<UserId>
 
         // We need to use the Matrix 'recovery' feature to back up crypto keys etc
         // This saves us from struggling with UISI errors and unverified devices
         private var recoverySecretKey: Data?
         private var recoveryTimestamp: Date?
+        
+        override init(creds: Credentials) throws {
+            self.rooms = [:]
+            //self.invitations = [:]
+            
+            self.userCache = [:]
+            //self.roomCache = [:]
+            self.ignoreUserIds = []
+            
+            try super.init(creds: creds)
+        }
         
         // MARK: Sync
         /*

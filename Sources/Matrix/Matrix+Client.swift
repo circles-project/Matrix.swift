@@ -230,7 +230,7 @@ class Client {
     }
 
     
-    func getProfileInfo(userId: String) async throws -> (String?,String?) {
+    func getProfileInfo(userId: UserId) async throws -> (String?,String?) {
                
         let (data, response) = try await call(method: "GET", path: "/_matrix/client/\(version)/profile/\(userId)")
         

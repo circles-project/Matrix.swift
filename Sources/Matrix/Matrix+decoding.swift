@@ -39,6 +39,9 @@ extension Matrix {
         case .mRoomTopic:
             let content = try container.decode(RoomTopicContent.self, forKey: .content)
             return content
+        case .mRoomTombstone:
+            let content = try container.decode(RoomTombstoneContent.self, forKey: .content)
+            return content
             
         case .mTag:
             let content = try container.decode(RoomTagContent.self, forKey: .content)

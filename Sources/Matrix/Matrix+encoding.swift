@@ -134,6 +134,12 @@ extension Matrix {
             }
             try container.encode(roomTopicContent, forKey: .content)
             
+        case .mRoomTombstone:
+            guard let roomTombstoneContent = content as? RoomTombstoneContent else {
+                throw Matrix.Error("Couldn't convert content")
+            }
+            try container.encode(roomTombstoneContent, forKey: .content)
+            
         case .mTag:
             guard let roomTagContent = content as? RoomTagContent else {
                 throw Matrix.Error("Couldn't convert content")

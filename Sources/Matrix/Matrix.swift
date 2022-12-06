@@ -60,7 +60,6 @@ enum Matrix {
         }
     }
     
-    @available(macOS 12.0, *)
     static func fetchWellKnown(for domain: String) async throws -> WellKnown {
         
         guard let url = URL(string: "https://\(domain)/.well-known/matrix/client") else {
@@ -132,6 +131,7 @@ enum _MatrixEventType: String, Codable {
     case mRoomMessage = "m.room.message"
     case mRoomEncryption = "m.room.encryption"
     case mEncrypted = "m.encrypted"
+    case mRoomTombstone = "m.room.tombstone"
     
     case mRoomName = "m.room.name"
     case mRoomAvatar = "m.room.avatar"

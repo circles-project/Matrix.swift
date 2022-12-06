@@ -66,3 +66,13 @@ struct ClientEvent: Matrix.Event {
     }
 }
 
+extension ClientEvent: Hashable {
+    static func == (lhs: ClientEvent, rhs: ClientEvent) -> Bool {
+        lhs.roomId == rhs.roomId && lhs.eventId == rhs.eventId
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(roomId)
+        hasher.combine(eventId)
+    }
+}
