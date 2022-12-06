@@ -50,9 +50,13 @@ enum Matrix {
     struct WellKnown: Codable {
         struct ServerConfig: Codable {
             var baseUrl: String
+            
+            enum CodingKeys: String, CodingKey {
+                case baseUrl = "base_url"
+            }
         }
         var homeserver: ServerConfig
-        var identityserver: ServerConfig
+        var identityserver: ServerConfig?
 
         enum CodingKeys: String, CodingKey {
             case homeserver = "m.homeserver"
@@ -89,7 +93,6 @@ enum Matrix {
         }
         
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         let stuff = String(data: data, encoding: .utf8)!
         print("WELLKNOWN\tGot response data:\n\(stuff)")
         guard let wellKnown = try? decoder.decode(WellKnown.self, from: data) else {
