@@ -24,13 +24,16 @@ extension Matrix {
         //@Published var device: MatrixDevice
         
         @Published var rooms: [RoomId: Matrix.Room]
-        //@Published var invitations: [RoomId: Matrix.InvitedRoom]
+        @Published var invitations: [RoomId: Matrix.InvitedRoom]
 
         // Need some private stuff that outside callers can't see
-        //private var syncTask: Task?
-        private var userCache: [UserId: Matrix.User]
-        //private var roomCache: [String: Matrix.Room]
-        //private var deviceCache: [String: Matrix.Device]
+        private var syncRequestTask: Task<String,Swift.Error>?
+        private var syncToken: String? = nil
+        private var syncRequestTimeout: Int = 30_000
+        private var keepSyncing: Bool = true
+        private var syncDelayNs: UInt64 = 30_000_000_000
+        private var backgroundSyncTask: Task<String,Swift.Error>?
+        
         private var ignoreUserIds: Set<UserId>
 
         // We need to use the Matrix 'recovery' feature to back up crypto keys etc
@@ -40,65 +43,67 @@ extension Matrix {
         
         override init(creds: Credentials) throws {
             self.rooms = [:]
-            //self.invitations = [:]
+            self.invitations = [:]
             
-            self.userCache = [:]
-            //self.roomCache = [:]
             self.ignoreUserIds = []
             
             try super.init(creds: creds)
         }
         
         // MARK: Sync
-        /*
         // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3sync
         func sync() async throws {
-            struct SyncRequestBody: Codable {
-                var filter: String?
-                var fullState: Bool?
-                var setPresence: String?
-                var since: String?
-                var timeout: Int?
-            }
             
-            struct SyncResponseBody: Codable {
-                struct MinimalEventsContainer: Codable {
+            struct SyncResponseBody: Decodable {
+                struct MinimalEventsContainer: Decodable {
                     var events: [MinimalEvent]?
                 }
-                struct AccountData: Codable {
+                struct AccountData: Decodable {
                     // Here we can't use the MinimalEvent type that we already defined
                     // Because Matrix is batshit and puts crazy stuff into these `type`s
-                    struct Event: Codable {
-                        var type: String
-                        var content: Codable
+                    struct Event: Decodable {
+                        var type: AccountDataType
+                        var content: Decodable
+                        
+                        enum CodingKeys: String, CodingKey {
+                            case type
+                            case content
+                        }
+                        
+                        init(from decoder: Decoder) throws {
+                            let container = try decoder.container(keyedBy: CodingKeys.self)
+                            
+                            self.type = try container.decode(AccountDataType.self, forKey: .type)
+                            self.content = try Matrix.decodeAccountData(of: self.type, from: decoder)
+                        }
                     }
                     var events: [Event]?
                 }
                 typealias Presence =  MinimalEventsContainer
                 typealias Ephemeral = MinimalEventsContainer
                 
-                struct Rooms: Codable {
+                struct Rooms: Decodable {
                     var invite: [RoomId: InvitedRoomSyncInfo]?
                     var join: [RoomId: JoinedRoomSyncInfo]?
                     var knock: [RoomId: KnockedRoomSyncInfo]?
                     var leave: [RoomId: LeftRoomSyncInfo]?
                 }
-                struct InvitedRoomSyncInfo: Codable {
-                    struct InviteState: Codable {
+                struct InvitedRoomSyncInfo: Decodable {
+                    struct InviteState: Decodable {
                         var events: [StrippedStateEvent]?
                     }
                     var inviteState: InviteState?
                 }
-                struct StateEventsContainer: Codable {
+                struct StateEventsContainer: Decodable {
                     var events: [ClientEventWithoutRoomId]?
                 }
-                struct Timeline: Codable {
+                struct Timeline: Decodable {
                     var events: [ClientEventWithoutRoomId]
                     var limited: Bool?
                     var prevBatch: String?
                 }
-                struct JoinedRoomSyncInfo: Codable {
-                    struct RoomSummary: Codable {
+                struct JoinedRoomSyncInfo: Decodable {
+                    struct RoomSummary: Decodable {
                         var heroes: [UserId]?
                         var invitedMemberCount: Int?
                         var joinedMemberCount: Int?
@@ -109,7 +114,7 @@ extension Matrix {
                             case joinedMemberCount = "m.joined_member_count"
                         }
                     }
-                    struct UnreadNotificationCounts: Codable {
+                    struct UnreadNotificationCounts: Decodable {
                         // FIXME: The spec gives the type for these as "Highlighted notification count" and "Total notification count" -- Hopefully it's a typo, and those should have been in the description column instead
                         var highlightCount: Int
                         var notificationCount: Int
@@ -121,21 +126,21 @@ extension Matrix {
                     var timeline: Timeline?
                     var unreadNotifications: UnreadNotificationCounts?
                 }
-                struct KnockedRoomSyncInfo: Codable {
-                    struct KnockState: Codable {
+                struct KnockedRoomSyncInfo: Decodable {
+                    struct KnockState: Decodable {
                         var events: [StrippedStateEvent]
                     }
                     var knockState: KnockState?
                 }
-                struct LeftRoomSyncInfo: Codable {
+                struct LeftRoomSyncInfo: Decodable {
                     var accountData: AccountData?
                     var state: StateEventsContainer?
                     var timeline: Timeline?
                 }
-                struct ToDevice: Codable {
+                struct ToDevice: Decodable {
                     var events: [ToDeviceEvent]
                 }
-                struct DeviceLists: Codable {
+                struct DeviceLists: Decodable {
                     var changed: [UserId]?
                     var left: [UserId]?
                 }
@@ -150,19 +155,24 @@ extension Matrix {
                 var toDevice: ToDevice?
             }
             
-            if let task = syncTask {
-                return await task
+            if let task = syncRequestTask {
+                await task.result
+                return
             } else {
-                syncTask = Task {
-                    let requestBody = SyncRequestBody(timeout: 0)
-                    let (data, response) = try await self.matrixApiCall(method: "GET", path: "/_matrix/client/v3/sync", body: requestBody)
+                //syncRequestTask = Task<String,Error> {
+                syncRequestTask = .init(priority: .background) {
+                    var url = "/_matrix/client/v3/sync?timeout=\(self.syncRequestTimeout)"
+                    if let token = syncToken {
+                        url += "&since=\(token)"
+                    }
+                    let (data, response) = try await self.call(method: "GET", path: url)
                     
                     let decoder = JSONDecoder()
                     decoder.keyDecodingStrategy = .convertFromSnakeCase
                     guard let responseBody = try? decoder.decode(SyncResponseBody.self, from: data)
                     else {
-                        self.syncTask = nil
-                        throw Error()
+                        self.syncRequestTask = nil
+                        throw Matrix.Error("Could not decode /sync response")
                     }
                     
                     // Process the sync response, updating local state
@@ -170,12 +180,12 @@ extension Matrix {
                     // Handle invites
                     if let invitedRoomsDict = responseBody.rooms?.invite {
                         for (roomId, info) in invitedRoomsDict {
-                            guard let events = info.inviteState.events
+                            guard let events = info.inviteState?.events
                             else {
                                 continue
                             }
                             if self.invitations[roomId] == nil {
-                                let room = InvitedRoom(matrix: self, roomId: RoomId, stateEvents: events)
+                                let room = try InvitedRoom(session: self, roomId: roomId, stateEvents: events)
                                 self.invitations[roomId] = room
                             }
                         }
@@ -193,12 +203,13 @@ extension Matrix {
                         }
                     }
                     
-                    
-                    self.syncTask = nil
+                    self.syncRequestTask = nil
+                    self.syncToken = responseBody.nextBatch
+                    return responseBody.nextBatch
                 }
             }
         }
-        */
+
         
         func pause() async throws {
             // pause() doesn't actually make any API calls
