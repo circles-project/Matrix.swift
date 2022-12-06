@@ -324,7 +324,7 @@ class UIAuthSession: UIASession, ObservableObject {
     let AUTH_TYPE_BSSPEKE_LOGIN_VERIFY = "m.login.bsspeke-ecc.verify"
     
     // NOTE: The ..Enroll.. functions are *almost* but not exactly duplicates of those in the SignupSession implementation
-    func doBSSpekeEnrollOprfStage(password: String) async throws {
+    func doBSSpekeEnrollOprfStage(password: String, domain: String) async throws {
         let stage = AUTH_TYPE_BSSPEKE_ENROLL_OPRF
         
         guard let userId = self.creds?.userId else {
@@ -333,7 +333,13 @@ class UIAuthSession: UIASession, ObservableObject {
             throw Matrix.Error(msg)
         }
         
-        let bss = try BlindSaltSpeke.ClientSession(clientId: "\(userId)", serverId: self.url.host!, password: password)
+        guard let homeserver = self.url.host,
+              homeserver.hasSuffix(domain)
+        else {
+            throw Matrix.Error("Homeserver [\(self.url.host ?? "(none)")] does not match requested domain [\(domain)]")
+        }
+        
+        let bss = try BlindSaltSpeke.ClientSession(clientId: "\(userId)", serverId: domain, password: password)
         let blind = bss.generateBlind()
         let args: [String: String] = [
             "blind": Data(blind).base64EncodedString(),
