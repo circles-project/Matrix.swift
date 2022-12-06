@@ -343,7 +343,7 @@ class UIAuthSession: UIASession, ObservableObject {
         try await doUIAuthStage(auth: args)
     }
     
-    private func b64decode(_ str: String) -> [UInt8]? {
+    func b64decode(_ str: String) -> [UInt8]? {
         guard let data = Data(base64Encoded: str) else {
             return nil
         }
