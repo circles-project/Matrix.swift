@@ -14,13 +14,11 @@ import BlindSaltSpeke
 
 class SignupSession: UIAuthSession {
     let domain: String
-    var desiredUsername: String?
     //let deviceId: String?
     //let initialDeviceDisplayName: String?
     //let inhibitLogin = false
 
     init(domain: String,
-         username: String? = nil,
          deviceId: String? = nil,
          initialDeviceDisplayName: String? = nil,
          //showMSISDN: Bool = false,
@@ -46,7 +44,6 @@ class SignupSession: UIAuthSession {
         //requestDict["x_show_msisdn"] = AnyCodable(showMSISDN)
         requestDict["inhibit_login"] = AnyCodable(inhibitLogin)
         super.init(method: "POST", url: signupURL, requestDict: requestDict)
-        self.desiredUsername = username
     }
     
     // MARK: Set username and password
@@ -56,6 +53,7 @@ class SignupSession: UIAuthSession {
             "username": username
         ]
         try await doUIAuthStage(auth: authDict)
+        self.storage["username"] = username
     }
     
     func doPasswordStage(password: String) async throws {
@@ -130,7 +128,7 @@ class SignupSession: UIAuthSession {
     func doBSSpekeEnrollOprfStage(password: String) async throws {
         let stage = AUTH_TYPE_BSSPEKE_ENROLL_OPRF
         
-        guard let username = self.desiredUsername else {
+        guard let username = self.storage["username"] as? String else {
             let msg = "Desired username must be set before attempting BS-SPEKE stages"
             print(msg)
             throw Matrix.Error(msg)
