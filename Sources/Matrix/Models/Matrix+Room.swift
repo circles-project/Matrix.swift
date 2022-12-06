@@ -24,7 +24,7 @@ extension Matrix {
         let successorRoomId: RoomId?
         let tombstoneEventId: EventId?
         
-        @Published var messages: Set<ClientEvent>
+        @Published var messages: Set<ClientEventWithoutRoomId>
         @Published var localEchoEvent: Event?
         //@Published var earliestMessage: MatrixMessage?
         //@Published var latestMessage: MatrixMessage?
@@ -39,7 +39,9 @@ extension Matrix {
         @Published var bannedMembers: Set<UserId> = []
         @Published var knockingMembers: Set<UserId> = []
 
-        init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialMessages: [ClientEvent] = []) throws {
+        @Published var encryptionParams: RoomEncryptionContent?
+        
+        init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialMessages: [ClientEventWithoutRoomId] = []) throws {
             self.roomId = roomId
             self.session = session
             self.messages = Set(initialMessages)
@@ -118,6 +120,94 @@ extension Matrix {
             // Do we need to *do* anything with the powerlevels for now?
             // No?
             
+            if let encryptionEvent = stateEventsCache[.mRoomEncryption]?.last,
+               let encryptionContent = encryptionEvent.content as? RoomEncryptionContent
+            {
+                self.encryptionParams = encryptionContent
+            } else {
+                self.encryptionParams = nil
+            }
+            
+        }
+        
+        func updateState(from events: [ClientEventWithoutRoomId]) {
+            for event in events {
+                
+                switch event.type {
+                
+                case .mRoomAvatar:
+                    guard let content = event.content as? RoomAvatarContent
+                    else {
+                        continue
+                    }
+                    if self.avatarUrl != content.url {
+                        self.avatarUrl = content.url
+                        // FIXME: Also fetch the new avatar image
+                    }
+                    
+                case .mRoomName:
+                    guard let content = event.content as? RoomNameContent
+                    else {
+                        continue
+                    }
+                    self.name = content.name
+                    
+                case .mRoomTopic:
+                    guard let content = event.content as? RoomTopicContent
+                    else {
+                        continue
+                    }
+                    self.topic = content.topic
+                    
+                case .mRoomMember:
+                    guard let content = event.content as? RoomMemberContent,
+                          let stateKey = event.stateKey,
+                          let userId = UserId(stateKey)
+                    else {
+                        continue
+                    }
+                    switch content.membership {
+                    case .invite:
+                        self.invitedMembers.insert(userId)
+                        self.leftMembers.remove(userId)
+                        self.bannedMembers.remove(userId)
+                    case .join:
+                        self.joinedMembers.insert(userId)
+                        self.invitedMembers.remove(userId)
+                        self.knockingMembers.remove(userId)
+                        self.leftMembers.remove(userId)
+                        self.bannedMembers.remove(userId)
+                    case .knock:
+                        self.knockingMembers.insert(userId)
+                        self.leftMembers.remove(userId)
+                        self.bannedMembers.remove(userId)
+                    case .leave:
+                        self.leftMembers.insert(userId)
+                        self.invitedMembers.remove(userId)
+                        self.knockingMembers.remove(userId)
+                        self.joinedMembers.remove(userId)
+                        self.bannedMembers.remove(userId)
+                    case .ban:
+                        self.bannedMembers.insert(userId)
+                        self.invitedMembers.remove(userId)
+                        self.knockingMembers.remove(userId)
+                        self.joinedMembers.remove(userId)
+                        self.leftMembers.remove(userId)
+                    } // end switch content.membership
+                    
+                case .mRoomEncryption:
+                    guard let content = event.content as? RoomEncryptionContent
+                    else {
+                        continue
+                    }
+                    self.encryptionParams = content
+                    
+                default:
+                    print("Not handling event of type \(event.type)")
+                    
+                } // end switch event.type
+                
+            } // end func updateState()
         }
     }
 }

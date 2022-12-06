@@ -27,12 +27,12 @@ extension Matrix {
         @Published var invitations: [RoomId: Matrix.InvitedRoom]
 
         // Need some private stuff that outside callers can't see
-        private var syncRequestTask: Task<String,Swift.Error>?
+        private var syncRequestTask: Task<String,Swift.Error>? // FIXME Use a TaskGroup to make this subordinate to the backgroundSyncTask
         private var syncToken: String? = nil
         private var syncRequestTimeout: Int = 30_000
-        private var keepSyncing: Bool = true
+        private var keepSyncing: Bool
         private var syncDelayNs: UInt64 = 30_000_000_000
-        private var backgroundSyncTask: Task<String,Swift.Error>?
+        private var backgroundSyncTask: Task<UInt,Swift.Error>? // FIXME use a TaskGroup
         
         private var ignoreUserIds: Set<UserId>
 
@@ -41,13 +41,32 @@ extension Matrix {
         private var recoverySecretKey: Data?
         private var recoveryTimestamp: Date?
         
-        override init(creds: Credentials) throws {
+        init(creds: Credentials, startSyncing: Bool = true) throws {
             self.rooms = [:]
             self.invitations = [:]
             
             self.ignoreUserIds = []
             
+            self.keepSyncing = startSyncing
+            // Initialize the sync tasks to nil so we can run super.init()
+            self.syncRequestTask = nil
+            self.backgroundSyncTask = nil
+            
+            
             try super.init(creds: creds)
+            
+            // Ok now we're initialized as a valid Matrix.Client (super class)
+            // Are we supposed to start syncing?
+            if startSyncing {
+                backgroundSyncTask = .init(priority: .background) {
+                    var count: UInt = 0
+                    while keepSyncing {
+                        try await sync()
+                        count += 1
+                    }
+                    return count
+                }
+            }
         }
         
         // MARK: Sync
@@ -159,7 +178,7 @@ extension Matrix {
                 await task.result
                 return
             } else {
-                //syncRequestTask = Task<String,Error> {
+                // FIXME: Use a TaskGroup
                 syncRequestTask = .init(priority: .background) {
                     var url = "/_matrix/client/v3/sync?timeout=\(self.syncRequestTimeout)"
                     if let token = syncToken {
@@ -184,27 +203,71 @@ extension Matrix {
                             else {
                                 continue
                             }
-                            if self.invitations[roomId] == nil {
+                            //if self.invitations[roomId] == nil {
                                 let room = try InvitedRoom(session: self, roomId: roomId, stateEvents: events)
                                 self.invitations[roomId] = room
-                            }
+                            //}
                         }
                     }
                     
                     // Handle rooms where we're already joined
                     if let joinedRoomsDict = responseBody.rooms?.join {
                         for (roomId, info) in joinedRoomsDict {
+                            
+                            let messages = info.timeline?.events.filter {
+                                $0.type == .mRoomMessage // FIXME: Encryption
+                            }
+                            let stateEvents = info.state?.events
+
                             if let room = self.rooms[roomId] {
                                 // Update the room with the latest data from `info`
+                                room.updateState(from: stateEvents ?? [])
+                                room.messages.formUnion(messages ?? [])
+                                
+                                if let unread = info.unreadNotifications {
+                                    room.notificationCount = unread.notificationCount
+                                    room.highlightCount = unread.highlightCount
+                                }
+                                
                             } else {
-                                // What the heck should we do here???
-                                // Do we create the Room object, or not???
+                                // Create the new Room object.  Also, remove the room id from the invites.
+                                invitations.removeValue(forKey: roomId)
+                                guard let initialStateEvents = stateEvents
+                                else {
+                                    print("Can't create a new room with no initial state (room id = \(roomId))")
+                                    continue
+                                }
+                                guard let room = try? Room(roomId: roomId, session: self, initialState: initialStateEvents, initialMessages: messages ?? [])
+                                else {
+                                    print("Failed to create room \(roomId)")
+                                    continue
+                                }
+                                self.rooms[roomId] = room
+                                
+                                if let unread = info.unreadNotifications {
+                                    room.notificationCount = unread.notificationCount
+                                    room.highlightCount = unread.highlightCount
+                                }
                             }
                         }
                     }
                     
-                    self.syncRequestTask = nil
+                    // Handle rooms that we've left
+                    if let leftRoomsDict = responseBody.rooms?.leave {
+                        for (roomId, info) in leftRoomsDict {
+                            // TODO: What should we do here?
+                            // For now, just make sure these rooms are taken out of the other lists
+                            invitations.removeValue(forKey: roomId)
+                            rooms.removeValue(forKey: roomId)
+                        }
+                    }
+                    
+                    // FIXME: Do something with AccountData
+                    
+                    // FIXME: Handle to-device messages
+
                     self.syncToken = responseBody.nextBatch
+                    self.syncRequestTask = nil
                     return responseBody.nextBatch
                 }
             }
