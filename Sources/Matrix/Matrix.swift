@@ -12,7 +12,8 @@ import UIKit
 import AppKit
 #endif
 import AnyCodable
-import AppKit
+
+//import MatrixSDKCrypto
 
 @available(macOS 12.0, *)
 enum Matrix {
