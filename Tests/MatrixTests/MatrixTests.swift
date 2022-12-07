@@ -39,7 +39,7 @@ final class MatrixTests: XCTestCase {
         XCTAssertNotNil(url)
     }
     
-    func testBsspekeRegistration() async throws {
+    func testBsspekeRegistration() async throws -> Matrix.Credentials {
         let domain = "us.circles-dev.net"
         
         let supportedAuthTypes = [
@@ -102,5 +102,26 @@ final class MatrixTests: XCTestCase {
                 throw "Unknown stage [\(stage)]"
             }
         }
+        
+        guard case let .finished(creds) = session.state
+        else {
+            throw "UIA is not finished"
+        }
+        
+        print("Got credentials:")
+        print("\tUser id: \(creds.userId)")
+        print("\tDevice id: \(creds.deviceId)")
+        print("\tAccess token: \(creds.accessToken)")
+        
+        return creds
+    }
+    
+    func testRegisterAndSync() async throws {
+        var creds = try await testBsspekeRegistration()
+        if creds.wellKnown == nil {
+            creds.wellKnown = try await Matrix.fetchWellKnown(for: creds.userId.domain)
+        }
+        let session = try Matrix.Session(creds: creds, startSyncing: true)
+        
     }
 }
