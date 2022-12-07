@@ -27,6 +27,20 @@ protocol UIASession {
     
 }
 
+let AUTH_TYPE_ENROLL_BSSPEKE_OPRF = "m.enroll.bsspeke-ecc.oprf"
+let AUTH_TYPE_ENROLL_BSSPEKE_SAVE = "m.enroll.bsspeke-ecc.save"
+let AUTH_TYPE_TERMS = "m.login.terms"
+let AUTH_TYPE_ENROLL_PASSWORD = "m.enroll.password"
+let AUTH_TYPE_DUMMY = "m.login.dummy"
+let AUTH_TYPE_ENROLL_EMAIL_REQUEST_TOKEN = "m.enroll.email.request_token"
+let AUTH_TYPE_ENROLL_EMAIL_SUBMIT_TOKEN = "m.enroll.email.submit_token"
+
+let AUTH_TYPE_LOGIN_PASSWORD = "m.login.password"
+let AUTH_TYPE_LOGIN_BSSPEKE_OPRF = "m.login.bsspeke-ecc.oprf"
+let AUTH_TYPE_LOGIN_BSSPEKE_VERIFY = "m.login.bsspeke-ecc.verify"
+let AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN = "m.login.email.request_token"
+let AUTH_TYPE_LOGIN_EMAIL_SUBMIT_TOKEN = "m.login.email.submit_token"
+
 @available(macOS 12.0, *)
 class UIAuthSession: UIASession, ObservableObject {
         
@@ -189,13 +203,21 @@ class UIAuthSession: UIASession, ObservableObject {
         }
     }
     
+    func doDummyAuthStage() async throws {
+        let authDict = [
+            "type": AUTH_TYPE_DUMMY
+        ]
+        
+        try await doUIAuthStage(auth: authDict)
+    }
+    
     func doPasswordAuthStage(password: String) async throws {
 
         // Added base64 encoding here to prevent a possible injection attack on the password field
         let base64Password = Data(password.utf8).base64EncodedString()
 
         let passwordAuthDict: [String: String] = [
-            "type": "m.login.password",
+            "type": AUTH_TYPE_LOGIN_PASSWORD,
             "password": base64Password,
         ]
         
@@ -206,7 +228,7 @@ class UIAuthSession: UIASession, ObservableObject {
         let base64Password = Data(newPassword.utf8).base64EncodedString()
 
         let passwordAuthDict: [String: String] = [
-            "type": "m.enroll.password",
+            "type": AUTH_TYPE_ENROLL_PASSWORD,
             "new_password": base64Password,
         ]
         
@@ -216,7 +238,7 @@ class UIAuthSession: UIASession, ObservableObject {
     
     func doTermsStage() async throws {
         let auth: [String: String] = [
-            "type": "m.login.terms",
+            "type": AUTH_TYPE_TERMS,
         ]
         try await doUIAuthStage(auth: auth)
     }
@@ -318,14 +340,9 @@ class UIAuthSession: UIASession, ObservableObject {
 
     // MARK: BS-SPEKE protocol support
     
-    let AUTH_TYPE_BSSPEKE_ENROLL_OPRF = "m.enroll.bsspeke-ecc.oprf"
-    let AUTH_TYPE_BSSPEKE_ENROLL_SAVE = "m.enroll.bsspeke-ecc.save"
-    let AUTH_TYPE_BSSPEKE_LOGIN_OPRF = "m.login.bsspeke-ecc.oprf"
-    let AUTH_TYPE_BSSPEKE_LOGIN_VERIFY = "m.login.bsspeke-ecc.verify"
-    
     // NOTE: The ..Enroll.. functions are *almost* but not exactly duplicates of those in the SignupSession implementation
     func doBSSpekeEnrollOprfStage(password: String, domain: String) async throws {
-        let stage = AUTH_TYPE_BSSPEKE_ENROLL_OPRF
+        let stage = AUTH_TYPE_ENROLL_BSSPEKE_OPRF
         
         guard let userId = self.creds?.userId else {
             let msg = "Couldn't find user id for BS-SPEKE enrollment"
@@ -362,9 +379,9 @@ class UIAuthSession: UIASession, ObservableObject {
         // Need to send
         // V, our long-term public key (from "verifier"?  Although here the actual verifiers are hashes.)
         // P, our base point on the curve
-        let stage = AUTH_TYPE_BSSPEKE_ENROLL_SAVE
+        let stage = AUTH_TYPE_ENROLL_BSSPEKE_SAVE
         
-        guard let bss = self.storage[AUTH_TYPE_BSSPEKE_ENROLL_OPRF+".state"] as? BlindSaltSpeke.ClientSession
+        guard let bss = self.storage[AUTH_TYPE_ENROLL_BSSPEKE_OPRF+".state"] as? BlindSaltSpeke.ClientSession
         else {
             let msg = "Couldn't find saved BS-SPEKE session"
             print("BS-SPEKE\tError: \(msg)")
@@ -400,7 +417,7 @@ class UIAuthSession: UIASession, ObservableObject {
     }
     
     func doBSSpekeLoginOprfStage(password: String) async throws {
-        let stage = AUTH_TYPE_BSSPEKE_LOGIN_OPRF
+        let stage = AUTH_TYPE_LOGIN_BSSPEKE_OPRF
         
         guard let userId = self.creds?.userId else {
             let msg = "Couldn't find user id for BS-SPEKE login"
@@ -423,9 +440,9 @@ class UIAuthSession: UIASession, ObservableObject {
         // Need to send
         // V, our long-term public key (from "verifier"?  Although here the actual verifiers are hashes.)
         // P, our base point on the curve
-        let stage = AUTH_TYPE_BSSPEKE_LOGIN_VERIFY
+        let stage = AUTH_TYPE_LOGIN_BSSPEKE_VERIFY
         
-        guard let bss = self.storage[AUTH_TYPE_BSSPEKE_LOGIN_OPRF+".state"] as? BlindSaltSpeke.ClientSession
+        guard let bss = self.storage[AUTH_TYPE_LOGIN_BSSPEKE_OPRF+".state"] as? BlindSaltSpeke.ClientSession
         else {
             let msg = "Couldn't find saved BS-SPEKE session"
             print("BS-SPEKE\tError: \(msg)")

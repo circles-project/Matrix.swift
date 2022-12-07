@@ -12,6 +12,12 @@ import BlindSaltSpeke
 // Implements the Matrix UI Auth for the Matrix /register endpoint
 // https://spec.matrix.org/v1.2/client-server-api/#post_matrixclientv3register
 
+let AUTH_TYPE_ENROLL_USERNAME = "m.enroll.username"
+let AUTH_TYPE_REGISTRATION_TOKEN = "m.login.registration_token"
+let AUTH_TYPE_APPLE_SUBSCRIPTION = "org.futo.subscriptions.apple"
+let AUTH_TYPE_LEGACY_EMAIL = "m.login.email.identity"
+
+
 class SignupSession: UIAuthSession {
     let domain: String
     //let deviceId: String?
@@ -50,23 +56,16 @@ class SignupSession: UIAuthSession {
     
     func doUsernameStage(username: String) async throws {
         let authDict = [
-            "username": username
+            "type": AUTH_TYPE_ENROLL_USERNAME,
+            "username": username,
         ]
         try await doUIAuthStage(auth: authDict)
         self.storage["username"] = username
     }
     
-    func doPasswordStage(password: String) async throws {
-        let authDict = [
-            "password": password
-        ]
-        try await doUIAuthStage(auth: authDict)
-    }
-    
     // MARK: Token registration
     
     func doTokenRegistrationStage(token: String) async throws {
-        let AUTH_TYPE_TOKEN_REGISTRATION = "m.login.registration_token"
         
         guard _checkBasicSanity(userInput: token) == true
         else {
@@ -76,7 +75,7 @@ class SignupSession: UIAuthSession {
         }
         
         let tokenAuthDict: [String: String] = [
-            "type": AUTH_TYPE_TOKEN_REGISTRATION,
+            "type": AUTH_TYPE_REGISTRATION_TOKEN,
             "token": token,
         ]
         try await doUIAuthStage(auth: tokenAuthDict)
@@ -97,7 +96,7 @@ class SignupSession: UIAuthSession {
         let clientSecret = String(format: "%016x", clientSecretNumber)
         
         let emailAuthDict: [String: String] = [
-            "type": "m.enroll.email.request_token",
+            "type": AUTH_TYPE_ENROLL_EMAIL_REQUEST_TOKEN,
             "email": email,
             "client_secret": clientSecret,
         ]
@@ -110,7 +109,7 @@ class SignupSession: UIAuthSession {
     
     func doEmailSubmitTokenStage(token: String, secret: String) async throws {
         let emailAuthDict: [String: String] = [
-            "type": "m.enroll.email.submit_token",
+            "type": AUTH_TYPE_ENROLL_EMAIL_SUBMIT_TOKEN,
             "token": token,
             "client_secret": secret,
         ]
@@ -126,7 +125,7 @@ class SignupSession: UIAuthSession {
     // MARK: BS-SPEKE
     
     func doBSSpekeEnrollOprfStage(password: String) async throws {
-        let stage = AUTH_TYPE_BSSPEKE_ENROLL_OPRF
+        let stage = AUTH_TYPE_ENROLL_BSSPEKE_OPRF
         
         guard let username = self.storage["username"] as? String else {
             let msg = "Desired username must be set before attempting BS-SPEKE stages"
@@ -151,9 +150,9 @@ class SignupSession: UIAuthSession {
         // * A, our ephemeral public key
         // * verifier, to prove that we derived the correct secret key
         //   - To do this, we have to derive the secret key
-        let stage = AUTH_TYPE_BSSPEKE_ENROLL_SAVE
+        let stage = AUTH_TYPE_ENROLL_BSSPEKE_SAVE
         
-        guard let bss = self.storage[AUTH_TYPE_BSSPEKE_ENROLL_OPRF+".state"] as? BlindSaltSpeke.ClientSession
+        guard let bss = self.storage[AUTH_TYPE_ENROLL_BSSPEKE_OPRF+".state"] as? BlindSaltSpeke.ClientSession
         else {
             let msg = "Couldn't find saved BS-SPEKE session"
             print("BS-SPEKE\tError: \(msg)")
@@ -191,7 +190,6 @@ class SignupSession: UIAuthSession {
     // MARK: Apple Subscriptions
     
     func doAppleSubscriptionStage(receipt: String) async throws {
-        let AUTH_TYPE_APPLE_SUBSCRIPTION = "org.futo.subscriptions.apple"
         let args = [
             "type": AUTH_TYPE_APPLE_SUBSCRIPTION,
             "receipt": receipt,
@@ -297,7 +295,7 @@ class SignupSession: UIAuthSession {
         
         return contents.success
     }
-    
+
     func doLegacyEmailStage(emailSessionId: String) async throws {
         guard let sessionId = self.sessionId else {
             let msg = "No active signup session"
@@ -305,7 +303,7 @@ class SignupSession: UIAuthSession {
             throw Matrix.Error(msg)
         }
         let auth: [String: Codable] = [
-            "type": "m.login.email.identity",
+            "type": AUTH_TYPE_LEGACY_EMAIL,
             "threepid_creds": [
                 "sid": emailSessionId,
                 "client_secret": sessionId,
