@@ -173,8 +173,12 @@ class UIAuthSession: UIASession, ObservableObject {
             throw Matrix.Error(msg)
         }
         
+        print("Raw HTTP response:")
+        let rawStringResponse = String(data: data, encoding: .utf8)!
+        print(rawStringResponse)
+        
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        //decoder.keyDecodingStrategy = .convertFromSnakeCase
         
         guard let sessionState = try? decoder.decode(UIAA.SessionState.self, from: data) else {
             let msg = "Couldn't decode response"
@@ -254,7 +258,7 @@ class UIAuthSession: UIASession, ObservableObject {
         print("\(tag)\tValidating")
         
         guard case .inProgress(let uiaState, let stages) = state else {
-            let msg = "Signup session must be started before attempting email stage"
+            let msg = "Signup session must be started before attempting stages"
             print("\(tag)\t\(msg)")
             throw Matrix.Error(msg)
         }
@@ -289,6 +293,8 @@ class UIAuthSession: UIASession, ObservableObject {
         let (data, response) = try await URLSession.shared.data(for: request)
         
         print("\(tag)\tGot response")
+        let stringResponse = String(data: data, encoding: .utf8)!
+        print(stringResponse)
         
         guard let httpResponse = response as? HTTPURLResponse,
           [200,401].contains(httpResponse.statusCode)
@@ -329,6 +335,13 @@ class UIAuthSession: UIASession, ObservableObject {
                 await MainActor.run {
                     state = .inProgress(newUiaaState,newStages)
                 }
+                print("New UIA state:")
+                print("\tFlows:\t\(newUiaaState.flows)")
+                print("\tCompleted:\t\(completed)")
+                if let params = newUiaaState.params {
+                    print("\tParams:\t\(params)")
+                }
+
             } else {
                 print("\(tag)\tStage isn't complete???  Completed = \(completed)")
             }
@@ -341,7 +354,7 @@ class UIAuthSession: UIASession, ObservableObject {
     // MARK: BS-SPEKE protocol support
     
     // NOTE: The ..Enroll.. functions are *almost* but not exactly duplicates of those in the SignupSession implementation
-    func doBSSpekeEnrollOprfStage(password: String, domain: String) async throws {
+    func doBSSpekeEnrollOprfStage(password: String) async throws {
         let stage = AUTH_TYPE_ENROLL_BSSPEKE_OPRF
         
         guard let userId = self.creds?.userId else {
@@ -351,12 +364,12 @@ class UIAuthSession: UIASession, ObservableObject {
         }
         
         guard let homeserver = self.url.host,
-              homeserver.hasSuffix(domain)
+              homeserver.hasSuffix(userId.domain)
         else {
-            throw Matrix.Error("Homeserver [\(self.url.host ?? "(none)")] does not match requested domain [\(domain)]")
+            throw Matrix.Error("Homeserver [\(self.url.host ?? "(none)")] does not match requested domain [\(userId.domain)]")
         }
         
-        let bss = try BlindSaltSpeke.ClientSession(clientId: "\(userId)", serverId: domain, password: password)
+        let bss = try BlindSaltSpeke.ClientSession(clientId: "\(userId)", serverId: userId.domain, password: password)
         let blind = bss.generateBlind()
         let args: [String: String] = [
             "blind": Data(blind).base64EncodedString(),
@@ -399,8 +412,8 @@ class UIAuthSession: UIASession, ObservableObject {
             print("BS-SPEKE\t\(msg)")
             throw Matrix.Error(msg)
         }
-        let blocks = params.phfParams.blocks
-        let iterations = params.phfParams.iterations
+        let blocks = 100_000
+        let iterations = 3
         guard let (P,V) = try? bss.generatePandV(blindSalt: blindSalt, phfBlocks: UInt32(blocks), phfIterations: UInt32(iterations))
         else {
             let msg = "Failed to generate public key"
@@ -419,13 +432,14 @@ class UIAuthSession: UIASession, ObservableObject {
     func doBSSpekeLoginOprfStage(password: String) async throws {
         let stage = AUTH_TYPE_LOGIN_BSSPEKE_OPRF
         
-        guard let userId = self.creds?.userId else {
+        guard let userId = self.creds?.userId
+        else {
             let msg = "Couldn't find user id for BS-SPEKE login"
             print(msg)
             throw Matrix.Error(msg)
         }
         
-        let bss = try BlindSaltSpeke.ClientSession(clientId: "\(userId)", serverId: self.url.host!, password: password)
+        let bss = try BlindSaltSpeke.ClientSession(clientId: "\(userId)", serverId: userId.domain, password: password)
         let blind = bss.generateBlind()
         let args: [String: String] = [
             "type": stage,
@@ -448,7 +462,7 @@ class UIAuthSession: UIASession, ObservableObject {
             print("BS-SPEKE\tError: \(msg)")
             throw Matrix.Error(msg)
         }
-        guard let params = self.sessionState?.params?[stage] as? BSSpekeEnrollParams
+        guard let params = self.sessionState?.params?[stage] as? BSSpekeVerifyParams
         else {
             let msg = "Couldn't find BS-SPEKE enroll params"
             print("BS-SPEKE\t\(msg)")

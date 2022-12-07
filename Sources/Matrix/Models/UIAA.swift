@@ -26,7 +26,7 @@ public enum UIAA {
         }
     }
     
-    public struct Params {
+    public struct Params: CustomStringConvertible {
         private var items: [String: Any]
         
         subscript(index: String) -> Any? {
@@ -36,6 +36,10 @@ public enum UIAA {
             set(newValue) {
                 items[index] = newValue
             }
+        }
+        
+        public var description: String {
+            items.description
         }
     }
     
@@ -85,12 +89,13 @@ extension UIAA.Flow: Hashable {
 }
 
 public struct TermsParams: Codable {
-    struct PolicyInfo: Codable {
+    struct Policy: Codable {
         struct LocalizedPolicy: Codable {
             var name: String
             var url: URL
         }
         
+        var name: String
         var version: String
         // FIXME this is the awfulest f**king kludge I think I've ever written
         // But the Matrix JSON struct here is pretty insane
@@ -98,16 +103,16 @@ public struct TermsParams: Codable {
         // same object with the other keys of what should be a natural dict.
         // Parsing this properly is going to be something of a shitshow.
         // But for now, we do it the quick & dirty way...
-        //var en: LocalizedPolicy?
+        var en: LocalizedPolicy?
         // UPDATE (2022-04-22)
         // - The trick to making this work is to realize: There is no spoon.  m.login.terms is not in the Matrix spec. :)
         // - Therefore we don't need to slavishly stick to this messy design.
         // - We can really do whatever we want here.
         // - Really the basic structure from Matrix is pretty good.  It just needs a little tweak.
-        var localizations: [String: LocalizedPolicy]
+        //var localizations: [String: LocalizedPolicy]
     }
     
-    var policies: [String:PolicyInfo]
+    var policies: [Policy]
 }
 
 
@@ -126,16 +131,28 @@ public struct EmailLoginParams: Codable {
 public struct BSSpekeOprfParams: Codable {
     var curve: String
     var hashFunction: String
-}
 
-public struct BSSpekeEnrollParams: Codable {
     struct PHFParams: Codable {
         var name: String
         var iterations: UInt
         var blocks: UInt
     }
-    var blindSalt: String
     var phfParams: PHFParams
+
+    enum CodingKeys: String, CodingKey {
+        case curve
+        case hashFunction = "hash_function"
+        case phfParams = "phf_params"
+    }
+}
+
+public struct BSSpekeEnrollParams: Codable {
+
+    var blindSalt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case blindSalt = "blind_salt"
+    }
 }
 
 public struct BSSpekeVerifyParams: Codable {
@@ -152,7 +169,7 @@ public struct BSSpekeVerifyParams: Codable {
 
 extension UIAA.Params: Codable {
     
-    enum CodingKeys: String, CodingKey {
+    enum CodingKeys: String, CodingKey, CaseIterable {
         case mLoginTerms = "m.login.terms"
         case mLoginPassword = "m.login.password"
         case mLoginDummy = "m.login.dummy"
@@ -170,6 +187,8 @@ extension UIAA.Params: Codable {
 
     
     public init(from decoder: Decoder) throws {
+        print("Trying to decode some UIA params...")
+        
         self.items = .init()
         
         // Approach:
@@ -180,40 +199,66 @@ extension UIAA.Params: Codable {
         
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
+        for key in CodingKeys.allCases {
+            if container.contains(key) {
+                print("\t\(key.stringValue)\tYes")
+            } else {
+                print("\t\(key.stringValue)\tNo")
+            }
+        }
+        
         // This is painful but it works.
         // Why can't our CodingKeys be CaseIterable when they have associated values?  This could be so much cleaner...
         
-        if let appleParams = try? container.decode(AppleSubscriptionParams.self, forKey: .mLoginSubscriptionApple) {
+        print("Trying to decode Apple params")
+        if let appleParams = try container.decodeIfPresent(AppleSubscriptionParams.self, forKey: .mLoginSubscriptionApple) {
+            print("Decoded params for Apple subscriptions")
             self.items[CodingKeys.mLoginSubscriptionApple.rawValue] = appleParams
         }
         
-        if let termsParams = try? container.decode(TermsParams.self, forKey: .mLoginTerms) {
+        print("Trying to decode terms params")
+        if let termsParams = try container.decodeIfPresent(TermsParams.self, forKey: .mLoginTerms) {
+            print("Decoded params for terms")
             self.items[CodingKeys.mLoginTerms.rawValue] = termsParams
         }
         
-        if let passwordParams = try? container.decode(PasswordEnrollParams.self, forKey: .mEnrollPassword) {
+        print("Trying to decode password params")
+        if let passwordParams = try container.decodeIfPresent(PasswordEnrollParams.self, forKey: .mEnrollPassword) {
+            print("Decoded params for password")
             self.items[CodingKeys.mEnrollPassword.rawValue] = passwordParams
         }
         
+        print("Trying to decode email params")
         if let emailParams = try? container.decode(EmailLoginParams.self, forKey: .mLoginEmailRequestToken) {
+            print("Decoded params for email request token")
             self.items[CodingKeys.mLoginEmailRequestToken.rawValue] = emailParams
         }
         
-        if let bsspekeParams = try? container.decode(BSSpekeOprfParams.self, forKey: .mEnrollBSSpekeOprf) {
+        print("Trying to decode bsspeke enroll oprf params")
+        if let bsspekeParams = try container.decodeIfPresent(BSSpekeOprfParams.self, forKey: .mEnrollBSSpekeOprf) {
+            print("Decoded params for bsspeke enroll oprf")
             self.items[CodingKeys.mEnrollBSSpekeOprf.rawValue] = bsspekeParams
         }
         
-        if let bsspekeParams = try? container.decode(BSSpekeOprfParams.self, forKey: .mLoginBSSpekeOprf) {
+        print("Trying to decode bsspeke login oprf params")
+        if let bsspekeParams = try container.decodeIfPresent(BSSpekeOprfParams.self, forKey: .mLoginBSSpekeOprf) {
+            print("Decoded params for bsspeke login oprf")
             self.items[CodingKeys.mLoginBSSpekeOprf.rawValue] = bsspekeParams
         }
         
-        if let bsspekeParams = try? container.decode(BSSpekeEnrollParams.self, forKey: .mEnrollBSSpekeSave) {
+        print("Trying to decode bsspeke enroll save params")
+        if let bsspekeParams = try container.decodeIfPresent(BSSpekeEnrollParams.self, forKey: .mEnrollBSSpekeSave) {
+            print("Decoded params for bsspeke save")
             self.items[CodingKeys.mEnrollBSSpekeSave.rawValue] = bsspekeParams
         }
         
-        if let bsspekeParams = try? container.decode(BSSpekeVerifyParams.self, forKey: .mLoginBSSpekeVerify) {
+        print("Trying to decode bsspeke login verify params")
+        if let bsspekeParams = try container.decodeIfPresent(BSSpekeVerifyParams.self, forKey: .mLoginBSSpekeVerify) {
+            print("Decoded params for bsspeke verify")
             self.items[CodingKeys.mLoginBSSpekeVerify.rawValue] = bsspekeParams
         }
+        
+        print("That's all folks")
     }
     
     public func encode(to encoder: Encoder) throws {

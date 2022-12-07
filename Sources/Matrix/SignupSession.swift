@@ -124,7 +124,7 @@ class SignupSession: UIAuthSession {
     
     // MARK: BS-SPEKE
     
-    func doBSSpekeEnrollOprfStage(password: String) async throws {
+    func doBSSpekeSignupOprfStage(password: String) async throws {
         let stage = AUTH_TYPE_ENROLL_BSSPEKE_OPRF
         
         guard let username = self.storage["username"] as? String else {
@@ -145,7 +145,7 @@ class SignupSession: UIAuthSession {
         try await doUIAuthStage(auth: args)
     }
     
-    override func doBSSpekeEnrollSaveStage() async throws {
+    func doBSSpekeSignupSaveStage() async throws {
         // Need to send
         // * A, our ephemeral public key
         // * verifier, to prove that we derived the correct secret key
@@ -170,8 +170,8 @@ class SignupSession: UIAuthSession {
             print("BS-SPEKE\t\(msg)")
             throw Matrix.Error(msg)
         }
-        let blocks = params.phfParams.blocks
-        let iterations = params.phfParams.iterations
+        let blocks: UInt = 100_000
+        let iterations: UInt = 3
         guard let (P,V) = try? bss.generatePandV(blindSalt: blindSalt, phfBlocks: UInt32(blocks), phfIterations: UInt32(iterations))
         else {
             let msg = "Failed to generate public key"
@@ -179,11 +179,20 @@ class SignupSession: UIAuthSession {
             throw Matrix.Error(msg)
         }
         
-        let args: [String: String] = [
+        struct PHFParams: Codable {
+            var name: String
+            var blocks: UInt
+            var iterations: UInt
+        }
+        
+        let args = [
             "type": stage,
             "P": Data(P).base64EncodedString(),
             "V": Data(V).base64EncodedString(),
-        ]
+            "phf_params": PHFParams(name: "argon2i",
+                                    blocks: blocks,
+                                    iterations: iterations)
+        ] as [String : Codable]
         try await doUIAuthStage(auth: args)
     }
     
