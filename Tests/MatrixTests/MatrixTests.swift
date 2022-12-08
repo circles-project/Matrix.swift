@@ -39,7 +39,7 @@ final class MatrixTests: XCTestCase {
         XCTAssertNotNil(url)
     }
     
-    func testBsspekeRegistration() async throws -> Matrix.Credentials {
+    func doBsspekeRegistration() async throws -> Matrix.Credentials? {
         let domain = "us.circles-dev.net"
         
         let supportedAuthTypes = [
@@ -116,12 +116,19 @@ final class MatrixTests: XCTestCase {
         return creds
     }
     
+    func testBsspekeRegistration() async throws {
+        let creds = try await doBsspekeRegistration()
+        XCTAssertNotNil(creds)
+    }
+    
     func testRegisterAndSync() async throws {
-        var creds = try await testBsspekeRegistration()
-        if creds.wellKnown == nil {
-            creds.wellKnown = try await Matrix.fetchWellKnown(for: creds.userId.domain)
+        var creds = try await doBsspekeRegistration()
+        XCTAssertNotNil(creds)
+        
+        if creds!.wellKnown == nil {
+            creds!.wellKnown = try await Matrix.fetchWellKnown(for: creds!.userId.domain)
         }
-        let session = try Matrix.Session(creds: creds, startSyncing: true)
+        let session = try Matrix.Session(creds: creds!, startSyncing: true)
         
     }
 }
