@@ -162,6 +162,7 @@ enum _MatrixAccountDataType: Codable {
     case mFullyRead // "m.fully_read"
     case mDirect // "m.direct"
     case mIgnoredUserList
+    case mPushRules // "m.push_rules"
     case mSecretStorageKey(String) // "m.secret_storage.key.[key ID]"
     
     init(from decoder: Decoder) throws {
@@ -183,9 +184,15 @@ enum _MatrixAccountDataType: Codable {
             self = .mIgnoredUserList
             return
             
+        case "m.push_rules":
+            self = .mPushRules
+            return
+            
         default:
             
             // OK it's not one of the "normal" ones.  Is it one of the weird ones?
+            
+            // Maybe it's a secret storage key?
             if string.starts(with: "m.secret_storage.key.") {
                 guard let keyId = string.split(separator: ".").last
                 else {
@@ -197,7 +204,6 @@ enum _MatrixAccountDataType: Codable {
             }
             
             // If we're still here, then we have *no* idea what to do with this thing.
-            
             let msg = "Failed to decode MatrixAccountDataType from string [\(string)]"
             print(msg)
             throw Matrix.Error(msg)
