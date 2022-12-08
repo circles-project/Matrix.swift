@@ -112,6 +112,10 @@ extension Matrix {
                         var events: [StrippedStateEvent]?
                     }
                     var inviteState: InviteState?
+                    
+                    enum CodingKeys: String, CodingKey {
+                        case inviteState = "invite_state"
+                    }
                 }
                 struct StateEventsContainer: Decodable {
                     var events: [ClientEventWithoutRoomId]?
@@ -120,6 +124,12 @@ extension Matrix {
                     var events: [ClientEventWithoutRoomId]
                     var limited: Bool?
                     var prevBatch: String?
+                    
+                    enum CodingKeys: String, CodingKey {
+                        case events
+                        case limited
+                        case prevBatch = "prev_batch"
+                    }
                 }
                 struct JoinedRoomSyncInfo: Decodable {
                     struct RoomSummary: Decodable {
@@ -137,6 +147,11 @@ extension Matrix {
                         // FIXME: The spec gives the type for these as "Highlighted notification count" and "Total notification count" -- Hopefully it's a typo, and those should have been in the description column instead
                         var highlightCount: Int
                         var notificationCount: Int
+                        
+                        enum CodingKeys: String, CodingKey {
+                            case highlightCount = "highlight_count"
+                            case notificationCount = "notification_count"
+                        }
                     }
                     var accountData: AccountData?
                     var ephemeral: Ephemeral?
@@ -144,17 +159,36 @@ extension Matrix {
                     var summary: RoomSummary?
                     var timeline: Timeline?
                     var unreadNotifications: UnreadNotificationCounts?
+                    
+                    enum CodingKeys: String, CodingKey {
+                        case accountData = "account_data"
+                        case ephemeral
+                        case state
+                        case summary
+                        case timeline
+                        case unreadNotifications = "unread_notifications"
+                    }
                 }
                 struct KnockedRoomSyncInfo: Decodable {
                     struct KnockState: Decodable {
                         var events: [StrippedStateEvent]
                     }
                     var knockState: KnockState?
+                    
+                    enum CodingKeys: String, CodingKey {
+                        case knockState = "knock_state"
+                    }
                 }
                 struct LeftRoomSyncInfo: Decodable {
                     var accountData: AccountData?
                     var state: StateEventsContainer?
                     var timeline: Timeline?
+                    
+                    enum CodingKeys: String, CodingKey {
+                        case accountData = "account_data"
+                        case state
+                        case timeline
+                    }
                 }
                 struct ToDevice: Decodable {
                     var events: [ToDeviceEvent]
@@ -172,6 +206,16 @@ extension Matrix {
                 var presence: Presence?
                 var rooms: Rooms?
                 var toDevice: ToDevice?
+                
+                enum CodingKeys: String, CodingKey {
+                    case accountData = "account_data"
+                    case deviceLists = "device_lists"
+                    case deviceOneTimeKeysCount = "device_one_time_keys_count"
+                    case nextBatch = "next_batch"
+                    case presence
+                    case rooms
+                    case toDevice = "to_device"
+                }
             }
             
             // FIXME: Use a TaskGroup
@@ -193,7 +237,7 @@ extension Matrix {
                 }
                 
                 let decoder = JSONDecoder()
-                decoder.keyDecodingStrategy = .convertFromSnakeCase
+                //decoder.keyDecodingStrategy = .convertFromSnakeCase
                 guard let responseBody = try? decoder.decode(SyncResponseBody.self, from: data)
                 else {
                     self.syncRequestTask = nil
@@ -203,6 +247,7 @@ extension Matrix {
                 // Process the sync response, updating local state
                 
                 // Handle invites
+                print("/sync:\tHandling invites")
                 if let invitedRoomsDict = responseBody.rooms?.invite {
                     for (roomId, info) in invitedRoomsDict {
                         print("/sync:\tFound invited room \(roomId)")
