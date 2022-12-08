@@ -128,7 +128,9 @@ final class MatrixTests: XCTestCase {
         if creds!.wellKnown == nil {
             creds!.wellKnown = try await Matrix.fetchWellKnown(for: creds!.userId.domain)
         }
-        let session = try Matrix.Session(creds: creds!, startSyncing: true)
+        let session = try Matrix.Session(creds: creds!, startSyncing: false)
         
+        let token = try await session.sync()
+        XCTAssertNotNil(token)
     }
 }
