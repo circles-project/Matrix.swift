@@ -9,6 +9,8 @@ import Foundation
 import AnyCodable
 
 // https://spec.matrix.org/v1.5/client-server-api/#push-rules
+// This is some of the messiest crap in the entire Matrix spec.
+// And that is saying something.
 struct PushRulesContent: Codable {
     struct PushRule: Codable {
         var actions: [Action]
@@ -45,7 +47,61 @@ struct PushRulesContent: Codable {
             case notify
             case dontNotify
             case coalesce
-            case setTweak(key:String, value:String)
+            case setSoundTweak(sound: String)
+            case setHighlightTweak(highlight: Bool)
+            case setGenericTweak(tweak:String, value:String)
+            
+            init(from decoder: Decoder) throws {
+                print("Decoding push rule action")
+                                
+                struct ActionDecodingError: Error {
+                    var msg: String
+                }
+
+                if let string = try? String.init(from: decoder) {
+                    switch string {
+                    case "notify":
+                        self = .notify
+                        return
+                    case "dont_notify":
+                        self = .dontNotify
+                        return
+                    case "coalesce":
+                        self = .coalesce
+                        return
+                    default:
+                        print("Invalid string: [\(string)]")
+                        throw ActionDecodingError(msg: "Invalid string")
+                    }
+                }
+
+                enum TweakCodingKeys: String, CodingKey {
+                    case setTweak = "set_tweak"
+                    case value
+                }
+                
+                let container = try decoder.container(keyedBy: TweakCodingKeys.self)
+
+                let tweak = try container.decode(String.self, forKey: .setTweak)
+                
+                switch tweak {
+                case "highlight":
+                    let value = try container.decodeIfPresent(Bool.self, forKey: .value) ?? true
+                    self = .setHighlightTweak(highlight: value)
+                    return
+                case "sound":
+                    let value = try container.decode(String.self, forKey: .value)
+                    self = .setSoundTweak(sound: value)
+                    return
+                default:
+                    let value = try container.decode(String.self, forKey: .value)
+                    self = .setGenericTweak(tweak: tweak, value: value)
+                }
+
+                
+                print("Invalid action: Doesn't match either type (string or set_tweak)")
+                throw ActionDecodingError(msg: "Doesn't match either type of action (string or set_tweak)")
+            }
         }
     }
     struct RuleSet: Codable {
@@ -55,5 +111,5 @@ struct PushRulesContent: Codable {
         var sender: [PushRule]?
         var underride: [PushRule]?
     }
-    var global: RuleSet
+    var global: RuleSet?
 }
