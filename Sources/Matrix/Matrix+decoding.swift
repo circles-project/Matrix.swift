@@ -118,6 +118,10 @@ extension Matrix {
         case .mDirect:
             let content = try container.decode(DirectContent.self, forKey: .content)
             return content
+            
+        case .mPushRules:
+            let content = try container.decode(PushRulesContent.self, forKey: .content)
+            return content
 
         case .mSecretStorageKey(let string):
             throw Matrix.Error("Not implemented")
