@@ -133,4 +133,17 @@ final class MatrixTests: XCTestCase {
         let token = try await session.sync()
         XCTAssertNotNil(token)
     }
+    
+    func testLoginAndSync() async throws {
+        // Get user id and password
+        // Look up well known
+        // Create a UIAuthSession with the homeserver
+        // Get creds
+        // Create a Matrix.Session
+        // Sync
+        // Create a room
+        // Sync -- Is the room id now in the sync resonse?
+        // Send a message into the room
+        // Sync -- Is the message now in the room?
+    }
 }
