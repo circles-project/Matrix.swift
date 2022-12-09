@@ -122,6 +122,9 @@ enum Matrix {
     #else
     typealias NativeImage = UIImage
     #endif
+    
+    // Types imported from the Rust Crypto SDK
+    typealias Device = MatrixSDKCrypto.Device
 }
 
 
