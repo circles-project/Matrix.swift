@@ -54,6 +54,7 @@ final class MatrixTests: XCTestCase {
         let r = Int.random(in: 0...100)
         let username = String(format: "user_%03d", r)
         print("Username: \(username)")
+        let userId = UserId("@\(username):\(domain)")!
         let password = String(format: "%0llx", UInt64.random(in: UInt64.min...UInt64.max))
         print("Password: \(password)")
         let session = try await SignupSession(domain: domain)
@@ -94,9 +95,9 @@ final class MatrixTests: XCTestCase {
             case AUTH_TYPE_ENROLL_PASSWORD:
                 try await session.doPasswordEnrollStage(newPassword: password)
             case AUTH_TYPE_ENROLL_BSSPEKE_OPRF:
-                try await session.doBSSpekeSignupOprfStage(password: password)
+                try await session.doBSSpekeEnrollOprfStage(userId: userId, password: password)
             case AUTH_TYPE_ENROLL_BSSPEKE_SAVE:
-                try await session.doBSSpekeSignupSaveStage()
+                try await session.doBSSpekeEnrollSaveStage()
             default:
                 print("Unknown stage [\(stage)]")
                 throw "Unknown stage [\(stage)]"
@@ -136,14 +137,95 @@ final class MatrixTests: XCTestCase {
     
     func testLoginAndSync() async throws {
         // Get user id and password
+        let username = "test_5d52"
+        let password = "d7dee558c71a4b91e096c14e"
+        let domain = "us.circles-dev.net"
+        let userId = UserId("@\(username):\(domain)")!
+        
         // Look up well known
+        let wellknown = try await Matrix.fetchWellKnown(for: domain)
+        
         // Create a UIAuthSession with the homeserver
+        let authSession = try await LoginSession(username: username, domain: domain)
+        try await authSession.connect()
+        XCTAssertNotNil(authSession.sessionState)
+        let uiaState = authSession.sessionState!
+        
+        let supportedAuthTypes = [
+            AUTH_TYPE_TERMS,
+            AUTH_TYPE_DUMMY,
+            AUTH_TYPE_LOGIN_BSSPEKE_OPRF,
+            AUTH_TYPE_LOGIN_BSSPEKE_VERIFY
+        ]
+        
+        let flows = uiaState.flows
+        for flow in flows {
+            print("\tFlow: ", flow.stages)
+        }
+        
+        let maybeFlow = flows.filter(
+            {
+                for stage in $0.stages {
+                    if !supportedAuthTypes.contains(stage) {
+                        return false
+                    }
+                }
+                return true
+            }
+        ).first
+        XCTAssertNotNil(maybeFlow)
+        
+        let flow = maybeFlow!
+        print("Found a flow that we can do: ", flow.stages)
+        await authSession.selectFlow(flow: flow)
+        
+        for stage in flow.stages {
+            print("Working on stage [\(stage)]")
+            switch stage {
+            case AUTH_TYPE_DUMMY:
+                try await authSession.doDummyAuthStage()
+            case AUTH_TYPE_TERMS:
+                try await authSession.doTermsStage()
+            case AUTH_TYPE_LOGIN_BSSPEKE_OPRF:
+                try await authSession.doBSSpekeLoginOprfStage(userId: userId, password: password)
+            case AUTH_TYPE_LOGIN_BSSPEKE_VERIFY:
+                try await authSession.doBSSpekeLoginVerifyStage()
+            default:
+                print("Unknown stage [\(stage)]")
+                throw "Unknown stage [\(stage)]"
+            }
+        }
+        
         // Get creds
+        guard case let .finished(creds) = authSession.state
+        else {
+            throw "UIA is not finished"
+        }
+        
         // Create a Matrix.Session
+        let session = try Matrix.Session(creds: creds, startSyncing: false)
+        
         // Sync
+        print("Syncing...")
+        let token0 = try await session.sync()
+        XCTAssertNotNil(token0)
+        
         // Create a room
+        let roomName = "Test Room"
+        print("Creating room [\(roomName)]")
+        let roomId = try await session.createRoom(name: roomName)
+        print("Got roomId = \(roomId) for \(roomName)")
+        
         // Sync -- Is the room id now in the sync resonse?
+        print("Syncing...")
+        let token1 = try await session.sync()
+        print("Got sync token \(token1)")
+        let myRoom = session.rooms[roomId]
+        XCTAssertNotNil(myRoom)
+        
         // Send a message into the room
+        // TBD
+        
         // Sync -- Is the message now in the room?
     }
 }

@@ -156,14 +156,13 @@ public struct BSSpekeEnrollParams: Codable {
 }
 
 public struct BSSpekeVerifyParams: Codable {
-    struct PHFParams: Codable {
-        var name: String
-        var iterations: UInt
-        var blocks: UInt
-    }
     var B: String  // Server's ephemeral public key
     var blindSalt: String
-    var phfParams: PHFParams
+    
+    enum CodingKeys: String, CodingKey {
+        case B
+        case blindSalt = "blind_salt"
+    }
 }
 
 

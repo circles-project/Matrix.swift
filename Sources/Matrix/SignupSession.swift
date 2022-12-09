@@ -122,6 +122,8 @@ class SignupSession: UIAuthSession {
         return userId
     }
     
+    // cvw: Fixed this problem by just enabling both versions of the OPRF in the base UIAuthSession
+    /*
     // MARK: BS-SPEKE
     
     func doBSSpekeSignupOprfStage(password: String) async throws {
@@ -195,6 +197,7 @@ class SignupSession: UIAuthSession {
         ] as [String : Codable]
         try await doUIAuthStage(auth: args)
     }
+    */
     
     // MARK: Apple Subscriptions
     

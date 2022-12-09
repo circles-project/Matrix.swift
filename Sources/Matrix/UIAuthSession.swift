@@ -325,6 +325,8 @@ class UIAuthSession: UIASession, ObservableObject {
         else {
             let msg = "Couldn't decode UIA response"
             print("\(tag)\tError: \(msg)")
+            let rawDataString = String(data: data, encoding: .utf8)!
+            print("\(tag)\tRaw response:\n\(rawDataString)")
             throw Matrix.Error(msg)
         }
         
@@ -353,14 +355,29 @@ class UIAuthSession: UIASession, ObservableObject {
 
     // MARK: BS-SPEKE protocol support
     
-    // NOTE: The ..Enroll.. functions are *almost* but not exactly duplicates of those in the SignupSession implementation
+    // NOTE: The ..OPRF.. functions are *almost* but not exactly duplicates of those in the SignupSession and LoginSession.
+    //       The SignupSession needs a userId:password: version of the Enroll OPRF,
+    //       because it isn't logged in with a userId yet.
+    //       Below, the Login OPRF has the same thing for the LoginSession.
+    //       The "normal" UIAuthSession should always use the simple password: version when already logged in.
     func doBSSpekeEnrollOprfStage(password: String) async throws {
-        let stage = AUTH_TYPE_ENROLL_BSSPEKE_OPRF
-        
         guard let userId = self.creds?.userId else {
             let msg = "Couldn't find user id for BS-SPEKE enrollment"
             print(msg)
             throw Matrix.Error(msg)
+        }
+        try await self.doBSSpekeEnrollOprfStage(userId: userId, password: password)
+    }
+    
+    func doBSSpekeEnrollOprfStage(userId: UserId, password: String) async throws {
+
+        let stage = AUTH_TYPE_ENROLL_BSSPEKE_OPRF
+        
+        // Make sure that nobody is up to any shenanigans, calling this with a fake userId when already logged in
+        if let creds = self.creds {
+            guard userId == creds.userId else {
+                throw Matrix.Error("BS-SPEKE: Can't enroll for a new user id while already logged in")
+            }
         }
         
         guard let homeserver = self.url.host,
@@ -400,7 +417,8 @@ class UIAuthSession: UIASession, ObservableObject {
             print("BS-SPEKE\tError: \(msg)")
             throw Matrix.Error(msg)
         }
-        guard let params = self.sessionState?.params?[stage] as? BSSpekeEnrollParams
+        guard let oprfParams = self.sessionState?.params?[AUTH_TYPE_ENROLL_BSSPEKE_OPRF] as? BSSpekeOprfParams,
+              let params = self.sessionState?.params?[stage] as? BSSpekeEnrollParams
         else {
             let msg = "Couldn't find BS-SPEKE enroll params"
             print("BS-SPEKE\t\(msg)")
@@ -412,8 +430,8 @@ class UIAuthSession: UIASession, ObservableObject {
             print("BS-SPEKE\t\(msg)")
             throw Matrix.Error(msg)
         }
-        let blocks = 100_000
-        let iterations = 3
+        let blocks = [100_000, oprfParams.phfParams.blocks].max()!
+        let iterations = [3, oprfParams.phfParams.iterations].max()!
         guard let (P,V) = try? bss.generatePandV(blindSalt: blindSalt, phfBlocks: UInt32(blocks), phfIterations: UInt32(iterations))
         else {
             let msg = "Failed to generate public key"
@@ -429,14 +447,27 @@ class UIAuthSession: UIASession, ObservableObject {
         try await doUIAuthStage(auth: args)
     }
     
+    // NOTE: Just as the SignupSession needs a userId:password: version of the Enroll OPRF,
+    //       here we also need a userId:password: version of the Login OPRF for the LoginSession.
+    //       The "normal" UIAuthSession should always use the simple password: version when already logged in.
     func doBSSpekeLoginOprfStage(password: String) async throws {
-        let stage = AUTH_TYPE_LOGIN_BSSPEKE_OPRF
-        
         guard let userId = self.creds?.userId
         else {
             let msg = "Couldn't find user id for BS-SPEKE login"
             print(msg)
             throw Matrix.Error(msg)
+        }
+        try await self.doBSSpekeLoginOprfStage(userId: userId, password: password)
+    }
+    
+    func doBSSpekeLoginOprfStage(userId: UserId, password: String) async throws {
+        let stage = AUTH_TYPE_LOGIN_BSSPEKE_OPRF
+        
+        // Make sure that nobody is up to any shenanigans, calling this with a fake userId when already logged in
+        if let creds = self.creds {
+            guard userId == creds.userId else {
+                throw Matrix.Error("BS-SPEKE: Can't authenticate with a different user id while already logged in")
+            }
         }
         
         let bss = try BlindSaltSpeke.ClientSession(clientId: "\(userId)", serverId: userId.domain, password: password)
@@ -450,6 +481,8 @@ class UIAuthSession: UIASession, ObservableObject {
         try await doUIAuthStage(auth: args)
     }
     
+    
+    
     func doBSSpekeLoginVerifyStage() async throws {
         // Need to send
         // V, our long-term public key (from "verifier"?  Although here the actual verifiers are hashes.)
@@ -462,9 +495,18 @@ class UIAuthSession: UIASession, ObservableObject {
             print("BS-SPEKE\tError: \(msg)")
             throw Matrix.Error(msg)
         }
-        guard let params = self.sessionState?.params?[stage] as? BSSpekeVerifyParams
+        
+        guard let oprfParams = self.sessionState?.params?[AUTH_TYPE_LOGIN_BSSPEKE_OPRF] as? BSSpekeOprfParams,
+              let params = self.sessionState?.params?[stage] as? BSSpekeVerifyParams
         else {
             let msg = "Couldn't find BS-SPEKE enroll params"
+            print("BS-SPEKE\t\(msg)")
+            throw Matrix.Error(msg)
+        }
+        
+        guard let B = b64decode(params.B)
+        else {
+            let msg = "Failed to decode base64 server public key B"
             print("BS-SPEKE\t\(msg)")
             throw Matrix.Error(msg)
         }
@@ -474,20 +516,28 @@ class UIAuthSession: UIASession, ObservableObject {
             print("BS-SPEKE\t\(msg)")
             throw Matrix.Error(msg)
         }
-        let blocks = params.phfParams.blocks
-        let iterations = params.phfParams.iterations
-        guard let (P,V) = try? bss.generatePandV(blindSalt: blindSalt, phfBlocks: UInt32(blocks), phfIterations: UInt32(iterations))
+        
+        let blocks = oprfParams.phfParams.blocks
+        let iterations = oprfParams.phfParams.iterations
+        guard blocks >= 100_000,
+              iterations >= 3
         else {
-            let msg = "Failed to generate public key"
+            let msg = "PHF parameters from the server are below minimum values. Possible attack detected."
             print("BS-SPEKE\t\(msg)")
             throw Matrix.Error(msg)
         }
         
+        let A = try bss.generateA(blindSalt: blindSalt, phfBlocks: UInt32(blocks), phfIterations: UInt32(iterations))
+        bss.deriveSharedKey(serverPubkey: B)
+        let verifier = bss.generateVerifier()
+        
         let args: [String: String] = [
             "type": stage,
-            "P": Data(P).base64EncodedString(),
-            "V": Data(V).base64EncodedString(),
+            "A": Data(A).base64EncodedString(),
+            "verifier": Data(verifier).base64EncodedString(),
         ]
+        print("BS-SPEKE: About to send args \(args)")
+        
         try await doUIAuthStage(auth: args)
     }
     
