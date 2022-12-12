@@ -33,6 +33,14 @@ extension NSImage {
 
         return nil
     }
+    
+    func jpegData(compressionQuality: CGFloat) -> Data? {
+        guard let cgImg = self.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        else {
+            return nil
+        }
+        return NSBitmapImageRep(cgImage: cgImg).representation(using: .jpeg, properties: [.compressionFactor:compressionQuality])
+    }
 }
 
 #endif

@@ -17,7 +17,7 @@ extension Matrix {
         
         @Published var name: String?
         @Published var topic: String?
-        @Published var avatarUrl: String?
+        @Published var avatarUrl: MXC?
         @Published var avatar: NativeImage?
         
         let predecessorRoomId: RoomId?
@@ -81,7 +81,7 @@ extension Matrix {
             if let avatarEvent = stateEventsCache[.mRoomAvatar]?.last,
                let avatarContent = avatarEvent.content as? RoomAvatarContent
             {
-                self.avatarUrl = avatarContent.url
+                self.avatarUrl = avatarContent.mxc
             }
             
             if let topicEvent = stateEventsCache[.mRoomTopic]?.last,
@@ -140,8 +140,8 @@ extension Matrix {
                     else {
                         continue
                     }
-                    if self.avatarUrl != content.url {
-                        self.avatarUrl = content.url
+                    if self.avatarUrl != content.mxc {
+                        self.avatarUrl = content.mxc
                         // FIXME: Also fetch the new avatar image
                     }
                     
@@ -208,6 +208,14 @@ extension Matrix {
                 } // end switch event.type
                 
             } // end func updateState()
+        }
+        
+        func setDisplayName(newName: String) async throws {
+            try await self.session.setDisplayName(roomId: self.roomId, name: newName)
+        }
+        
+        func setAvatarImage(image: NativeImage) async throws {
+            try await self.session.setAvatarImage(roomId: self.roomId, image: image)
         }
     }
 }

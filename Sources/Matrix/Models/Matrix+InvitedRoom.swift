@@ -23,7 +23,7 @@ extension Matrix {
         
         let name: String?
         let topic: String?
-        let avatarUrl: String?
+        let avatarUrl: MXC?
         @Published var avatar: NativeImage?
         
         var members: [UserId]
@@ -83,7 +83,7 @@ extension Matrix {
             if let roomAvatarEvent = stateEventsCache[.mRoomAvatar]?.last,
                let roomAvatarContent = roomAvatarEvent.content as? RoomAvatarContent
             {
-                self.avatarUrl = roomAvatarContent.url
+                self.avatarUrl = roomAvatarContent.mxc
             } else {
                 self.avatarUrl = nil
             }
@@ -131,9 +131,7 @@ extension Matrix {
         }
         
         func getAvatarImage() async throws {
-            guard let url = avatarUrl,
-                  let mxc = MXC(url)
-            else {
+            guard let mxc = self.avatarUrl else {
                 return
             }
             

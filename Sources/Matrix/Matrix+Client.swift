@@ -135,24 +135,19 @@ class Client {
                                     ])
     }
     
-    #if !os(macOS)
-    func setMyAvatarImage(_ image: UIImage) async throws {
+    func setMyAvatarImage(_ image: NativeImage) async throws {
         // First upload the image
-        let url = try await uploadImage(image, maxSize: CGSize(width: 256, height: 256))
+        let mxc = try await uploadImage(image, maxSize: CGSize(width: 256, height: 256))
         // Then set that as our avatar
-        try await setMyAvatarUrl(url)
+        try await setMyAvatarUrl(mxc)
     }
-    #else
-    func setMyAvatarImage(_ image: NSImage) async throws {
-        throw Matrix.Error("Not implemented")
-    }
-    #endif
+
     
-    func setMyAvatarUrl(_ url: String) async throws {
+    func setMyAvatarUrl(_ mxc: MXC) async throws {
         let (_,_) = try await call(method: "PUT",
                                    path: "_matrix/client/\(version)/profile/\(creds.userId)/avatar_url",
                                    body: [
-                                     "avatar_url": url,
+                                     "avatar_url": mxc,
                                    ])
     }
     
@@ -546,8 +541,7 @@ class Client {
     
     // MARK: Room Metadata
 
-    #if !os(macOS)
-    func setAvatarImage(roomId: RoomId, image: UIImage) async throws {
+    func setAvatarImage(roomId: RoomId, image: NativeImage) async throws {
         let maxSize = CGSize(width: 640, height: 640)
         
         guard let scaledImage = image.downscale(to: maxSize)
@@ -564,7 +558,7 @@ class Client {
             throw Matrix.Error(msg)
         }
         
-        guard let uri = try? await uploadData(data: jpegData, contentType: "image/jpeg") else {
+        guard let mxc = try? await uploadData(data: jpegData, contentType: "image/jpeg") else {
             let msg = "Failed to upload image for room avatar"
             print(msg)
             throw Matrix.Error(msg)
@@ -575,13 +569,9 @@ class Client {
                               mimetype: "image/jpeg",
                               size: jpegData.count)
         
-        let _ = try await sendStateEvent(to: roomId, type: Matrix.EventType.mRoomAvatar, content: RoomAvatarContent(url: uri, info: info))
+        let _ = try await sendStateEvent(to: roomId, type: Matrix.EventType.mRoomAvatar, content: RoomAvatarContent(mxc: mxc, info: info))
     }
-    #else
-    func setAvatarImage(roomId: RoomId, image: NSImage) async throws {
-        throw Matrix.Error("Not implemented")
-    }
-    #endif
+
     
     func getAvatarImage(roomId: RoomId) async throws -> Matrix.NativeImage? {
         guard let content = try? await getRoomState(roomId: roomId, for: .mRoomAvatar, of: RoomAvatarContent.self)
@@ -590,14 +580,7 @@ class Client {
             return nil
         }
         
-        guard let mxc = MXC(content.url)
-        else {
-            let msg = "Invalid avatar image URL"
-            print(msg)
-            throw Matrix.Error(msg)
-        }
-        
-        let data = try await downloadData(mxc: mxc)
+        let data = try await downloadData(mxc: content.mxc)
         let image = Matrix.NativeImage(data: data)
         return image
     }
@@ -839,8 +822,7 @@ class Client {
         return data
     }
     
-    #if !os(macOS)
-    func uploadImage(_ original: UIImage, maxSize: CGSize, quality: CGFloat = 0.90) async throws -> String {
+    func uploadImage(_ original: NativeImage, maxSize: CGSize, quality: CGFloat = 0.90) async throws -> MXC {
         guard let scaled = original.downscale(to: maxSize)
         else {
             let msg = "Failed to downscale image"
@@ -851,14 +833,9 @@ class Client {
         let uri = try await uploadImage(scaled, quality: quality)
         return uri
     }
-    #else
-    func uploadImage(_ original: NSImage, maxSize: CGSize, quality: CGFloat = 0.90) async throws -> String {
-        throw Matrix.Error("Not implemented")
-    }
-    #endif
+
     
-    #if !os(macOS)
-    func uploadImage(_ image: UIImage, quality: CGFloat = 0.90) async throws -> String {
+    func uploadImage(_ image: NativeImage, quality: CGFloat = 0.90) async throws -> MXC {
 
         guard let jpeg = image.jpegData(compressionQuality: quality)
         else {
@@ -869,13 +846,9 @@ class Client {
         
         return try await uploadData(data: jpeg, contentType: "image/jpeg")
     }
-    #else
-    func uploadImage(_ image: NSImage, quality: CGFloat = 0.90) async throws -> String {
-        throw Matrix.Error("Not implemented")
-    }
-    #endif
+
     
-    func uploadData(data: Data, contentType: String) async throws -> String {
+    func uploadData(data: Data, contentType: String) async throws -> MXC {
         
         let url = URL(string: "/_matrix/media/\(version)/upload", relativeTo: baseUrl)!
         var request = URLRequest(url: url)
@@ -904,7 +877,13 @@ class Client {
             throw Matrix.Error(msg)
         }
         
-        return responseBody.contentUri
+        guard let mxc = MXC(responseBody.contentUri)
+        else {
+            let msg = "Could not parse MXC URL"
+            print(msg)
+            throw Matrix.Error(msg)
+        }
+        return mxc
     }
 }
 

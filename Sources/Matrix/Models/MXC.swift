@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct MXC: Codable, LosslessStringConvertible {
+struct MXC: Codable, Equatable, LosslessStringConvertible {
     
     var serverName: String
     var mediaId: String

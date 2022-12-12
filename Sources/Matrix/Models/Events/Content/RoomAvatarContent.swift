@@ -8,6 +8,6 @@
 import Foundation
 
 struct RoomAvatarContent: Codable {
-    var url: String
+    var mxc: MXC
     var info: Matrix.mImageInfo
 }
