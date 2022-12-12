@@ -52,7 +52,7 @@ extension Matrix {
     struct mImageContent: Matrix.MessageContent {
         var msgtype: Matrix.MessageType
         var body: String
-        var url: URL?
+        var url: MXC?
         var info: mImageInfo
     }
 
@@ -93,7 +93,7 @@ extension Matrix {
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#extensions-to-m-message-msgtypes
     struct mEncryptedFile: Codable {
-        var url: URL
+        var url: MXC
         var key: JWK
         var iv: String
         var hashes: [String: String]
@@ -151,7 +151,7 @@ extension Matrix {
         var w: UInt
         var mimetype: String
         var size: UInt
-        var thumbnail_url: URL?
+        var thumbnail_url: MXC?
         var thumbnail_file: mEncryptedFile?
         var thumbnail_info: mThumbnailInfo
     }
