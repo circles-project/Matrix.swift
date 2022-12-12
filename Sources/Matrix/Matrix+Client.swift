@@ -512,7 +512,7 @@ class Client {
     
     // https://spec.matrix.org/v1.5/client-server-api/#put_matrixclientv3roomsroomidsendeventtypetxnid
     func sendMessageEvent(to roomId: RoomId,
-                          type: Matrix.MessageType,
+                          type: Matrix.EventType,
                           content: Codable
     ) async throws -> EventId {
         print("SENDMESSAGE\tSending message event of type [\(type.rawValue)] to room [\(roomId)]")
