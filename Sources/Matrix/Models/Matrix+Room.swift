@@ -217,5 +217,62 @@ extension Matrix {
         func setAvatarImage(image: NativeImage) async throws {
             try await self.session.setAvatarImage(roomId: self.roomId, image: image)
         }
+        
+        func setTopic(newTopic: String) async throws {
+            try await self.session.setTopic(roomId: self.roomId, topic: newTopic)
+        }
+        
+        func invite(userId: UserId, reason: String? = nil) async throws {
+            try await self.session.inviteUser(roomId: self.roomId, userId: userId, reason: reason)
+        }
+        
+        func kick(userId: UserId, reason: String? = nil) async throws {
+            try await self.session.kickUser(roomId: self.roomId, userId: userId, reason: reason)
+        }
+        
+        func ban(userId: UserId, reason: String? = nil) async throws {
+            try await self.session.banUser(roomId: self.roomId, userId: userId, reason: reason)
+        }
+        
+        func leave(reason: String? = nil) async throws {
+            try await self.session.leave(roomId: self.roomId, reason: reason)
+        }
+        
+        func canPaginate() -> Bool {
+            // FIXME: TODO:
+            return false
+        }
+        
+        func paginate(count: UInt = 25) async throws {
+            throw Matrix.Error("Not implemented")
+        }
+        
+        var isEncrypted: Bool {
+            self.encryptionParams != nil
+        }
+        
+        func sendText(text: String) async throws -> EventId {
+            throw Matrix.Error("Not implemented")
+        }
+        
+        func sendImage(image: NativeImage) async throws -> EventId {
+            throw Matrix.Error("Not implemented")
+        }
+        
+        func sendVideo(fileUrl: URL, thumbnail: NativeImage?) async throws -> EventId {
+            throw Matrix.Error("Not implemented")
+        }
+        
+        func sendReply(to eventId: EventId, text: String) async throws -> EventId {
+            throw Matrix.Error("Not implemented")
+        }
+        
+        func redact(eventId: EventId, reason: String?) async throws -> EventId {
+            try await self.session.sendRedactionEvent(to: self.roomId, for: eventId, reason: reason)
+        }
+        
+        func report(eventId: EventId, score: Int, reason: String?) async throws {
+            try await self.session.sendReport(for: eventId, in: self.roomId, score: score, reason: reason)
+        }
     }
 }
