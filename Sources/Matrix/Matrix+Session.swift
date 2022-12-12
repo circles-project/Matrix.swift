@@ -13,6 +13,8 @@ import UIKit
 import AppKit
 #endif
 
+import MatrixSDKCrypto
+
 extension Matrix {
     class Session: Matrix.Client, ObservableObject {
         @Published var displayName: String?
@@ -41,6 +43,9 @@ extension Matrix {
         private var recoverySecretKey: Data?
         private var recoveryTimestamp: Date?
         
+        // Matrix Rust crypto
+        private var crypto: MatrixSDKCrypto.OlmMachine
+        
         init(creds: Credentials, startSyncing: Bool = true) throws {
             self.rooms = [:]
             self.invitations = [:]
@@ -52,6 +57,11 @@ extension Matrix {
             self.syncRequestTask = nil
             self.backgroundSyncTask = nil
             
+            let documentsPath = NSSearchPathForDirectoriesInDomains(
+                .documentDirectory, .userDomainMask, true
+            ).first!
+            let cryptoStorePath = "\(documentsPath)/\(creds.userId)/\(creds.deviceId)/crypto"
+            self.crypto = try OlmMachine(userId: "\(creds.userId)", deviceId: creds.deviceId, path: cryptoStorePath, passphrase: nil)
             
             try super.init(creds: creds)
             
