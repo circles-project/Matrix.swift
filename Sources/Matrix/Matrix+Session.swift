@@ -13,6 +13,7 @@ import UIKit
 import AppKit
 #endif
 
+import IDZSwiftCommonCrypto
 import MatrixSDKCrypto
 
 extension Matrix {
@@ -243,6 +244,80 @@ extension Matrix {
         
         func whoAmI() async throws -> UserId {
             return self.creds.userId
+        }
+        
+        
+        func encryptAndUploadData(plaintext: Data, contentType: String) async throws -> mEncryptedFile {
+            let key = try Random.generateBytes(byteCount: 32)
+            let iv = try Random.generateBytes(byteCount: 16)
+            var cryptor = Cryptor(operation: .encrypt,
+                                  algorithm: Cryptor.Algorithm.aes,
+                                  mode: Cryptor.Mode.CTR,
+                                  padding: .NoPadding,
+                                  key: key,
+                                  iv: iv)
+            guard let encryptedBytes = cryptor.update(plaintext)?.final(),
+                  let sha256sum = Digest(algorithm: .sha256).update(byteArray: encryptedBytes)?.final()
+            else {
+                throw Matrix.Error("Failed to encrypt and hash")
+            }
+            let ciphertext = Data(encryptedBytes)
+            let mxc = try await self.uploadData(data: ciphertext, contentType: contentType)
+
+            return mEncryptedFile(url: mxc,
+                                  key: Matrix.JWK(key),
+                                  iv: Data(iv).base64EncodedString(),
+                                  hashes: ["sha256": Data(sha256sum).base64EncodedString()],
+                                  v: "v2")
+        }
+        
+        func downloadAndDecryptData(_ info: mEncryptedFile) async throws -> Data {
+            let ciphertext = try await self.downloadData(mxc: info.url)
+            
+            // Cryptographic doom principle: Verify that the ciphertext is what we expected,
+            // before we do anything crazy like trying to decrypt
+            // WTF, CommonCrypto doesn't have a Digest.verify() ???!?!?!
+            guard let gotSHA256 = Digest(algorithm: .sha256).update(ciphertext)?.final(),
+                  let wantedSHA256base64 = info.hashes["sha256"],
+                  let wantedSHA256data = Data(base64Encoded: wantedSHA256base64),
+                  gotSHA256.count == wantedSHA256data.count
+            else {
+                throw Matrix.Error("Couldn't get SHA256 digest(s)")
+            }
+            let wantedSHA256 = [UInt8](wantedSHA256data)
+            // Verify that the two hashes match... grumble grumble grumble
+            var match = true
+            for i in gotSHA256.indices {
+                if gotSHA256[i] != wantedSHA256[i] {
+                    match = false
+                }
+            }
+            guard match == true else {
+                throw Matrix.Error("SHA256 hash does not match!")
+            }
+            
+            // OK now it's finally safe to (try to) decrypt this thing
+            
+            guard let key = Data(base64Encoded: info.key.k),
+                  let iv = Data(base64Encoded: info.iv)
+            else {
+                throw Matrix.Error("Couldn't parse key and IV")
+            }
+            
+            var cryptor = Cryptor(operation: .decrypt,
+                                  algorithm: .aes,
+                                  mode: .CTR,
+                                  padding: .NoPadding,
+                                  key: [UInt8](key),
+                                  iv: [UInt8](iv)
+            )
+            
+            guard let decryptedBytes = cryptor.update(ciphertext)?.final()
+            else {
+                throw Matrix.Error("Failed to decrypt ciphertext")
+            }
+            
+            return Data(decryptedBytes)
         }
     }
 }

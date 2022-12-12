@@ -100,13 +100,32 @@ extension Matrix {
         var v: String
     }
 
-    // https://matrix.org/docs/spec/client_server/r0.6.0#extensions-to-m-message-msgtypes
+    //https://spec.matrix.org/v1.5/client-server-api/#extensions-to-mroommessage-msgtypes
     struct JWK: Codable {
-        var kty: String
-        var key_ops: [String]
-        var alg: String
+        enum KeyType: String, Codable {
+            case oct
+        }
+        enum KeyOperation: String, Codable {
+            case encrypt
+            case decrypt
+        }
+        enum Algorithm: String, Codable {
+            case A256CTR
+        }
+        
+        var kty: KeyType
+        var key_ops: [KeyOperation]
+        var alg: Algorithm
         var k: String
         var ext: Bool
+        
+        init(_ key: [UInt8]) {
+            self.kty = .oct
+            self.key_ops = [.decrypt]
+            self.alg = .A256CTR
+            self.k = Data(key).base64EncodedString()
+            self.ext = true
+        }
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-audio
