@@ -537,6 +537,32 @@ class Client {
         return responseBody.eventId
     }
     
+    func sendRedactionEvent(to roomId: RoomId,
+                            for eventId: EventId,
+                            reason: String? = nil
+    ) async throws -> EventId {
+        print("REDACT\tSending redaction for event [\(eventId)] to room [\(roomId)]")
+        
+        let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
+        let (data, response) = try await call(method: "PUT",
+                                              path: "/_matrix/client/\(version)/rooms/\(roomId)/redact/\(eventId)/\(txnId)",
+                                              body: ["reason": reason])
+        
+        struct ResponseBody: Codable {
+            var eventId: EventId
+        }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        guard let responseBody = try? decoder.decode(ResponseBody.self, from: data)
+        else {
+            let msg = "Failed to decode state event response"
+            print(msg)
+            throw Matrix.Error(msg)
+        }
+    
+        return responseBody.eventId
+    }
+    
     // MARK: Room tags
     
     func addTag(roomId: RoomId, tag: String, order: Float? = nil) async throws {
