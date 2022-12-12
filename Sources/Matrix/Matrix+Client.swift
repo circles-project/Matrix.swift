@@ -488,14 +488,42 @@ class Client {
                         type: Matrix.EventType,
                         content: Codable,
                         stateKey: String = ""
-    ) async throws -> String {
+    ) async throws -> EventId {
         print("SENDSTATE\tSending state event of type [\(type.rawValue)] to room [\(roomId)]")
         
+        let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
         let (data, response) = try await call(method: "PUT",
-                                              path: "/_matrix/client/\(version)/rooms/\(roomId)/state/\(type)/\(stateKey)",
+                                              path: "/_matrix/client/\(version)/rooms/\(roomId)/state/\(type)/\(stateKey)/\(txnId)",
                                               body: content)
         struct ResponseBody: Codable {
-            var eventId: String
+            var eventId: EventId
+        }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        guard let responseBody = try? decoder.decode(ResponseBody.self, from: data)
+        else {
+            let msg = "Failed to decode state event response"
+            print(msg)
+            throw Matrix.Error(msg)
+        }
+    
+        return responseBody.eventId
+    }
+    
+    // https://spec.matrix.org/v1.5/client-server-api/#put_matrixclientv3roomsroomidsendeventtypetxnid
+    func sendMessageEvent(to roomId: RoomId,
+                          type: Matrix.MessageType,
+                          content: Codable
+    ) async throws -> EventId {
+        print("SENDMESSAGE\tSending message event of type [\(type.rawValue)] to room [\(roomId)]")
+
+        let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
+        let (data, response) = try await call(method: "PUT",
+                                              path: "/_matrix/client/\(version)/rooms/\(roomId)/send/\(type)/\(txnId)",
+                                              body: content)
+        
+        struct ResponseBody: Codable {
+            var eventId: EventId
         }
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
