@@ -563,6 +563,23 @@ class Client {
         return responseBody.eventId
     }
     
+    func sendReport(for eventId: EventId,
+                    in roomId: RoomId,
+                    score: Int,
+                    reason: String? = nil
+    ) async throws {
+        print("REPORT\tSending report for event [\(eventId)] in room [\(roomId)]")
+        
+        let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
+        let (data, response) = try await call(method: "PUT",
+                                              path: "/_matrix/client/\(version)/rooms/\(roomId)/report/\(eventId)/\(txnId)",
+                                              body: [
+                                                "reason": AnyCodable(reason),
+                                                "score": AnyCodable(score)
+                                              ])
+    }
+    
+    
     // MARK: Room tags
     
     func addTag(roomId: RoomId, tag: String, order: Float? = nil) async throws {
