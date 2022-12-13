@@ -61,18 +61,30 @@ class Client {
     // MARK: API Call
     
     func call(method: String, path: String, body: Codable? = nil, expectedStatuses: [Int] = [200]) async throws -> (Data, HTTPURLResponse) {
+        var encodedBody: Data?
+        
+        if let codableBody = body {
+            let encoder = JSONEncoder()
+            encoder.keyEncodingStrategy = .convertToSnakeCase
+            encodedBody = try encoder.encode(AnyCodable(codableBody))
+        }
+        
+        return try await self.call(method: method, path: path, body: encodedBody, expectedStatuses: expectedStatuses)
+    }
+    
+    func call(method: String, path: String, body: Data? = nil, expectedStatuses: [Int] = [200]) async throws -> (Data, HTTPURLResponse) {
+
+
         print("APICALL\tCalling \(method) \(path)")
         let url = URL(string: path, relativeTo: baseUrl)!
         var request = URLRequest(url: url)
         request.httpMethod = method
         
-        if let codableBody = body {
-            let encoder = JSONEncoder()
-            encoder.keyEncodingStrategy = .convertToSnakeCase
-            let encodedBody = try encoder.encode(AnyCodable(codableBody))
-            print("APICALL\tRaw request body = \n\(String(decoding: encodedBody, as: UTF8.self))")
-            request.httpBody = encodedBody
+        if let requestBody = body {
+            print("APICALL\tRaw request body = \n\(String(decoding: requestBody, as: UTF8.self))")
         }
+        request.httpBody = body
+
         
                
         var slowDown = true
@@ -576,6 +588,17 @@ class Client {
                                               body: [
                                                 "reason": AnyCodable(reason),
                                                 "score": AnyCodable(score)
+                                              ])
+    }
+    
+    func sendToDevice(type: Matrix.EventType,
+                      messages: [UserId: [String: Codable]]
+    ) async throws {
+        let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
+        let (data, response) = try await call(method: "PUT",
+                                              path: "/_matrix/client/\(version)/sendToDevice/\(type)/\(txnId)",
+                                              body: [
+                                                "messages": AnyCodable(messages),
                                               ])
     }
     
