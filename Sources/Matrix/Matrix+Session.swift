@@ -276,7 +276,6 @@ extension Matrix {
             
             // Cryptographic doom principle: Verify that the ciphertext is what we expected,
             // before we do anything crazy like trying to decrypt
-            // WTF, CommonCrypto doesn't have a Digest.verify() ???!?!?!
             guard let gotSHA256 = Digest(algorithm: .sha256).update(ciphertext)?.final(),
                   let wantedSHA256base64 = info.hashes["sha256"],
                   let wantedSHA256data = Data(base64Encoded: wantedSHA256base64),
@@ -285,7 +284,8 @@ extension Matrix {
                 throw Matrix.Error("Couldn't get SHA256 digest(s)")
             }
             let wantedSHA256 = [UInt8](wantedSHA256data)
-            // Verify that the two hashes match... grumble grumble grumble
+            // WTF, CommonCrypto doesn't have a Digest.verify() ???!?!?!
+            // Verify manually that the two hashes match... grumble grumble grumble
             var match = true
             for i in gotSHA256.indices {
                 if gotSHA256[i] != wantedSHA256[i] {
