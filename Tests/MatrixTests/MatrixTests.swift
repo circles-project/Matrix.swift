@@ -6,29 +6,34 @@ import Yams
 extension String: Error { }
 
 final class MatrixTests: XCTestCase {
-    
-    struct Config: Decodable {
-        var domain: String
-    }
-    
+        
     struct UserInfo: Codable {
         var username: String
         var password: String
         var displayname: String?
     }
     
+    struct Config: Decodable {
+        var domain: String
+        var userInfo: UserInfo?
+    }
+    
+    var config = Config(domain: "")
+    
+    override func setUpWithError() throws {
+        config = try loadConfig(filename: "TestConfig.yaml")
+    }
+    
     func loadConfig(filename: String) throws -> Config {
-        let configData = try Data(contentsOf: URL(fileURLWithPath: "testconfig.yml"))
+        let path = Bundle.module.path(forResource: filename, ofType: nil)!
+        let configData = try Data(contentsOf: URL(fileURLWithPath: path))
         let decoder = YAMLDecoder()
         let config = try decoder.decode(Config.self, from: configData)
         return config
     }
     
     
-    
     func testWellKnown() async throws {
-        //let config = try loadConfig(filename: "testconfig.yml")
-        let config = Config(domain: "us.circles-dev.net")
         print("Loaded config")
         print("Domain = \(config.domain)")
         
@@ -40,7 +45,7 @@ final class MatrixTests: XCTestCase {
     }
     
     func doBsspekeRegistration() async throws -> Matrix.Credentials? {
-        let domain = "us.circles-dev.net"
+        let domain = config.domain
         
         let supportedAuthTypes = [
             AUTH_TYPE_ENROLL_USERNAME,
@@ -137,9 +142,9 @@ final class MatrixTests: XCTestCase {
     
     func testLoginAndSync() async throws {
         // Get user id and password
-        let username = "test_5d52"
-        let password = "d7dee558c71a4b91e096c14e"
-        let domain = "us.circles-dev.net"
+        let username = config.userInfo?.username ?? "test_5d52"
+        let password = config.userInfo?.password ?? "d7dee558c71a4b91e096c14e"
+        let domain = config.domain
         let userId = UserId("@\(username):\(domain)")!
         
         // Look up well known
