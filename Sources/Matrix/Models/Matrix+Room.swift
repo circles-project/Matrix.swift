@@ -302,5 +302,11 @@ extension Matrix {
         func report(eventId: EventId, score: Int, reason: String?) async throws {
             try await self.session.sendReport(for: eventId, in: self.roomId, score: score, reason: reason)
         }
+        
+        func sendReaction(_ reaction: String, to eventId: EventId) async throws -> EventId {
+            // FIXME: What about encryption?
+            let content = ReactionContent(eventId: eventId, reaction: reaction)
+            return try await self.session.sendMessageEvent(to: self.roomId, type: .mReaction, content: content)
+        }
     }
 }

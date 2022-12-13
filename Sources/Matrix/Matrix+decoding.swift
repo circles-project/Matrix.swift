@@ -62,6 +62,10 @@ extension Matrix {
         case .mSpaceParent:
             let content = try container.decode(SpaceParentContent.self, forKey: .content)
             return content
+            
+        case .mReaction:
+            let content = try container.decode(ReactionContent.self, forKey: .content)
+            return content
         
         case .mRoomMessage:
             // Peek into the content struct to examine the `msgtype`
