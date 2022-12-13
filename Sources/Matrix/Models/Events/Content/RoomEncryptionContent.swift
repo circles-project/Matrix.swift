@@ -12,8 +12,8 @@ struct RoomEncryptionContent: Codable {
         case megolmV1AesSha2 = "m.megolm.v1.aes-sha2"
     }
     let algorithm: Algorithm
-    let rotationPeriodMs: Int
-    let rotationPeriodMsgs: Int
+    let rotationPeriodMs: UInt64
+    let rotationPeriodMsgs: UInt64
     
     init() {
         algorithm = .megolmV1AesSha2

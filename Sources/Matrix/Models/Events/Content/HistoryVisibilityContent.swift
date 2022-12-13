@@ -7,15 +7,12 @@
 
 import Foundation
 
+import MatrixSDKCrypto
+
 // https://spec.matrix.org/v1.5/client-server-api/#room-history-visibility
 struct HistoryVisibilityContent: Codable {
-    enum HistoryVisibility: String, Codable {
-        case worldReadable = "world_readable"
-        case shared
-        case invited
-        case joined
-    }
-    var historyVisibility: HistoryVisibility
+
+    var historyVisibility: Matrix.Room.HistoryVisibility
     
     enum CodingKeys: String, CodingKey {
         case historyVisibility = "history_visibility"

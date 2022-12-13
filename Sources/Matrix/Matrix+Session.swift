@@ -259,10 +259,74 @@ extension Matrix {
                 throw Matrix.Error("Unkown room [\(roomId)]")
             }
             
-            if !room.isEncrypted {
+            guard let params = room.encryptionParams
+            else {
                 return try await super.sendMessageEvent(to: roomId,
                                                         type: type,
                                                         content: content)
+            }
+            
+            // cvw: I found a nice comment on the encrypt() function in the Matrix Rust SDK
+            // https://github.com/matrix-org/matrix-rust-sdk/blob/main/bindings/matrix-sdk-crypto-ffi/src/machine.rs
+            /// **Note**: A room key needs to be shared with the group of users that are
+            /// members in the given room. If this is not done this method will panic.
+            ///
+            /// The usual flow to encrypt an event using this state machine is as
+            /// follows:
+            ///
+            /// 1. Get the one-time key claim request to establish 1:1 Olm sessions for
+            ///    the room members of the room we wish to participate in. This is done
+            ///    using the [`get_missing_sessions()`](#method.get_missing_sessions)
+            ///    method. This method call should be locked per call.
+            ///
+            /// 2. Share a room key with all the room members using the
+            ///    [`share_room_key()`](#method.share_room_key). This method
+            ///    call should be locked per room.
+            ///
+            /// 3. Encrypt the event using this method.
+            ///
+            /// 4. Send the encrypted event to the server.
+            ///
+            /// After the room key is shared steps 1 and 2 will become noops, unless
+            /// there's some changes in the room membership or in the list of devices a
+            /// member has.
+            
+            let users: [String] = room.joinedMembers.map {
+                $0.description
+            }
+            if let missingSessionsRequest = try self.crypto.getMissingSessions(users: users) {
+                // Send the missing sessions request
+                try await self.sendCryptoRequest(request: missingSessionsRequest)
+            }
+            
+            // FIXME: WhereTF do we get the "only allow trusted devices" setting?
+            let onlyTrusted = false
+            
+            // I am now dumber for having written this
+            func translate(_ ours: Matrix.Room.HistoryVisibility) -> MatrixSDKCrypto.HistoryVisibility {
+                switch ours {
+                case .shared:
+                    return .shared
+                case .invited:
+                    return .invited
+                case .joined:
+                    return .joined
+                case .worldReadable:
+                    return .worldReadable
+                }
+            }
+            
+            let settings = EncryptionSettings(algorithm: .megolmV1AesSha2,
+                                              rotationPeriod: params.rotationPeriodMs,
+                                              rotationPeriodMsgs: params.rotationPeriodMsgs,
+                                              historyVisibility: translate(room.historyVisibility),
+                                              onlyAllowTrustedDevices: onlyTrusted)
+                    
+            let shareRoomKeyRequests = try self.crypto.shareRoomKey(roomId: roomId.description,
+                                                                    users: users,
+                                                                    settings: settings)
+            for request in shareRoomKeyRequests {
+                try await self.sendCryptoRequest(request: request)
             }
             
             let encoder = JSONEncoder()
@@ -354,111 +418,109 @@ extension Matrix {
         
         // MARK: Crypto Requests
         
-        func sendCryptoRequests(requests: [Request]) async throws {
-            for request in requests {
-                switch request {
-                    
-                case .toDevice(requestId: let requestId, eventType: let eventType, body: let body):
-                    let (data, response) = try await self.call(method: "PUT",
-                                                               path: "/_/matrix/client/\(version)/sendToDevice/\(eventType)/\(requestId)",
-                                                               body: body.data(using: .utf8)!)
-                    guard let responseBodyString = String(data: data, encoding: .utf8)
-                    else {
-                        throw Matrix.Error("Couldn't process /sendToDevice response")
-                    }
-                    try self.crypto.markRequestAsSent(requestId: requestId,
-                                                      requestType: .toDevice,
-                                                      response: responseBodyString)
-                    
-                case .keysUpload(requestId: let requestId, body: let body):
-                    let (data, response) = try await self.call(method: "PUT",
-                                                               path: "/_matrix/client/\(version)/keys/upload",
-                                                               body: body.data(using: .utf8)!)
-                    guard let responseBodyString = String(data: data, encoding: .utf8)
-                    else {
-                        throw Matrix.Error("Couldn't process /keys/upload response")
-                    }
-                    try self.crypto.markRequestAsSent(requestId: requestId,
-                                                      requestType: .keysUpload,
-                                                      response: responseBodyString)
+        func sendCryptoRequest(request: Request) async throws {
+            switch request {
                 
-                case .keysQuery(requestId: let requestId, users: let users):
-                    // poljar says the Rust code intentionally ignores the timeout and device id's here
-                    // weird but ok whatever
-                    var deviceKeys: [String: [String]] = .init()
-                    for user in users {
-                        deviceKeys[user] = []
-                    }
-                    let (data, response) = try await self.call(method: "POST",
-                                                               path: "/_matix/client/\(version)/keys/query",
-                                                               body: [
-                                                                "device_keys": deviceKeys
-                                                               ])
-                    guard let responseBodyString = String(data: data, encoding: .utf8)
-                    else {
-                        throw Matrix.Error("Couldn't process /keys/query response body")
-                    }
-                    try self.crypto.markRequestAsSent(requestId: requestId,
-                                                      requestType: .keysQuery,
-                                                      response: responseBodyString)
-                    
-                case .keysClaim(requestId: let requestId, oneTimeKeys: let oneTimeKeys):
-                    let (data, response) = try await self.call(method: "POST",
-                                                               path: "/_matrix/client/\(version)/keys/claim",
-                                                               body: [
-                                                                "one_time_keys": oneTimeKeys
-                                                               ])
-                    guard let responseBodyString = String(data: data, encoding: .utf8)
-                    else {
-                        throw Matrix.Error("Couldn't process /keys/claim response")
-                    }
-                    try self.crypto.markRequestAsSent(requestId: requestId,
-                                                      requestType: .keysClaim,
-                                                      response: responseBodyString)
-                    
-                case .keysBackup(requestId: let requestId, version: let backupVersion, rooms: let rooms):
-                    let urlPath = "/_matrix/client/\(version)/room_keys/keys?version=\(backupVersion)"
-                    let requestBodyString = "{\"rooms\": \(rooms)}"
-                    let requestBody = requestBodyString.data(using: .utf8)!
-                    let (data, response) = try await self.call(method: "PUT",
-                                                               path: urlPath,
-                                                               body: requestBody)
-                    guard let responseBodyString = String(data: data, encoding: .utf8)
-                    else {
-                        throw Matrix.Error("Couldn't process /room_keys/keys response")
-                    }
-                    try self.crypto.markRequestAsSent(requestId: requestId,
-                                                      requestType: .keysBackup,
-                                                      response: responseBodyString)
-                    
-                case .roomMessage(requestId: let requestId, roomId: let roomId, eventType: let eventType, content: let content):
-                    let requestBody = content.data(using: .utf8)!
-                    let urlPath = "/_matrix/client/\(version)/rooms/\(roomId)/send/\(eventType)/\(requestId)"
-                    let (data, response) = try await self.call(method: "PUT",
-                                                               path: urlPath,
-                                                               body: requestBody)
-                    guard let responseBodyString = String(data: data, encoding: .utf8)
-                    else {
-                        throw Matrix.Error("Couldn't process /send/\(eventType) response")
-                    }
-                    try self.crypto.markRequestAsSent(requestId: requestId,
-                                                      requestType: .roomMessage,
-                                                      response: responseBodyString)
-                    
-                case .signatureUpload(requestId: let requestId, body: let body):
-                    let requestBody = body.data(using: .utf8)!
-                    let (data, response) = try await self.call(method: "POST",
-                                                               path: "/_matrix/client/\(version)/keys/signatures/upload",
-                                                               body: requestBody)
-                    guard let responseBodyString = String(data: data, encoding: .utf8)
-                    else {
-                        throw Matrix.Error("Couldn't process /keys/signatures/upload response")
-                    }
-                    try self.crypto.markRequestAsSent(requestId: requestId,
-                                                      requestType: .signatureUpload,
-                                                      response: responseBodyString)
-                } // end case request
-            } // end for request in requests
+            case .toDevice(requestId: let requestId, eventType: let eventType, body: let body):
+                let (data, response) = try await self.call(method: "PUT",
+                                                           path: "/_/matrix/client/\(version)/sendToDevice/\(eventType)/\(requestId)",
+                                                           body: body.data(using: .utf8)!)
+                guard let responseBodyString = String(data: data, encoding: .utf8)
+                else {
+                    throw Matrix.Error("Couldn't process /sendToDevice response")
+                }
+                try self.crypto.markRequestAsSent(requestId: requestId,
+                                                  requestType: .toDevice,
+                                                  response: responseBodyString)
+                
+            case .keysUpload(requestId: let requestId, body: let body):
+                let (data, response) = try await self.call(method: "PUT",
+                                                           path: "/_matrix/client/\(version)/keys/upload",
+                                                           body: body.data(using: .utf8)!)
+                guard let responseBodyString = String(data: data, encoding: .utf8)
+                else {
+                    throw Matrix.Error("Couldn't process /keys/upload response")
+                }
+                try self.crypto.markRequestAsSent(requestId: requestId,
+                                                  requestType: .keysUpload,
+                                                  response: responseBodyString)
+            
+            case .keysQuery(requestId: let requestId, users: let users):
+                // poljar says the Rust code intentionally ignores the timeout and device id's here
+                // weird but ok whatever
+                var deviceKeys: [String: [String]] = .init()
+                for user in users {
+                    deviceKeys[user] = []
+                }
+                let (data, response) = try await self.call(method: "POST",
+                                                           path: "/_matix/client/\(version)/keys/query",
+                                                           body: [
+                                                            "device_keys": deviceKeys
+                                                           ])
+                guard let responseBodyString = String(data: data, encoding: .utf8)
+                else {
+                    throw Matrix.Error("Couldn't process /keys/query response body")
+                }
+                try self.crypto.markRequestAsSent(requestId: requestId,
+                                                  requestType: .keysQuery,
+                                                  response: responseBodyString)
+                
+            case .keysClaim(requestId: let requestId, oneTimeKeys: let oneTimeKeys):
+                let (data, response) = try await self.call(method: "POST",
+                                                           path: "/_matrix/client/\(version)/keys/claim",
+                                                           body: [
+                                                            "one_time_keys": oneTimeKeys
+                                                           ])
+                guard let responseBodyString = String(data: data, encoding: .utf8)
+                else {
+                    throw Matrix.Error("Couldn't process /keys/claim response")
+                }
+                try self.crypto.markRequestAsSent(requestId: requestId,
+                                                  requestType: .keysClaim,
+                                                  response: responseBodyString)
+                
+            case .keysBackup(requestId: let requestId, version: let backupVersion, rooms: let rooms):
+                let urlPath = "/_matrix/client/\(version)/room_keys/keys?version=\(backupVersion)"
+                let requestBodyString = "{\"rooms\": \(rooms)}"
+                let requestBody = requestBodyString.data(using: .utf8)!
+                let (data, response) = try await self.call(method: "PUT",
+                                                           path: urlPath,
+                                                           body: requestBody)
+                guard let responseBodyString = String(data: data, encoding: .utf8)
+                else {
+                    throw Matrix.Error("Couldn't process /room_keys/keys response")
+                }
+                try self.crypto.markRequestAsSent(requestId: requestId,
+                                                  requestType: .keysBackup,
+                                                  response: responseBodyString)
+                
+            case .roomMessage(requestId: let requestId, roomId: let roomId, eventType: let eventType, content: let content):
+                let requestBody = content.data(using: .utf8)!
+                let urlPath = "/_matrix/client/\(version)/rooms/\(roomId)/send/\(eventType)/\(requestId)"
+                let (data, response) = try await self.call(method: "PUT",
+                                                           path: urlPath,
+                                                           body: requestBody)
+                guard let responseBodyString = String(data: data, encoding: .utf8)
+                else {
+                    throw Matrix.Error("Couldn't process /send/\(eventType) response")
+                }
+                try self.crypto.markRequestAsSent(requestId: requestId,
+                                                  requestType: .roomMessage,
+                                                  response: responseBodyString)
+                
+            case .signatureUpload(requestId: let requestId, body: let body):
+                let requestBody = body.data(using: .utf8)!
+                let (data, response) = try await self.call(method: "POST",
+                                                           path: "/_matrix/client/\(version)/keys/signatures/upload",
+                                                           body: requestBody)
+                guard let responseBodyString = String(data: data, encoding: .utf8)
+                else {
+                    throw Matrix.Error("Couldn't process /keys/signatures/upload response")
+                }
+                try self.crypto.markRequestAsSent(requestId: requestId,
+                                                  requestType: .signatureUpload,
+                                                  response: responseBodyString)
+            } // end case request
         } // end sendCryptoRequests()
     
     } // end class Session

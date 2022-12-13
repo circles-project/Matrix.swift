@@ -9,6 +9,14 @@ import Foundation
 
 extension Matrix {
     class Room: ObservableObject {
+        
+        enum HistoryVisibility: String, Codable {
+            case worldReadable = "world_readable"
+            case shared
+            case invited
+            case joined
+        }
+        
         let roomId: RoomId
         let session: Session
         
@@ -208,6 +216,15 @@ extension Matrix {
                 } // end switch event.type
                 
             } // end func updateState()
+        }
+        
+        var historyVisibility: HistoryVisibility {
+            guard let historyVisibilityEvent = self.stateEventsCache[.mRoomHistoryVisibility]?.last,
+                  let content = historyVisibilityEvent.content as? HistoryVisibilityContent
+            else {
+                return .shared
+            }
+            return content.historyVisibility
         }
         
         func setDisplayName(newName: String) async throws {
