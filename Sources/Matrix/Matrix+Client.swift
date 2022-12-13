@@ -527,6 +527,16 @@ class Client {
                           type: Matrix.EventType,
                           content: Codable
     ) async throws -> EventId {
+        let encoder = JSONEncoder()
+        let binaryContent = try encoder.encode(content)
+        return try await self.sendMessageEvent(to: roomId, type: type, content: binaryContent)
+    }
+        
+    // https://spec.matrix.org/v1.5/client-server-api/#put_matrixclientv3roomsroomidsendeventtypetxnid
+    func sendMessageEvent(to roomId: RoomId,
+                          type: Matrix.EventType,
+                          content: Data
+    ) async throws -> EventId {
         print("SENDMESSAGE\tSending message event of type [\(type.rawValue)] to room [\(roomId)]")
 
         let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
