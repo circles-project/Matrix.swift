@@ -146,12 +146,11 @@ extension Matrix {
             var changed: [UserId]?
             var left: [UserId]?
         }
-        
-        typealias OneTimeKeysCount = [String : Int]
-        
+                
         var accountData: AccountData?
         var deviceLists: DeviceLists?
-        var deviceOneTimeKeysCount: OneTimeKeysCount?
+        var deviceOneTimeKeysCount: [String: Int32]?
+        var deviceUnusedFallbackKeyTypes: [String]
         var nextBatch: String
         var presence: Presence?
         var rooms: Rooms?
@@ -161,6 +160,7 @@ extension Matrix {
             case accountData = "account_data"
             case deviceLists = "device_lists"
             case deviceOneTimeKeysCount = "device_one_time_keys_count"
+            case deviceUnusedFallbackKeyTypes = "device_unused_fallback_key_types"
             case nextBatch = "next_batch"
             case presence
             case rooms
@@ -178,7 +178,10 @@ extension Matrix {
             self.deviceLists = try container.decodeIfPresent(DeviceLists.self, forKey: .deviceLists)
             
             print("\tDevice one-time keys count")
-            self.deviceOneTimeKeysCount = try container.decodeIfPresent(OneTimeKeysCount.self, forKey: .deviceOneTimeKeysCount)
+            self.deviceOneTimeKeysCount = try container.decodeIfPresent([String:Int32].self, forKey: .deviceOneTimeKeysCount)
+            
+            print("\tDevice unused fallback keys")
+            self.deviceUnusedFallbackKeyTypes = try container.decode([String].self, forKey: .deviceUnusedFallbackKeyTypes)
             
             print("\tNext batch")
             self.nextBatch = try container.decode(String.self, forKey: .nextBatch)

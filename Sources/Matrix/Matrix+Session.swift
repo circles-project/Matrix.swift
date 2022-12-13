@@ -115,6 +115,9 @@ extension Matrix {
                 
                 // Process the sync response, updating local state
                 
+                // Send updates to the Rust crypto module
+                try self.updateCryptoAfterSync(responseBody: responseBody)
+                
                 // Handle invites
                 print("/sync:\tHandling invites")
                 if let invitedRoomsDict = responseBody.rooms?.invite {
@@ -212,13 +215,39 @@ extension Matrix {
                 self.syncRequestTask = nil
                 return responseBody.nextBatch
             
-            }
+            } // end sync Task block
             
             guard let task = syncRequestTask else {
                 print("Error: /sync Failed to launch sync request task")
                 return nil
             }
             return try await task.value
+        }
+        
+        private func updateCryptoAfterSync(responseBody: SyncResponseBody) throws {
+            var eventsString = "[]"
+            if let toDevice = responseBody.toDevice {
+                let events = toDevice.events
+                let encoder = JSONEncoder()
+                let eventsData = try encoder.encode(events)
+                eventsString = String(data: eventsData, encoding: .utf8)!
+            }
+            var deviceLists = MatrixSDKCrypto.DeviceLists(changed: [],left: [])
+            // Ugh we have to translate back to raw String's
+            if let changed = responseBody.deviceLists?.changed {
+                deviceLists.changed = changed.map {
+                    $0.description
+                }
+            }
+            if let left = responseBody.deviceLists?.left {
+                deviceLists.left = left.map {
+                    $0.description
+                }
+            }
+            let result = try self.crypto.receiveSyncChanges(events: eventsString,
+                                                            deviceChanges: deviceLists,
+                                                            keyCounts: responseBody.deviceOneTimeKeysCount ?? [:],
+                                                            unusedFallbackKeys: responseBody.deviceUnusedFallbackKeyTypes)
         }
 
         // MARK: Session state management
