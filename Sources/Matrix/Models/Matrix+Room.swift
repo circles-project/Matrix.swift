@@ -252,31 +252,21 @@ extension Matrix {
         }
         
         func sendText(text: String) async throws -> EventId {
-            if !self.isEncrypted {
-                let content = mTextContent(msgtype: .text, body: text)
-                return try await self.session.sendMessageEvent(to: self.roomId, type: .mRoomMessage, content: content)
-            }
-            else {
-                throw Matrix.Error("Not implemented")
-            }
+            let content = mTextContent(msgtype: .text, body: text)
+            return try await self.session.sendMessageEvent(to: self.roomId, type: .mRoomMessage, content: content)
         }
         
         func sendImage(image: NativeImage) async throws -> EventId {
-            if !self.isEncrypted {
-                guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
-                    throw Matrix.Error("Couldn't create JPEG for image")
-                }
-                let mxc = try await self.session.uploadData(data: jpegData, contentType: "image/jpeg")
-                let info = mImageInfo(h: Int(image.size.height),
-                                      w: Int(image.size.width),
-                                      mimetype: "image/jpeg",
-                                      size: jpegData.count)
-                let content = mImageContent(msgtype: .image, body: "\(mxc.mediaId).jpeg", info: info)
-                return try await self.session.sendMessageEvent(to: self.roomId, type: .mRoomMessage, content: content)
+            guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
+                throw Matrix.Error("Couldn't create JPEG for image")
             }
-            else {
-                throw Matrix.Error("Not implemented")
-            }
+            let mxc = try await self.session.uploadData(data: jpegData, contentType: "image/jpeg")
+            let info = mImageInfo(h: Int(image.size.height),
+                                  w: Int(image.size.width),
+                                  mimetype: "image/jpeg",
+                                  size: jpegData.count)
+            let content = mImageContent(msgtype: .image, body: "\(mxc.mediaId).jpeg", info: info)
+            return try await self.session.sendMessageEvent(to: self.roomId, type: .mRoomMessage, content: content)
         }
         
         func sendVideo(fileUrl: URL, thumbnail: NativeImage?) async throws -> EventId {
@@ -284,15 +274,10 @@ extension Matrix {
         }
         
         func sendReply(to eventId: EventId, text: String) async throws -> EventId {
-            if !self.isEncrypted {
-                let content = mTextContent(msgtype: .text,
-                                           body: text,
-                                           relates_to: mRelatesTo(in_reply_to: .init(event_id: eventId)))
-                return try await self.session.sendMessageEvent(to: self.roomId, type: .mRoomMessage, content: content)
-            }
-            else {
-                throw Matrix.Error("Not implemented")
-            }
+            let content = mTextContent(msgtype: .text,
+                                       body: text,
+                                       relates_to: mRelatesTo(in_reply_to: .init(event_id: eventId)))
+            return try await self.session.sendMessageEvent(to: self.roomId, type: .mRoomMessage, content: content)
         }
         
         func redact(eventId: EventId, reason: String?) async throws -> EventId {
@@ -304,7 +289,6 @@ extension Matrix {
         }
         
         func sendReaction(_ reaction: String, to eventId: EventId) async throws -> EventId {
-            // FIXME: What about encryption?
             let content = ReactionContent(eventId: eventId, reaction: reaction)
             return try await self.session.sendMessageEvent(to: self.roomId, type: .mReaction, content: content)
         }
