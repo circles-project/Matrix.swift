@@ -221,6 +221,7 @@ extension Matrix {
             return try await task.value
         }
 
+        // MARK: Session state management
         
         func pause() async throws {
             // pause() doesn't actually make any API calls
@@ -244,6 +245,36 @@ extension Matrix {
         
         func whoAmI() async throws -> UserId {
             return self.creds.userId
+        }
+        
+        // MARK: Sending messages
+        
+        override func sendMessageEvent(to roomId: RoomId,
+                                       type: Matrix.EventType,
+                                       content: Codable
+        ) async throws -> EventId {
+            // First, do we know about this room at all?
+            guard let room = self.rooms[roomId]
+            else {
+                throw Matrix.Error("Unkown room [\(roomId)]")
+            }
+            
+            if !room.isEncrypted {
+                return try await super.sendMessageEvent(to: roomId,
+                                                        type: type,
+                                                        content: content)
+            }
+            
+            let encoder = JSONEncoder()
+            let binaryContent = try encoder.encode(content)
+            let stringContent = String(data: binaryContent, encoding: .utf8)!
+            let encryptedString = try self.crypto.encrypt(roomId: roomId.description,
+                                                          eventType: type.rawValue,
+                                                          content: stringContent)
+            let encryptedData = encryptedString.data(using: .utf8)!
+            return try await super.sendMessageEvent(to: roomId,
+                                                    type: .mEncrypted,
+                                                    content: encryptedData)
         }
         
         // MARK: Encrypted Media
