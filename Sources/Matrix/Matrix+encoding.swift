@@ -55,6 +55,13 @@ extension Matrix {
             }
             try container.encode(powerlevelsContent, forKey: .content)
             
+            
+        case .mReaction:
+            guard let reactionContent = content as? ReactionContent else {
+                throw Matrix.Error("Couldn't convert content")
+            }
+            try container.encode(reactionContent, forKey: .content)
+            
         case .mRoomMessage:
             guard let messageContent = content as? Matrix.MessageContent else {
                 throw Matrix.Error("Couldn't convert content")
