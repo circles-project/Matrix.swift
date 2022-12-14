@@ -160,20 +160,7 @@ extension Matrix {
                         print("\tUpdating crypto state with \(newUsers.count) potentially-new users")
                         crypto.updateTrackedUsers(users: newUsers)
                         
-                        let messages: [ClientEventWithoutRoomId] = info.timeline?.events.compactMap { event in
-                            switch event.type {
-                            case .mEncrypted:
-                                // Try to decrypt any encrypted events in the timeline
-                                let maybeDecrypted = try? self.decryptMessageEvent(event: event, in: roomId)
-                                // But if we failed to decrypt, keep the encrypted event around
-                                // Maybe we didn't get the key the first time around
-                                // We can always ask for it later
-                                return maybeDecrypted ?? event
-                            default:
-                                // Keep everything else as-is for now
-                                return event
-                            }
-                        } ?? []
+                        let messages = try self.tryToDecryptEvents(events: info.timeline?.events ?? [], in: roomId)
                         
                         if let room = self.rooms[roomId] {
                             print("\tWe know this room already")
@@ -475,9 +462,41 @@ extension Matrix {
             return Data(decryptedBytes)
         }
         
+        // MARK: Fetching Messages
+        
+        override func getMessages(roomId: RoomId,
+                                  forward: Bool = false,
+                                  from token: String? = nil,
+                                  limit: Int? = 25
+        ) async throws -> [ClientEventWithoutRoomId] {
+            let events = try await super.getMessages(roomId: roomId, forward: forward, from: token, limit: limit)
+            return try self.tryToDecryptEvents(events: events, in: roomId)
+        }
+        
         // MARK: Decrypting Messsages
         
-        private func decryptMessageEvent(event: ClientEventWithoutRoomId, in roomId: RoomId) throws -> ClientEventWithoutRoomId {
+        private func tryToDecryptEvents(events: [ClientEventWithoutRoomId],
+                                        in roomId: RoomId
+        ) -> [ClientEventWithoutRoomId] {
+            events.compactMap { event in
+                switch event.type {
+                case .mEncrypted:
+                    // Try to decrypt any encrypted events in the timeline
+                    let maybeDecrypted = try? self.decryptMessageEvent(event: event, in: roomId)
+                    // But if we failed to decrypt, keep the encrypted event around
+                    // Maybe we didn't get the key the first time around
+                    // We can always ask for it later
+                    return maybeDecrypted ?? event
+                default:
+                    // Keep everything else as-is for now
+                    return event
+                }
+            }
+        }
+        
+        private func decryptMessageEvent(event: ClientEventWithoutRoomId,
+                                         in roomId: RoomId
+        ) throws -> ClientEventWithoutRoomId {
             let encoder = JSONEncoder()
             let eventData = try encoder.encode(event)
             let eventString = String(data: eventData, encoding: .utf8)!
