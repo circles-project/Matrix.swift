@@ -140,19 +140,49 @@ extension Matrix {
                 if let joinedRoomsDict = responseBody.rooms?.join {
                     for (roomId, info) in joinedRoomsDict {
                         print("/sync:\tFound joined room \(roomId)")
-                        let messages = info.timeline?.events.filter {
-                            $0.type == .mRoomMessage // FIXME: Encryption
+                        
+                        let stateEvents = info.state?.events ?? []
+                        
+                        // Update the crypto module about any new users
+                        let newUsers = stateEvents.filter {
+                            // Find all of the room member events that represent a joined member of the room
+                            guard $0.type == .mRoomMember,
+                                  let content = $0.content as? RoomMemberContent,
+                                  content.membership == .join
+                            else {
+                                return false
+                            }
+                            return true
+                        }.compactMap {
+                            // The member event's state key is the id of the given user
+                            $0.stateKey
                         }
-                        let stateEvents = info.state?.events
-
+                        print("\tUpdating crypto state with \(newUsers.count) potentially-new users")
+                        crypto.updateTrackedUsers(users: newUsers)
+                        
+                        let messages: [ClientEventWithoutRoomId] = info.timeline?.events.compactMap { event in
+                            switch event.type {
+                            case .mEncrypted:
+                                // Try to decrypt any encrypted events in the timeline
+                                let maybeDecrypted = try? self.decryptMessageEvent(event: event, in: roomId)
+                                // But if we failed to decrypt, keep the encrypted event around
+                                // Maybe we didn't get the key the first time around
+                                // We can always ask for it later
+                                return maybeDecrypted ?? event
+                            default:
+                                // Keep everything else as-is for now
+                                return event
+                            }
+                        } ?? []
+                        
                         if let room = self.rooms[roomId] {
                             print("\tWe know this room already")
-                            print("\t\(stateEvents?.count ?? 0) new state events")
-                            print("\t\(messages?.count ?? 0) new messages")
+                            print("\t\(stateEvents.count) new state events")
+                            print("\t\(messages.count) new messages")
 
                             // Update the room with the latest data from `info`
-                            room.updateState(from: stateEvents ?? [])
-                            room.messages.formUnion(messages ?? [])
+                            room.updateState(from: stateEvents)
+                            room.messages.formUnion(messages)
                             
                             if let unread = info.unreadNotifications {
                                 print("\t\(unread.notificationCount) notifications")
@@ -167,15 +197,15 @@ extension Matrix {
                             // Create the new Room object.  Also, remove the room id from the invites.
                             invitations.removeValue(forKey: roomId)
                             
-                            guard let initialStateEvents = stateEvents
+                            guard stateEvents.count > 0
                             else {
                                 print("Can't create a new room with no initial state (room id = \(roomId))")
                                 continue
                             }
-                            print("\t\(initialStateEvents.count) initial state events")
-                            print("\t\(messages?.count ?? 0) initial messages")
+                            print("\t\(stateEvents.count) initial state events")
+                            print("\t\(messages.count) initial messages")
                             
-                            guard let room = try? Room(roomId: roomId, session: self, initialState: initialStateEvents, initialMessages: messages ?? [])
+                            guard let room = try? Room(roomId: roomId, session: self, initialState: stateEvents, initialMessages: messages)
                             else {
                                 print("Failed to create room \(roomId)")
                                 continue
@@ -443,6 +473,22 @@ extension Matrix {
             }
             
             return Data(decryptedBytes)
+        }
+        
+        // MARK: Decrypting Messsages
+        
+        private func decryptMessageEvent(event: ClientEventWithoutRoomId, in roomId: RoomId) throws -> ClientEventWithoutRoomId {
+            let encoder = JSONEncoder()
+            let eventData = try encoder.encode(event)
+            let eventString = String(data: eventData, encoding: .utf8)!
+            let decryptedStruct = try crypto.decryptRoomEvent(event: eventString,
+                                                              roomId: roomId.description)
+            let decryptedString = decryptedStruct.clearEvent
+            
+            let decoder = JSONDecoder()
+            let decryptedClientEvent = try decoder.decode(ClientEventWithoutRoomId.self,
+                                                          from: decryptedString.data(using: .utf8)!)
+            return decryptedClientEvent
         }
         
         // MARK: Crypto Requests
