@@ -709,34 +709,34 @@ class Client {
     // so we no longer have to call /sync before fetching messages.
     func getMessages(roomId: RoomId,
                          forward: Bool = false,
-                         from: String? = nil,
+                         from token: String? = nil,
                          limit: Int? = 25
-    ) async throws -> [ClientEvent] {
-        let path = "/_matrix/client/\(version)/rooms/\(roomId)/messages"
-        struct RequestBody: Codable {
-            enum Direction: String, Codable {
-                case forward = "f"
-                case backward = "b"
-            }
-            var dir: Direction
-            var filter: String?
-            var from: String?
-            var limit: Int?
-            var to: String?
+    ) async throws -> [ClientEventWithoutRoomId] {
+        enum Direction: String, Codable {
+            case forward = "f"
+            case backward = "b"
         }
-        let body = RequestBody(dir: forward ? .forward : .backward, from: from, limit: limit)
-        let (data, response) = try await call(method: "GET", path: path, body: body)
+        var dir: Direction = forward ? .forward : .backward
+        
+        var path = "/_matrix/client/\(version)/rooms/\(roomId)/messages?dir=\(dir)"
+        if let tok = token {
+            path += "&from=\(tok)"
+        }
+        if let lim = limit {
+            path += "&limit=\(lim)"
+        }
+        // FIXME: We don't support the `to` argument at this time
+        
+        let (data, response) = try await call(method: "GET", path: path)
         
         struct ResponseBody: Codable {
-            var chunk: [ClientEvent]
+            var chunk: [ClientEventWithoutRoomId]
             var end: String?
             var start: String
             var state: [ClientEvent]?
         }
         
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        
         let responseBody = try decoder.decode(ResponseBody.self, from: data)
         
         return responseBody.chunk
