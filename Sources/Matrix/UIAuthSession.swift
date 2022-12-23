@@ -296,18 +296,26 @@ class UIAuthSession: UIASession, ObservableObject {
         let stringResponse = String(data: data, encoding: .utf8)!
         print(stringResponse)
         
-        guard let httpResponse = response as? HTTPURLResponse,
-          [200,401].contains(httpResponse.statusCode)
+        guard let httpResponse = response as? HTTPURLResponse
+        else {
+            let msg = "Couldn't decode UI auth stage response"
+            print("\(tag)\tError: \(msg)")
+            throw Matrix.Error(msg)
+        }
+        
+        guard [200,401].contains(httpResponse.statusCode)
         else {
             let msg = "UI auth stage failed"
             print("\(tag)\tError: \(msg)")
+            print("\(tag)\tStatus Code: \(httpResponse.statusCode)")
+            print("\(tag)\tRaw response: \(stringResponse)")
             throw Matrix.Error(msg)
         }
         
         if httpResponse.statusCode == 200 {
             print("\(tag)\tAll done!")
             let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            
             guard let newCreds = try? decoder.decode(Matrix.Credentials.self, from: data)
             else {
                 let msg = "Couldn't decode Matrix credentials"
@@ -389,6 +397,7 @@ class UIAuthSession: UIASession, ObservableObject {
         let bss = try BlindSaltSpeke.ClientSession(clientId: "\(userId)", serverId: userId.domain, password: password)
         let blind = bss.generateBlind()
         let args: [String: String] = [
+            "type": stage,
             "blind": Data(blind).base64EncodedString(),
             "curve": "curve25519",
         ]
@@ -432,6 +441,10 @@ class UIAuthSession: UIASession, ObservableObject {
         }
         let blocks = [100_000, oprfParams.phfParams.blocks].max()!
         let iterations = [3, oprfParams.phfParams.iterations].max()!
+        let phfParams = BSSpekeOprfParams.PHFParams(name: "argon2i",
+                                                    iterations: iterations,
+                                                    blocks: blocks)
+
         guard let (P,V) = try? bss.generatePandV(blindSalt: blindSalt, phfBlocks: UInt32(blocks), phfIterations: UInt32(iterations))
         else {
             let msg = "Failed to generate public key"
@@ -439,10 +452,11 @@ class UIAuthSession: UIASession, ObservableObject {
             throw Matrix.Error(msg)
         }
         
-        let args: [String: String] = [
+        let args: [String: Codable] = [
             "type": stage,
             "P": Data(P).base64EncodedString(),
             "V": Data(V).base64EncodedString(),
+            "phf_params": phfParams,
         ]
         try await doUIAuthStage(auth: args)
     }
