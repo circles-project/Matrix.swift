@@ -434,9 +434,9 @@ class UIAuthSession: UIASession, ObservableObject {
         }
         let blocks = [100_000, oprfParams.phfParams.blocks].max()!
         let iterations = [3, oprfParams.phfParams.iterations].max()!
-        
-        let encoder = JSONEncoder()
-        let phfParams = (try JSONSerialization.jsonObject(with: try encoder.encode(oprfParams.phfParams))) as? [String: Any] ?? [:]
+        let phfParams = BSSpekeOprfParams.PHFParams(name: "argon2i",
+                                                    iterations: iterations,
+                                                    blocks: blocks)
 
         guard let (P,V) = try? bss.generatePandV(blindSalt: blindSalt, phfBlocks: UInt32(blocks), phfIterations: UInt32(iterations))
         else {
@@ -449,7 +449,7 @@ class UIAuthSession: UIASession, ObservableObject {
             "type": stage,
             "P": Data(P).base64EncodedString(),
             "V": Data(V).base64EncodedString(),
-            "phf_params": AnyCodable(phfParams),
+            "phf_params": phfParams,
         ]
         try await doUIAuthStage(auth: args)
     }
