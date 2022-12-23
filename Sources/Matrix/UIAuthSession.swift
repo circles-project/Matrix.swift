@@ -300,6 +300,7 @@ class UIAuthSession: UIASession, ObservableObject {
           [200,401].contains(httpResponse.statusCode)
         else {
             let msg = "UI auth stage failed"
+            print("\(tag)\tStatus Code: \(String(describing: (response as? HTTPURLResponse)?.statusCode))")
             print("\(tag)\tError: \(msg)")
             throw Matrix.Error(msg)
         }
@@ -307,7 +308,7 @@ class UIAuthSession: UIASession, ObservableObject {
         if httpResponse.statusCode == 200 {
             print("\(tag)\tAll done!")
             let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            
             guard let newCreds = try? decoder.decode(Matrix.Credentials.self, from: data)
             else {
                 let msg = "Couldn't decode Matrix credentials"
@@ -389,6 +390,7 @@ class UIAuthSession: UIASession, ObservableObject {
         let bss = try BlindSaltSpeke.ClientSession(clientId: "\(userId)", serverId: userId.domain, password: password)
         let blind = bss.generateBlind()
         let args: [String: String] = [
+            "type": stage,
             "blind": Data(blind).base64EncodedString(),
             "curve": "curve25519",
         ]
@@ -432,6 +434,10 @@ class UIAuthSession: UIASession, ObservableObject {
         }
         let blocks = [100_000, oprfParams.phfParams.blocks].max()!
         let iterations = [3, oprfParams.phfParams.iterations].max()!
+        
+        let encoder = JSONEncoder()
+        let phfParams = (try JSONSerialization.jsonObject(with: try encoder.encode(oprfParams.phfParams))) as? [String: Any] ?? [:]
+
         guard let (P,V) = try? bss.generatePandV(blindSalt: blindSalt, phfBlocks: UInt32(blocks), phfIterations: UInt32(iterations))
         else {
             let msg = "Failed to generate public key"
@@ -439,10 +445,11 @@ class UIAuthSession: UIASession, ObservableObject {
             throw Matrix.Error(msg)
         }
         
-        let args: [String: String] = [
+        let args: [String: Codable] = [
             "type": stage,
             "P": Data(P).base64EncodedString(),
             "V": Data(V).base64EncodedString(),
+            "phf_params": AnyCodable(phfParams),
         ]
         try await doUIAuthStage(auth: args)
     }
