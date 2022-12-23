@@ -296,12 +296,19 @@ class UIAuthSession: UIASession, ObservableObject {
         let stringResponse = String(data: data, encoding: .utf8)!
         print(stringResponse)
         
-        guard let httpResponse = response as? HTTPURLResponse,
-          [200,401].contains(httpResponse.statusCode)
+        guard let httpResponse = response as? HTTPURLResponse
+        else {
+            let msg = "Couldn't decode UI auth stage response"
+            print("\(tag)\tError: \(msg)")
+            throw Matrix.Error(msg)
+        }
+        
+        guard [200,401].contains(httpResponse.statusCode)
         else {
             let msg = "UI auth stage failed"
-            print("\(tag)\tStatus Code: \(String(describing: (response as? HTTPURLResponse)?.statusCode))")
             print("\(tag)\tError: \(msg)")
+            print("\(tag)\tStatus Code: \(httpResponse.statusCode)")
+            print("\(tag)\tRaw response: \(stringResponse)")
             throw Matrix.Error(msg)
         }
         
