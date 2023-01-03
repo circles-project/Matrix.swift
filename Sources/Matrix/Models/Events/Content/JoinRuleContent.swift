@@ -7,6 +7,7 @@
 
 import Foundation
 
+/// m.room.join_rules: https://spec.matrix.org/v1.5/client-server-api/#mroomjoin_rules
 struct JoinRuleContent: Codable {
     struct AllowCondition: Codable {
         let roomId: RoomId
@@ -23,6 +24,11 @@ struct JoinRuleContent: Codable {
         case restricted
     }
     
-    let allow: [AllowCondition]
+    let allow: [AllowCondition]?
     let joinRule: JoinRule
+    
+    enum CodingKeys: String, CodingKey {
+        case allow
+        case joinRule = "join_rule"
+    }
 }

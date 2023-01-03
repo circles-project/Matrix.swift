@@ -48,7 +48,7 @@ struct UserId: LosslessStringConvertible, Codable, Equatable, Hashable {
         let userId = try String(from: decoder)
         guard let me: UserId = .init(userId)
         else {
-            let msg = "Invalid user id"
+            let msg = "Invalid user id: \(userId)"
             throw Matrix.Error(msg)
         }
         self = me
