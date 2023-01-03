@@ -10,12 +10,7 @@ import Foundation
 extension Matrix {
     class Room: ObservableObject {
         
-        enum HistoryVisibility: String, Codable {
-            case worldReadable = "world_readable"
-            case shared
-            case invited
-            case joined
-        }
+        typealias HistoryVisibility = RoomHistoryVisibilityContent.HistoryVisibility
         
         let roomId: RoomId
         let session: Session
@@ -220,7 +215,7 @@ extension Matrix {
         
         var historyVisibility: HistoryVisibility {
             guard let historyVisibilityEvent = self.stateEventsCache[.mRoomHistoryVisibility]?.last,
-                  let content = historyVisibilityEvent.content as? HistoryVisibilityContent
+                  let content = historyVisibilityEvent.content as? RoomHistoryVisibilityContent
             else {
                 return .shared
             }

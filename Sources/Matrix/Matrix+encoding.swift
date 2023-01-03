@@ -129,12 +129,6 @@ extension Matrix {
             }
             try container.encode(encryptedContent, forKey: .content)
             
-        case .mRoomHistoryVisibility:
-            guard let historyVisibilityContent = content as? HistoryVisibilityContent else {
-                throw Matrix.Error("Couldn't convert content")
-            }
-            try container.encode(historyVisibilityContent, forKey: .content)
-            
         case .mRoomName:
             guard let roomNameContent = content as? RoomNameContent else {
                 throw Matrix.Error("Couldn't convert content")

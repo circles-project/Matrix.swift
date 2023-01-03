@@ -76,10 +76,6 @@ extension Matrix {
             let content = try container.decode(EncryptedEventContent.self, forKey: .content)
             return content
             
-        case .mRoomHistoryVisibility:
-            let content = try container.decode(HistoryVisibilityContent.self, forKey: .content)
-            return content
-            
         case .mSpaceChild:
             let content = try container.decode(SpaceChildContent.self, forKey: .content)
             return content
