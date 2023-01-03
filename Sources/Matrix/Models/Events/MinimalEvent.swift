@@ -24,14 +24,16 @@ struct MinimalEvent: Matrix.Event {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.type = try container.decode(Matrix.EventType.self, forKey: .type)
-        self.sender = try? container.decode(UserId.self, forKey: .sender)
+        self.sender = try container.decodeIfPresent(UserId.self, forKey: .sender)
         self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         
-        try container.encode(type, forKey: .sender)
+        if let senderUserId = sender {
+            try container.encode(senderUserId, forKey: .sender)
+        }
         try container.encode(type, forKey: .type)
         try Matrix.encodeEventContent(content: content, of: type, to: encoder)
     }

@@ -13,7 +13,7 @@ struct RoomHistoryVisibilityContent: Codable {
         case invited
         case joined
         case shared
-        case world_readable
+        case worldReadable = "world_readable"
     }
     
     var historyVisibility: HistoryVisibility
