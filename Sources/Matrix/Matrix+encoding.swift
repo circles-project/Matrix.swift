@@ -140,6 +140,36 @@ extension Matrix {
                 throw Matrix.Error("Couldn't convert content")
             }
             try container.encode(roomTopicContent, forKey: .content)
+
+        case .mPresence:
+            guard let presenceContent = content as? PresenceContent else {
+                throw Matrix.Error("Couldn't convert content")
+            }
+            try container.encode(presenceContent, forKey: .content)
+        
+        case .mTyping:
+            guard let typingContent = content as? TypingContent else {
+                throw Matrix.Error("Couldn't convert content")
+            }
+            try container.encode(typingContent, forKey: .content)
+            
+        case .mReceipt:
+            guard let receiptContent = content as? ReceiptContent else {
+                throw Matrix.Error("Couldn't convert content")
+            }
+            try container.encode(receiptContent, forKey: .content)
+            
+        case .mRoomHistoryVisibility:
+            guard let roomHistoryVisibilityContent = content as? RoomHistoryVisibilityContent else {
+                throw Matrix.Error("Couldn't convert content")
+            }
+            try container.encode(roomHistoryVisibilityContent, forKey: .content)
+      
+        case .mRoomGuestAccess:
+            guard let roomGuestAccessContent = content as? RoomGuestAccessContent else {
+                throw Matrix.Error("Couldn't convert content")
+            }
+            try container.encode(roomGuestAccessContent, forKey: .content)
             
         case .mRoomTombstone:
             guard let roomTombstoneContent = content as? RoomTombstoneContent else {

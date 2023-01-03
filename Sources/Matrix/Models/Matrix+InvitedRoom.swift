@@ -49,9 +49,9 @@ extension Matrix {
                 throw Matrix.Error("No creation event for invited room")
             }
             self.type = createContent.type
-            self.version = createContent.roomVersion
+            self.version = createContent.roomVersion ?? "1"
             self.creator = createEvent.sender
-            self.predecessorRoomId = createContent.predecessor.roomId
+            self.predecessorRoomId = createContent.predecessor?.roomId
             
             // Need to parse the room member events to see who invited us
             guard let myInviteEvent = stateEventsCache[.mRoomMember]?

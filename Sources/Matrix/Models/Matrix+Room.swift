@@ -59,8 +59,8 @@ extension Matrix {
                 throw Matrix.Error("No m.room.create event")
             }
             self.type = creationContent.type
-            self.version = creationContent.roomVersion
-            self.predecessorRoomId = creationContent.predecessor.roomId
+            self.version = creationContent.roomVersion ?? "1"
+            self.predecessorRoomId = creationContent.predecessor?.roomId
             
             if let tombstoneEvent = stateEventsCache[.mRoomTombstone]?.last,
                let tombstoneContent = tombstoneEvent.content as? RoomTombstoneContent
