@@ -139,7 +139,6 @@ enum _MatrixEventType: String, Codable {
     case mReaction = "m.reaction"
     case mRoomEncryption = "m.room.encryption"
     case mEncrypted = "m.encrypted"
-    case mRoomHistoryVisibility = "m.room.history_visibility"
     case mRoomTombstone = "m.room.tombstone"
     
     case mRoomName = "m.room.name"
