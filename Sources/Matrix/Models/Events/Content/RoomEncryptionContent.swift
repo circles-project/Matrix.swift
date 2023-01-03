@@ -7,6 +7,7 @@
 
 import Foundation
 
+/// m.room.encryption: https://spec.matrix.org/v1.5/client-server-api/#mroomencryption
 struct RoomEncryptionContent: Codable {
     enum Algorithm: String, Codable {
         case megolmV1AesSha2 = "m.megolm.v1.aes-sha2"
@@ -19,5 +20,11 @@ struct RoomEncryptionContent: Codable {
         algorithm = .megolmV1AesSha2
         rotationPeriodMs = 604800000  // FIXME: Does it really make sense to rotate this frequently?  We're just going to store all the keys on the server anyway, protected by a single symmetric backup key.  WTF?
         rotationPeriodMsgs = 100
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case algorithm
+        case rotationPeriodMs = "rotation_period_ms"
+        case rotationPeriodMsgs = "rotation_period_msgs"
     }
 }

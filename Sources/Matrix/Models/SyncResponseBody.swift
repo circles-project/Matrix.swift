@@ -104,6 +104,7 @@ extension Matrix {
             var summary: RoomSummary?
             var timeline: Timeline?
             var unreadNotifications: UnreadNotificationCounts?
+            var unreadThreadNotifications: [EventId: UnreadNotificationCounts]?
             
             enum CodingKeys: String, CodingKey {
                 case accountData = "account_data"
@@ -112,6 +113,7 @@ extension Matrix {
                 case summary
                 case timeline
                 case unreadNotifications = "unread_notifications"
+                case unreadThreadNotifications = "unread_thread_notifications"
             }
         }
         
@@ -195,5 +197,87 @@ extension Matrix {
             print("\tTo-Device")
             self.toDevice = try container.decodeIfPresent(ToDevice.self, forKey: .toDevice)
         }
+    }
+}
+
+extension KeyedDecodingContainer {
+    func decodeIfPresent(_ type: Dictionary<RoomId, Matrix.SyncResponseBody.InvitedRoomSyncInfo>.Type, forKey key: K)
+    throws -> Dictionary<RoomId, Matrix.SyncResponseBody.InvitedRoomSyncInfo>? {
+        guard self.contains(key) else {
+            return nil
+        }
+        
+        var inviteDictionary = [RoomId: Matrix.SyncResponseBody.InvitedRoomSyncInfo]()
+        let inviteJSON = try self.decode([String: Matrix.SyncResponseBody.InvitedRoomSyncInfo].self, forKey: key)
+        
+        for (k, v) in inviteJSON {
+            guard let roomId = RoomId(k) else {
+                return nil
+            }
+            
+            inviteDictionary[roomId] = v
+        }
+
+        return inviteDictionary
+    }
+    
+    func decodeIfPresent(_ type: Dictionary<RoomId, Matrix.SyncResponseBody.KnockedRoomSyncInfo>.Type, forKey key: K)
+    throws -> Dictionary<RoomId, Matrix.SyncResponseBody.KnockedRoomSyncInfo>? {
+        guard self.contains(key) else {
+            return nil
+        }
+        
+        var knockedDictionary = [RoomId: Matrix.SyncResponseBody.KnockedRoomSyncInfo]()
+        let knockedJSON = try self.decode([String: Matrix.SyncResponseBody.KnockedRoomSyncInfo].self, forKey: key)
+        
+        for (k, v) in knockedJSON {
+            guard let roomId = RoomId(k) else {
+                return nil
+            }
+            
+            knockedDictionary[roomId] = v
+        }
+
+        return knockedDictionary
+    }
+    
+    func decodeIfPresent(_ type: Dictionary<RoomId, Matrix.SyncResponseBody.LeftRoomSyncInfo>.Type, forKey key: K)
+    throws -> Dictionary<RoomId, Matrix.SyncResponseBody.LeftRoomSyncInfo>? {
+        guard self.contains(key) else {
+            return nil
+        }
+        
+        var leftDictionary = [RoomId: Matrix.SyncResponseBody.LeftRoomSyncInfo]()
+        let leftJSON = try self.decode([String: Matrix.SyncResponseBody.LeftRoomSyncInfo].self, forKey: key)
+        
+        for (k, v) in leftJSON {
+            guard let roomId = RoomId(k) else {
+                return nil
+            }
+            
+            leftDictionary[roomId] = v
+        }
+
+        return leftDictionary
+    }
+    
+    func decodeIfPresent(_ type: Dictionary<RoomId, Matrix.SyncResponseBody.JoinedRoomSyncInfo>.Type, forKey key: K)
+    throws -> Dictionary<RoomId, Matrix.SyncResponseBody.JoinedRoomSyncInfo>? {
+        guard self.contains(key) else {
+            return nil
+        }
+        
+        var joinedDictionary = [RoomId: Matrix.SyncResponseBody.JoinedRoomSyncInfo]()
+        let joinedJSON = try self.decode([String: Matrix.SyncResponseBody.JoinedRoomSyncInfo].self, forKey: key)
+        
+        for (k, v) in joinedJSON {
+            guard let roomId = RoomId(k) else {
+                return nil
+            }
+            
+            joinedDictionary[roomId] = v
+        }
+
+        return joinedDictionary
     }
 }

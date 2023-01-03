@@ -39,6 +39,27 @@ extension Matrix {
         case .mRoomTopic:
             let content = try container.decode(RoomTopicContent.self, forKey: .content)
             return content
+        
+        case .mPresence:
+            let content = try container.decode(PresenceContent.self, forKey: .content)
+            return content
+        
+        case .mTyping:
+            let content = try container.decode(TypingContent.self, forKey: .content)
+            return content
+            
+        case .mReceipt:
+            let content = try container.decode(ReceiptContent.self, forKey: .content)
+            return content
+          
+        case .mRoomHistoryVisibility:
+            let content = try container.decode(RoomHistoryVisibilityContent.self, forKey: .content)
+            return content
+ 
+        case .mRoomGuestAccess:
+            let content = try container.decode(RoomGuestAccessContent.self, forKey: .content)
+            return content
+            
         case .mRoomTombstone:
             let content = try container.decode(RoomTombstoneContent.self, forKey: .content)
             return content
@@ -134,6 +155,11 @@ extension Matrix {
         case .mSecretStorageKey(let string):
             throw Matrix.Error("Not implemented")
 
+        // Although specified as a room event, this event type is also used in sample JSON
+        // responses in the AccountData events
+        case .mTag:
+            let content = try container.decode(RoomTagContent.self, forKey: .content)
+            return content
         }
     }
 

@@ -50,6 +50,9 @@ let package = Package(
                 .product(name: "AnyCodable", package: "anycodable"),
                 .product(name: "BlindSaltSpeke", package: "blindsaltspeke"),
                 .product(name: "Yams", package: "yams"),
+            ],
+            resources: [
+                .copy("TestConfig.yaml")
             ]),
     ]
 )

@@ -61,7 +61,7 @@ enum Matrix {
 
         enum CodingKeys: String, CodingKey {
             case homeserver = "m.homeserver"
-            case identityserver = "m.identityServer"
+            case identityserver = "m.identity_server"
         }
     }
     
@@ -146,6 +146,11 @@ enum _MatrixEventType: String, Codable {
     case mRoomAvatar = "m.room.avatar"
     case mRoomTopic = "m.room.topic"
     
+    case mPresence = "m.presence"
+    case mTyping = "m.typing"
+    case mReceipt = "m.receipt"
+    case mRoomHistoryVisibility = "m.room.history_visibility"
+    case mRoomGuestAccess = "m.room.guest_access"
     case mTag = "m.tag"
     // case mRoomPinnedEvents = "m.room.pinned_events" // https://spec.matrix.org/v1.2/client-server-api/#mroompinned_events
     
@@ -162,13 +167,14 @@ protocol _MatrixEvent: Codable {
 }
 
 // MARK: AccountDataType
-enum _MatrixAccountDataType: Codable {
+enum _MatrixAccountDataType: Codable, Equatable {
     case mIdentityServer // "m.identity_server"
     case mFullyRead // "m.fully_read"
     case mDirect // "m.direct"
     case mIgnoredUserList
     case mPushRules // "m.push_rules"
     case mSecretStorageKey(String) // "m.secret_storage.key.[key ID]"
+    case mTag // "m.tag"
     
     init(from decoder: Decoder) throws {
         let string = try String(from: decoder)
@@ -191,6 +197,10 @@ enum _MatrixAccountDataType: Codable {
             
         case "m.push_rules":
             self = .mPushRules
+            return
+            
+        case "m.tag":
+            self = .mTag
             return
             
         default:
