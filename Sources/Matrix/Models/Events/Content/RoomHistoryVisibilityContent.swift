@@ -16,7 +16,7 @@ struct RoomHistoryVisibilityContent: Codable {
         case worldReadable = "world_readable"
     }
     
-    var historyVisibility: HistoryVisibility
+    let historyVisibility: HistoryVisibility
     
     enum CodingKeys: String, CodingKey {
         case historyVisibility = "history_visibility"

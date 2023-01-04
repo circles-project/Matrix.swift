@@ -588,13 +588,13 @@ class Client {
         let _ = try await call(method: "PUT", path: path, body: body)
     }
     
-    private func getTagEventContent(roomId: RoomId) async throws -> RoomTagContent {
+    private func getTagEventContent(roomId: RoomId) async throws -> TagContent {
         let path = "/_matrix/client/\(version)/user/\(creds.userId)/rooms/\(roomId)/tags"
         let (data, response) = try await call(method: "GET", path: path, body: nil)
         
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        guard let tagContent = try? decoder.decode(RoomTagContent.self, from: data)
+        guard let tagContent = try? decoder.decode(TagContent.self, from: data)
         else {
             let msg = "Failed to decode room tag content"
             print(msg)

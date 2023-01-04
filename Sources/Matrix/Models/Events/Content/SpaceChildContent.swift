@@ -7,6 +7,7 @@
 
 import Foundation
 
+/// m.space.child: https://spec.matrix.org/v1.5/client-server-api/#mspacechild
 struct SpaceChildContent: Codable {
     var order: String?
     var suggested: Bool?

@@ -7,9 +7,10 @@
 
 import Foundation
 
+/// m.room.tombstone: https://spec.matrix.org/v1.5/client-server-api/#mroomtombstone
 struct RoomTombstoneContent: Codable {
-    var body: String
-    var replacementRoom: RoomId
+    let body: String
+    let replacementRoom: RoomId
     
     enum CodingKeys: String, CodingKey {
         case body
