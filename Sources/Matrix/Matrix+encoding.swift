@@ -11,7 +11,7 @@ extension Matrix {
     
     // MARK: Encoding
     
-    static func encodeEventContent(content: Codable, of type: Matrix.EventType, to encoder: Encoder) throws {
+    public static func encodeEventContent(content: Codable, of type: Matrix.EventType, to encoder: Encoder) throws {
         enum CodingKeys: String, CodingKey {
             case content
         }

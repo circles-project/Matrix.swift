@@ -1,10 +1,12 @@
 import XCTest
 
-@testable import Matrix
-
 enum XCTError: Error {
     case error(String)
 }
+
+//@testable import Matrix
+// Not using @testable since we are validating public-facing API
+import Matrix
 
 /// Sanity tests for validating the JSON parsing from the examples given in the spec: https://spec.matrix.org/v1.5/
 final class ModelTests: XCTestCase {

@@ -9,19 +9,19 @@ import Foundation
 
 extension Matrix {
     // https://spec.matrix.org/v1.2/client-server-api/#post_matrixclientv3useruseridfilter
-    struct RoomEventFilter: Codable {
-        var containsUrl: Bool?
-        var includeRedundantMembers: Bool?
-        var lazyLoadMembers: Bool?
-        var limit: Int?
-        var notRooms: [RoomId]?
-        var notSenders: [UserId]?
-        var notTypes: [EventType]?
-        var rooms: [RoomId]?
-        var senders: [UserId]?
-        var types: [EventType]?
+    public struct RoomEventFilter: Codable {
+        public var containsUrl: Bool?
+        public var includeRedundantMembers: Bool?
+        public var lazyLoadMembers: Bool?
+        public var limit: Int?
+        public var notRooms: [RoomId]?
+        public var notSenders: [UserId]?
+        public var notTypes: [EventType]?
+        public var rooms: [RoomId]?
+        public var senders: [UserId]?
+        public var types: [EventType]?
         
-        enum CodingKeys: String, CodingKey {
+        public enum CodingKeys: String, CodingKey {
             case containsUrl = "contains_url"
             case includeRedundantMembers = "include_redundant_members"
             case lazyLoadMembers = "lazy_load_members"

@@ -8,40 +8,40 @@
 import Foundation
 
 extension Matrix {
-    class Room: ObservableObject {
-        let roomId: RoomId
-        let session: Session
+    public class Room: ObservableObject {
+        public let roomId: RoomId
+        public let session: Session
         
-        let type: String?
-        let version: String
+        public let type: String?
+        public let version: String
         
-        @Published var name: String?
-        @Published var topic: String?
-        @Published var avatarUrl: MXC?
-        @Published var avatar: NativeImage?
+        @Published public var name: String?
+        @Published public var topic: String?
+        @Published public var avatarUrl: MXC?
+        @Published public var avatar: NativeImage?
         
-        let predecessorRoomId: RoomId?
-        let successorRoomId: RoomId?
-        let tombstoneEventId: EventId?
+        public let predecessorRoomId: RoomId?
+        public let successorRoomId: RoomId?
+        public let tombstoneEventId: EventId?
         
-        @Published var messages: Set<ClientEventWithoutRoomId>
-        @Published var localEchoEvent: Event?
+        @Published public var messages: Set<ClientEventWithoutRoomId>
+        @Published public var localEchoEvent: Event?
         //@Published var earliestMessage: MatrixMessage?
         //@Published var latestMessage: MatrixMessage?
         private var stateEventsCache: [EventType: [ClientEventWithoutRoomId]]
         
-        @Published var highlightCount: Int = 0
-        @Published var notificationCount: Int = 0
+        @Published public var highlightCount: Int = 0
+        @Published public var notificationCount: Int = 0
         
-        @Published var joinedMembers: Set<UserId> = []
-        @Published var invitedMembers: Set<UserId> = []
-        @Published var leftMembers: Set<UserId> = []
-        @Published var bannedMembers: Set<UserId> = []
-        @Published var knockingMembers: Set<UserId> = []
+        @Published public var joinedMembers: Set<UserId> = []
+        @Published public var invitedMembers: Set<UserId> = []
+        @Published public var leftMembers: Set<UserId> = []
+        @Published public var bannedMembers: Set<UserId> = []
+        @Published public var knockingMembers: Set<UserId> = []
 
-        @Published var encryptionParams: RoomEncryptionContent?
+        @Published public var encryptionParams: RoomEncryptionContent?
         
-        init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialMessages: [ClientEventWithoutRoomId] = []) throws {
+        public init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialMessages: [ClientEventWithoutRoomId] = []) throws {
             self.roomId = roomId
             self.session = session
             self.messages = Set(initialMessages)
@@ -130,7 +130,7 @@ extension Matrix {
             
         }
         
-        func updateState(from events: [ClientEventWithoutRoomId]) {
+        public func updateState(from events: [ClientEventWithoutRoomId]) {
             for event in events {
                 
                 switch event.type {
@@ -210,48 +210,48 @@ extension Matrix {
             } // end func updateState()
         }
         
-        func setDisplayName(newName: String) async throws {
+        public func setDisplayName(newName: String) async throws {
             try await self.session.setDisplayName(roomId: self.roomId, name: newName)
         }
         
-        func setAvatarImage(image: NativeImage) async throws {
+        public func setAvatarImage(image: NativeImage) async throws {
             try await self.session.setAvatarImage(roomId: self.roomId, image: image)
         }
         
-        func setTopic(newTopic: String) async throws {
+        public func setTopic(newTopic: String) async throws {
             try await self.session.setTopic(roomId: self.roomId, topic: newTopic)
         }
         
-        func invite(userId: UserId, reason: String? = nil) async throws {
+        public func invite(userId: UserId, reason: String? = nil) async throws {
             try await self.session.inviteUser(roomId: self.roomId, userId: userId, reason: reason)
         }
         
-        func kick(userId: UserId, reason: String? = nil) async throws {
+        public func kick(userId: UserId, reason: String? = nil) async throws {
             try await self.session.kickUser(roomId: self.roomId, userId: userId, reason: reason)
         }
         
-        func ban(userId: UserId, reason: String? = nil) async throws {
+        public func ban(userId: UserId, reason: String? = nil) async throws {
             try await self.session.banUser(roomId: self.roomId, userId: userId, reason: reason)
         }
         
-        func leave(reason: String? = nil) async throws {
+        public func leave(reason: String? = nil) async throws {
             try await self.session.leave(roomId: self.roomId, reason: reason)
         }
         
-        func canPaginate() -> Bool {
+        public func canPaginate() -> Bool {
             // FIXME: TODO:
             return false
         }
         
-        func paginate(count: UInt = 25) async throws {
+        public func paginate(count: UInt = 25) async throws {
             throw Matrix.Error("Not implemented")
         }
         
-        var isEncrypted: Bool {
+        public var isEncrypted: Bool {
             self.encryptionParams != nil
         }
         
-        func sendText(text: String) async throws -> EventId {
+        public func sendText(text: String) async throws -> EventId {
             if !self.isEncrypted {
                 let content = mTextContent(msgtype: .text, body: text)
                 return try await self.session.sendMessageEvent(to: self.roomId, type: .mRoomMessage, content: content)
@@ -261,7 +261,7 @@ extension Matrix {
             }
         }
         
-        func sendImage(image: NativeImage) async throws -> EventId {
+        public func sendImage(image: NativeImage) async throws -> EventId {
             if !self.isEncrypted {
                 guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
                     throw Matrix.Error("Couldn't create JPEG for image")
@@ -279,11 +279,11 @@ extension Matrix {
             }
         }
         
-        func sendVideo(fileUrl: URL, thumbnail: NativeImage?) async throws -> EventId {
+        public func sendVideo(fileUrl: URL, thumbnail: NativeImage?) async throws -> EventId {
             throw Matrix.Error("Not implemented")
         }
         
-        func sendReply(to eventId: EventId, text: String) async throws -> EventId {
+        public func sendReply(to eventId: EventId, text: String) async throws -> EventId {
             if !self.isEncrypted {
                 let content = mTextContent(msgtype: .text,
                                            body: text,
@@ -295,15 +295,15 @@ extension Matrix {
             }
         }
         
-        func redact(eventId: EventId, reason: String?) async throws -> EventId {
+        public func redact(eventId: EventId, reason: String?) async throws -> EventId {
             try await self.session.sendRedactionEvent(to: self.roomId, for: eventId, reason: reason)
         }
         
-        func report(eventId: EventId, score: Int, reason: String?) async throws {
+        public func report(eventId: EventId, score: Int, reason: String?) async throws {
             try await self.session.sendReport(for: eventId, in: self.roomId, score: score, reason: reason)
         }
         
-        func sendReaction(_ reaction: String, to eventId: EventId) async throws -> EventId {
+        public func sendReaction(_ reaction: String, to eventId: EventId) async throws -> EventId {
             // FIXME: What about encryption?
             let content = ReactionContent(eventId: eventId, reaction: reaction)
             return try await self.session.sendMessageEvent(to: self.roomId, type: .mReaction, content: content)

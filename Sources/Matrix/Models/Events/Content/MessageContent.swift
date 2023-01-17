@@ -9,29 +9,29 @@ import Foundation
 
 extension Matrix {
 
-    struct mInReplyTo: Codable {
-        var event_id: String
+    public struct mInReplyTo: Codable {
+        public var event_id: String
     }
-    struct mRelatesTo: Codable {
-        var in_reply_to: mInReplyTo?
+    public struct mRelatesTo: Codable {
+        public var in_reply_to: mInReplyTo?
 
-        enum CodingKeys: String, CodingKey {
+        public enum CodingKeys: String, CodingKey {
             case in_reply_to = "m.in_reply_to"
         }
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-text
-    struct mTextContent: Matrix.MessageContent {
-        var msgtype: Matrix.MessageType
-        var body: String
-        var format: String?
-        var formatted_body: String?
+    public struct mTextContent: Matrix.MessageContent {
+        public var msgtype: Matrix.MessageType
+        public var body: String
+        public var format: String?
+        public var formatted_body: String?
 
         // https://matrix.org/docs/spec/client_server/r0.6.0#rich-replies
         // Maybe should have made the "Rich replies" functionality a protocol...
-        var relates_to: mRelatesTo?
+        public var relates_to: mRelatesTo?
 
-        enum CodingKeys : String, CodingKey {
+        public enum CodingKeys : String, CodingKey {
             case msgtype
             case body
             case format
@@ -42,118 +42,118 @@ extension Matrix {
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-emote
     // cvw: Same as text.
-    typealias mEmoteContent = mTextContent
+    public typealias mEmoteContent = mTextContent
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-notice
     // cvw: Same as text.
-    typealias mNoticeContent = mTextContent
+    public typealias mNoticeContent = mTextContent
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-image
-    struct mImageContent: Matrix.MessageContent {
-        var msgtype: Matrix.MessageType
-        var body: String
-        var url: URL?
-        var info: mImageInfo
+    public struct mImageContent: Matrix.MessageContent {
+        public var msgtype: Matrix.MessageType
+        public var body: String
+        public var url: URL?
+        public var info: mImageInfo
     }
 
-    struct mImageInfo: Codable {
-        var h: Int
-        var w: Int
-        var mimetype: String
-        var size: Int
-        var file: mEncryptedFile?
-        var thumbnail_url: URL?
-        var thumbnail_file: mEncryptedFile?
-        var thumbnail_info: mThumbnailInfo?
-        var blurhash: String?
+    public struct mImageInfo: Codable {
+        public var h: Int
+        public var w: Int
+        public var mimetype: String
+        public var size: Int
+        public var file: mEncryptedFile?
+        public var thumbnail_url: URL?
+        public var thumbnail_file: mEncryptedFile?
+        public var thumbnail_info: mThumbnailInfo?
+        public var blurhash: String?
     }
 
-    struct mThumbnailInfo: Codable {
-        var h: Int
-        var w: Int
-        var mimetype: String
-        var size: Int
+    public struct mThumbnailInfo: Codable {
+        public var h: Int
+        public var w: Int
+        public var mimetype: String
+        public var size: Int
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-file
-    struct mFileContent: Matrix.MessageContent {
-        let msgtype: Matrix.MessageType
-        var body: String
-        var filename: String
-        var info: mFileInfo
-        var file: mEncryptedFile
+    public struct mFileContent: Matrix.MessageContent {
+        public let msgtype: Matrix.MessageType
+        public var body: String
+        public var filename: String
+        public var info: mFileInfo
+        public var file: mEncryptedFile
     }
 
-    struct mFileInfo: Codable {
-        var mimetype: String
-        var size: UInt
-        var thumbnail_file: mEncryptedFile
-        var thumbnail_info: mThumbnailInfo
-    }
-
-    // https://matrix.org/docs/spec/client_server/r0.6.0#extensions-to-m-message-msgtypes
-    struct mEncryptedFile: Codable {
-        var url: URL
-        var key: JWK
-        var iv: String
-        var hashes: [String: String]
-        var v: String
+    public struct mFileInfo: Codable {
+        public var mimetype: String
+        public var size: UInt
+        public var thumbnail_file: mEncryptedFile
+        public var thumbnail_info: mThumbnailInfo
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#extensions-to-m-message-msgtypes
-    struct JWK: Codable {
-        var kty: String
-        var key_ops: [String]
-        var alg: String
-        var k: String
-        var ext: Bool
+    public struct mEncryptedFile: Codable {
+        public var url: URL
+        public var key: JWK
+        public var iv: String
+        public var hashes: [String: String]
+        public var v: String
+    }
+
+    // https://matrix.org/docs/spec/client_server/r0.6.0#extensions-to-m-message-msgtypes
+    public struct JWK: Codable {
+        public var kty: String
+        public var key_ops: [String]
+        public var alg: String
+        public var k: String
+        public var ext: Bool
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-audio
-    struct mAudioContent: Matrix.MessageContent {
-        let msgtype: Matrix.MessageType
-        var body: String
-        var info: mAudioInfo
-        var file: mEncryptedFile
+    public struct mAudioContent: Matrix.MessageContent {
+        public let msgtype: Matrix.MessageType
+        public var body: String
+        public var info: mAudioInfo
+        public var file: mEncryptedFile
     }
 
-    struct mAudioInfo: Codable {
-        var duration: UInt
-        var mimetype: String
-        var size: UInt
+    public struct mAudioInfo: Codable {
+        public var duration: UInt
+        public var mimetype: String
+        public var size: UInt
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-location
-    struct mLocationContent: Matrix.MessageContent {
-        let msgtype: Matrix.MessageType
-        var body: String
-        var geo_uri: String
-        var info: mLocationInfo
+    public struct mLocationContent: Matrix.MessageContent {
+        public let msgtype: Matrix.MessageType
+        public var body: String
+        public var geo_uri: String
+        public var info: mLocationInfo
     }
 
-    struct mLocationInfo: Codable {
-        var thumbnail_url: URL?
-        var thumbnail_file: mEncryptedFile?
-        var thumbnail_info: mThumbnailInfo
+    public struct mLocationInfo: Codable {
+        public var thumbnail_url: URL?
+        public var thumbnail_file: mEncryptedFile?
+        public var thumbnail_info: mThumbnailInfo
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-video
-    struct mVideoContent: Matrix.MessageContent {
-        let msgtype: Matrix.MessageType
-        var body: String
-        var info: mVideoInfo
-        var file: mEncryptedFile
+    public struct mVideoContent: Matrix.MessageContent {
+        public let msgtype: Matrix.MessageType
+        public var body: String
+        public var info: mVideoInfo
+        public var file: mEncryptedFile
     }
 
-    struct mVideoInfo: Codable {
-        var duration: UInt
-        var h: UInt
-        var w: UInt
-        var mimetype: String
-        var size: UInt
-        var thumbnail_url: URL?
-        var thumbnail_file: mEncryptedFile?
-        var thumbnail_info: mThumbnailInfo
+    public struct mVideoInfo: Codable {
+        public var duration: UInt
+        public var h: UInt
+        public var w: UInt
+        public var mimetype: String
+        public var size: UInt
+        public var thumbnail_url: URL?
+        public var thumbnail_file: mEncryptedFile?
+        public var thumbnail_info: mThumbnailInfo
     }
 
 } // end extension Matrix

@@ -7,16 +7,16 @@
 
 import Foundation
 
-struct MXC: Codable, Equatable, LosslessStringConvertible {
+public struct MXC: Codable, Equatable, LosslessStringConvertible {
     
-    var serverName: String
-    var mediaId: String
+    public var serverName: String
+    public var mediaId: String
     
-    var description: String {
+    public var description: String {
         "mxc://\(serverName)/\(mediaId)"
     }
     
-    init?(_ description: String) {
+    public init?(_ description: String) {
         guard description.starts(with: "mxc://")
         else { return nil }
         
@@ -29,7 +29,7 @@ struct MXC: Codable, Equatable, LosslessStringConvertible {
         self.mediaId = String(toks[2])
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let mxc = try String(from: decoder)
         guard let me: MXC = .init(mxc) else {
             throw Matrix.Error("Invalid MXC URI")

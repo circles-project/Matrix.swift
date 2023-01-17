@@ -8,15 +8,15 @@
 import Foundation
 
 /// m.room.join_rules: https://spec.matrix.org/v1.5/client-server-api/#mroomjoin_rules
-struct RoomJoinRuleContent: Codable {
-    struct AllowCondition: Codable {
-        let roomId: RoomId
-        enum AllowConditionType: String, Codable {
+public struct RoomJoinRuleContent: Codable {
+    public struct AllowCondition: Codable {
+        public let roomId: RoomId
+        public enum AllowConditionType: String, Codable {
             case mRoomMembership = "m.room_membership"
         }
-        let type: AllowConditionType
+        public let type: AllowConditionType
     }
-    enum JoinRule: String, Codable {
+    public enum JoinRule: String, Codable {
         case public_ = "public"
         case knock
         case invite
@@ -24,10 +24,10 @@ struct RoomJoinRuleContent: Codable {
         case restricted
     }
     
-    let allow: [AllowCondition]?
-    let joinRule: JoinRule
+    public let allow: [AllowCondition]?
+    public let joinRule: JoinRule
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case allow
         case joinRule = "join_rule"
     }

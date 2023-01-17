@@ -17,16 +17,16 @@ import AnyCodable
 extension Matrix {
     
 @available(macOS 12.0, *)
-class Client {
-    var creds: Matrix.Credentials
-    var baseUrl: URL
-    let version: String
+public class Client {
+    public var creds: Matrix.Credentials
+    public var baseUrl: URL
+    public let version: String
     private var apiUrlSession: URLSession   // For making API calls
     private var mediaUrlSession: URLSession // For downloading media
     
     // MARK: Init
     
-    init(creds: Matrix.Credentials) throws {
+    public init(creds: Matrix.Credentials) throws {
         self.version = "v3"
         
         self.creds = creds
@@ -60,7 +60,7 @@ class Client {
     
     // MARK: API Call
     
-    func call(method: String, path: String, body: Codable? = nil, expectedStatuses: [Int] = [200]) async throws -> (Data, HTTPURLResponse) {
+    public func call(method: String, path: String, body: Codable? = nil, expectedStatuses: [Int] = [200]) async throws -> (Data, HTTPURLResponse) {
         print("APICALL\tCalling \(method) \(path)")
         let url = URL(string: path, relativeTo: baseUrl)!
         var request = URLRequest(url: url)
@@ -127,7 +127,7 @@ class Client {
     // MARK: My User Profile
     
     // https://spec.matrix.org/v1.2/client-server-api/#put_matrixclientv3profileuseriddisplayname
-    func setMyDisplayName(_ name: String) async throws {
+    public func setMyDisplayName(_ name: String) async throws {
         let (_, _) = try await call(method: "PUT",
                                     path: "/_matrix/client/\(version)/profile/\(creds.userId)/displayname",
                                     body: [
@@ -135,7 +135,7 @@ class Client {
                                     ])
     }
     
-    func setMyAvatarImage(_ image: NativeImage) async throws {
+    public func setMyAvatarImage(_ image: NativeImage) async throws {
         // First upload the image
         let mxc = try await uploadImage(image, maxSize: CGSize(width: 256, height: 256))
         // Then set that as our avatar
@@ -143,7 +143,7 @@ class Client {
     }
 
     
-    func setMyAvatarUrl(_ mxc: MXC) async throws {
+    public func setMyAvatarUrl(_ mxc: MXC) async throws {
         let (_,_) = try await call(method: "PUT",
                                    path: "_matrix/client/\(version)/profile/\(creds.userId)/avatar_url",
                                    body: [
@@ -151,7 +151,7 @@ class Client {
                                    ])
     }
     
-    func setMyStatus(message: String) async throws {
+    public func setMyStatus(message: String) async throws {
         let body = [
             "presence": "online",
             "status_msg": message,
@@ -161,7 +161,7 @@ class Client {
     
     // MARK: Other User Profiles
     
-    func getDisplayName(userId: UserId) async throws -> String? {
+    public func getDisplayName(userId: UserId) async throws -> String? {
         let path = "/_matrix/client/\(version)/profile/\(userId)/displayname"
         let (data, response) = try await call(method: "GET", path: path)
         
@@ -181,7 +181,7 @@ class Client {
     }
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3profileuseridavatar_url
-    func getAvatarUrl(userId: UserId) async throws -> String? {
+    public func getAvatarUrl(userId: UserId) async throws -> String? {
         let path = "/_matrix/client/\(version)/profile/\(userId)/avatar_url"
         let (data, response) = try await call(method: "GET", path: path)
         
@@ -200,7 +200,7 @@ class Client {
         return responseBody.avatarUrl
     }
     
-    func getAvatarImage(userId: UserId) async throws -> Matrix.NativeImage? {
+    public func getAvatarImage(userId: UserId) async throws -> Matrix.NativeImage? {
         // Download the bytes from the given uri
         guard let uri = try await getAvatarUrl(userId: userId)
         else {
@@ -225,7 +225,7 @@ class Client {
     }
 
     
-    func getProfileInfo(userId: UserId) async throws -> (String?,String?) {
+    public func getProfileInfo(userId: UserId) async throws -> (String?,String?) {
                
         let (data, response) = try await call(method: "GET", path: "/_matrix/client/\(version)/profile/\(userId)")
         
@@ -250,7 +250,7 @@ class Client {
     // MARK: Account Data
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3useruseridaccount_datatype
-    func getAccountData<T>(for eventType: String, of dataType: T.Type) async throws -> T where T: Decodable {
+    public func getAccountData<T>(for eventType: String, of dataType: T.Type) async throws -> T where T: Decodable {
         let path = "/_matrix/client/\(version)/user/\(creds.userId)/account_data/\(eventType)"
         let (data, response) = try await call(method: "GET", path: path)
         
@@ -264,7 +264,7 @@ class Client {
     
     // MARK: Devices
     
-    func getDevices() async throws -> [Matrix.MyDevice] {
+    public func getDevices() async throws -> [Matrix.MyDevice] {
         let path = "/_matrix/client/\(version)/devices"
         let (data, response) = try await call(method: "GET", path: path)
         
@@ -291,7 +291,7 @@ class Client {
         return devices
     }
     
-    func getDevice(deviceId: String) async throws -> Matrix.MyDevice {
+    public func getDevice(deviceId: String) async throws -> Matrix.MyDevice {
         let path = "/_matrix/client/\(version)/devices/\(deviceId)"
         let (data, response) = try await call(method: "GET", path: path)
         
@@ -316,7 +316,7 @@ class Client {
         return device
     }
     
-    func setDeviceDisplayName(deviceId: String, displayName: String) async throws {
+    public func setDeviceDisplayName(deviceId: String, displayName: String) async throws {
         let path = "/_matrix/client/\(version)/devices/\(deviceId)"
         let (data, response) = try await call(method: "PUT",
                                               path: path,
@@ -327,7 +327,7 @@ class Client {
     
     // https://spec.matrix.org/v1.3/client-server-api/#delete_matrixclientv3devicesdeviceid
     // FIXME This must support UIA.  Return a UIAASession???
-    func deleteDevice(deviceId: String) async throws -> UIAuthSession? {
+    public func deleteDevice(deviceId: String) async throws -> UIAuthSession? {
         let path = "/_matrix/client/\(version)/devices/\(deviceId)"
         let (data, response) = try await call(method: "DELETE",
                                               path: path,
@@ -360,7 +360,7 @@ class Client {
     // MARK: Rooms
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3joined_rooms
-    func getJoinedRoomIds() async throws -> [RoomId] {
+    public func getJoinedRoomIds() async throws -> [RoomId] {
         
         let (data, response) = try await call(method: "GET", path: "/_matrix/client/\(version)/joined_rooms")
         
@@ -382,7 +382,7 @@ class Client {
     }
     
     // https://spec.matrix.org/v1.2/client-server-api/#post_matrixclientv3createroom
-    func createRoom(name: String,
+    public func createRoom(name: String,
                     type: String? = nil,
                     encrypted: Bool = true,
                     invite userIds: [UserId] = [],
@@ -484,7 +484,7 @@ class Client {
         return RoomId(responseBody.roomId)!
     }
     
-    func sendStateEvent(to roomId: RoomId,
+    public func sendStateEvent(to roomId: RoomId,
                         type: Matrix.EventType,
                         content: Codable,
                         stateKey: String = ""
@@ -511,7 +511,7 @@ class Client {
     }
     
     // https://spec.matrix.org/v1.5/client-server-api/#put_matrixclientv3roomsroomidsendeventtypetxnid
-    func sendMessageEvent(to roomId: RoomId,
+    public func sendMessageEvent(to roomId: RoomId,
                           type: Matrix.EventType,
                           content: Codable
     ) async throws -> EventId {
@@ -537,7 +537,7 @@ class Client {
         return responseBody.eventId
     }
     
-    func sendRedactionEvent(to roomId: RoomId,
+    public func sendRedactionEvent(to roomId: RoomId,
                             for eventId: EventId,
                             reason: String? = nil
     ) async throws -> EventId {
@@ -563,7 +563,7 @@ class Client {
         return responseBody.eventId
     }
     
-    func sendReport(for eventId: EventId,
+    public func sendReport(for eventId: EventId,
                     in roomId: RoomId,
                     score: Int,
                     reason: String? = nil
@@ -582,7 +582,7 @@ class Client {
     
     // MARK: Room tags
     
-    func addTag(roomId: RoomId, tag: String, order: Float? = nil) async throws {
+    public func addTag(roomId: RoomId, tag: String, order: Float? = nil) async throws {
         let path = "/_matrix/client/\(version)/user/\(creds.userId)/rooms/\(roomId)/tags/\(tag)"
         let body = ["order": order ?? Float.random(in: 0.0 ..< 1.0)]
         let _ = try await call(method: "PUT", path: path, body: body)
@@ -604,7 +604,7 @@ class Client {
         return tagContent
     }
     
-    func getTags(roomId: RoomId) async throws -> [String] {
+    public func getTags(roomId: RoomId) async throws -> [String] {
         let tagContent = try await getTagEventContent(roomId: roomId)
         let tags: [String] = [String](tagContent.tags.keys)
         return tags
@@ -612,7 +612,7 @@ class Client {
     
     // MARK: Room Metadata
 
-    func setAvatarImage(roomId: RoomId, image: NativeImage) async throws {
+    public func setAvatarImage(roomId: RoomId, image: NativeImage) async throws {
         let maxSize = CGSize(width: 640, height: 640)
         
         guard let scaledImage = image.downscale(to: maxSize)
@@ -644,7 +644,7 @@ class Client {
     }
 
     
-    func getAvatarImage(roomId: RoomId) async throws -> Matrix.NativeImage? {
+    public func getAvatarImage(roomId: RoomId) async throws -> Matrix.NativeImage? {
         guard let content = try? await getRoomState(roomId: roomId, for: .mRoomAvatar, of: RoomAvatarContent.self)
         else {
             // No avatar for this room???
@@ -656,15 +656,15 @@ class Client {
         return image
     }
     
-    func setTopic(roomId: RoomId, topic: String) async throws {
+    public func setTopic(roomId: RoomId, topic: String) async throws {
         let _ = try await sendStateEvent(to: roomId, type: .mRoomTopic, content: ["topic": topic])
     }
     
-    func setDisplayName(roomId: RoomId, name: String) async throws {
+    public func setDisplayName(roomId: RoomId, name: String) async throws {
         try await sendStateEvent(to: roomId, type: .mRoomName, content: RoomNameContent(name: name))
     }
     
-    func getDisplayName(roomId: RoomId) async throws -> String {
+    public func getDisplayName(roomId: RoomId) async throws -> String {
         let content = try await getRoomState(roomId: roomId, for: .mRoomName, of: RoomNameContent.self)
         return content.name
     }
@@ -674,7 +674,7 @@ class Client {
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3roomsroomidmessages
     // Good news!  `from` is no longer required as of v1.3 (June 2022),
     // so we no longer have to call /sync before fetching messages.
-    func getMessages(roomId: RoomId,
+    public func getMessages(roomId: RoomId,
                          forward: Bool = false,
                          from: String? = nil,
                          limit: Int? = 25
@@ -710,7 +710,7 @@ class Client {
     }
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3roomsroomidjoined_members
-    func getJoinedMembers(roomId: RoomId) async throws -> [UserId] {
+    public func getJoinedMembers(roomId: RoomId) async throws -> [UserId] {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/joined_members"
         let (data, response) = try await call(method: "GET", path: path)
         
@@ -729,7 +729,7 @@ class Client {
     }
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3roomsroomidstate
-    func getRoomState(roomId: RoomId) async throws -> [ClientEvent] {
+    public func getRoomState(roomId: RoomId) async throws -> [ClientEvent] {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/state"
         
         let (data, response) = try await call(method: "GET", path: path)
@@ -740,7 +740,7 @@ class Client {
         return events
     }
     
-    func getRoomState<T>(roomId: RoomId, for eventType: Matrix.EventType, of dataType: T.Type, with stateKey: String? = nil) async throws -> T where T: Decodable {
+    public func getRoomState<T>(roomId: RoomId, for eventType: Matrix.EventType, of dataType: T.Type, with stateKey: String? = nil) async throws -> T where T: Decodable {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/state/\(eventType)/\(stateKey ?? "")"
         let (data, response) = try await call(method: "GET", path: path)
         
@@ -757,7 +757,7 @@ class Client {
         return content
     }
     
-    func inviteUser(roomId: RoomId, userId: UserId, reason: String? = nil) async throws {
+    public func inviteUser(roomId: RoomId, userId: UserId, reason: String? = nil) async throws {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/invite"
         let (data, response) = try await call(method: "POST",
                                               path: path,
@@ -768,7 +768,7 @@ class Client {
         // FIXME: Parse and handle any Matrix 400 or 403 errors
     }
     
-    func kickUser(roomId: RoomId, userId: UserId, reason: String? = nil) async throws {
+    public func kickUser(roomId: RoomId, userId: UserId, reason: String? = nil) async throws {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/kick"
         let (data, response) = try await call(method: "POST",
                                               path: path,
@@ -778,7 +778,7 @@ class Client {
                                               ])
     }
     
-    func banUser(roomId: RoomId, userId: UserId, reason: String? = nil) async throws {
+    public func banUser(roomId: RoomId, userId: UserId, reason: String? = nil) async throws {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/ban"
         let (data, response) = try await call(method: "POST",
                                               path: path,
@@ -788,7 +788,7 @@ class Client {
                                               ])
     }
     
-    func join(roomId: RoomId, reason: String? = nil) async throws {
+    public func join(roomId: RoomId, reason: String? = nil) async throws {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/join"
         let (data, response) = try await call(method: "POST",
                                               path: path,
@@ -797,7 +797,7 @@ class Client {
                                               ])
     }
     
-    func knock(roomId: RoomId, reason: String? = nil) async throws {
+    public func knock(roomId: RoomId, reason: String? = nil) async throws {
         let path = "/_matrix/client/\(version)/knock/\(roomId)"
         let (data, response) = try await call(method: "POST",
                                               path: path,
@@ -806,7 +806,7 @@ class Client {
                                               ])
     }
     
-    func leave(roomId: RoomId, reason: String? = nil) async throws {
+    public func leave(roomId: RoomId, reason: String? = nil) async throws {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/leave"
         let (data, response) = try await call(method: "POST",
                                               path: path,
@@ -815,24 +815,24 @@ class Client {
                                               ])
     }
     
-    func forget(roomId: RoomId) async throws {
+    public func forget(roomId: RoomId) async throws {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/forget"
         let (data, response) = try await call(method: "POST", path: path)
     }
     
-    func getRoomPowerLevels(roomId: RoomId) async throws -> [String: Int] {
+    public func getRoomPowerLevels(roomId: RoomId) async throws -> [String: Int] {
         throw Matrix.Error("Not implemented")
     }
     
     // MARK: Spaces
     
-    func createSpace(name: String) async throws -> RoomId {
+    public func createSpace(name: String) async throws -> RoomId {
         print("CREATESPACE\tCreating space with name [\(name)]")
         let roomId = try await createRoom(name: name, type: "m.space", encrypted: false)
         return roomId
     }
     
-    func addSpaceChild(_ child: RoomId, to parent: RoomId) async throws {
+    public func addSpaceChild(_ child: RoomId, to parent: RoomId) async throws {
         print("SPACES\tAdding [\(child)] as a child space of [\(parent)]")
         let servers = Array(Set([child.domain, parent.domain]))
         let order = (0x20 ... 0x7e).randomElement()?.description ?? "A"
@@ -840,13 +840,13 @@ class Client {
         let _ = try await sendStateEvent(to: parent, type: .mSpaceChild, content: content, stateKey: child.description)
     }
     
-    func addSpaceParent(_ parent: RoomId, to child: RoomId, canonical: Bool = false) async throws {
+    public func addSpaceParent(_ parent: RoomId, to child: RoomId, canonical: Bool = false) async throws {
         let servers = Array(Set([child.domain, parent.domain]))
         let content = SpaceParentContent(canonical: canonical, via: servers)
         let _ = try await sendStateEvent(to: child, type: .mSpaceParent, content: content, stateKey: parent.description)
     }
     
-    func getSpaceChildren(_ roomId: RoomId) async throws -> [RoomId] {
+    public func getSpaceChildren(_ roomId: RoomId) async throws -> [RoomId] {
         let allStateEvents = try await getRoomState(roomId: roomId)
         let spaceChildEvents = allStateEvents.filter {
             $0.type == .mSpaceChild
@@ -863,7 +863,7 @@ class Client {
         }
     }
     
-    func removeSpaceChild(_ child: RoomId, from parent: RoomId) async throws {
+    public func removeSpaceChild(_ child: RoomId, from parent: RoomId) async throws {
         print("SPACES\tRemoving [\(child)] as a child space of [\(parent)]")
         let order = "\(0x7e)"
         let content = SpaceChildContent(order: order, via: nil)  // This stupid `via = nil` thing is the only way we have to remove a child relationship
@@ -874,7 +874,7 @@ class Client {
     
     // MARK: Media API
     
-    func downloadData(mxc: MXC) async throws -> Data {
+    public func downloadData(mxc: MXC) async throws -> Data {
         let path = "/_matrix/media/\(version)/download/\(mxc.serverName)/\(mxc.mediaId)"
         
         let url = URL(string: path, relativeTo: baseUrl)!
@@ -893,7 +893,7 @@ class Client {
         return data
     }
     
-    func uploadImage(_ original: NativeImage, maxSize: CGSize, quality: CGFloat = 0.90) async throws -> MXC {
+    public func uploadImage(_ original: NativeImage, maxSize: CGSize, quality: CGFloat = 0.90) async throws -> MXC {
         guard let scaled = original.downscale(to: maxSize)
         else {
             let msg = "Failed to downscale image"
@@ -906,7 +906,7 @@ class Client {
     }
 
     
-    func uploadImage(_ image: NativeImage, quality: CGFloat = 0.90) async throws -> MXC {
+    public func uploadImage(_ image: NativeImage, quality: CGFloat = 0.90) async throws -> MXC {
 
         guard let jpeg = image.jpegData(compressionQuality: quality)
         else {
@@ -919,7 +919,7 @@ class Client {
     }
 
     
-    func uploadData(data: Data, contentType: String) async throws -> MXC {
+    public func uploadData(data: Data, contentType: String) async throws -> MXC {
         
         let url = URL(string: "/_matrix/media/\(version)/upload", relativeTo: baseUrl)!
         var request = URLRequest(url: url)

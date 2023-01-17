@@ -8,24 +8,24 @@
 import Foundation
 
 /// m.room.power_levels: https://spec.matrix.org/v1.5/client-server-api/#mroompower_levels
-struct RoomPowerLevelsContent: Codable {
-    let invite: Int
-    let kick: Int
-    let ban: Int
+public struct RoomPowerLevelsContent: Codable {
+    public let invite: Int
+    public let kick: Int
+    public let ban: Int
     
-    let events: [String: Int]
-    let eventsDefault: Int
+    public let events: [String: Int]
+    public let eventsDefault: Int
 
-    let notifications: [String: Int]?
+    public let notifications: [String: Int]?
     
-    let redact: Int
+    public let redact: Int
     
-    let stateDefault: Int
+    public let stateDefault: Int
 
-    let users: [String: Int]
-    let usersDefault: Int
+    public let users: [String: Int]
+    public let usersDefault: Int
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case invite
         case kick
         case ban

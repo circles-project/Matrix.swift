@@ -1,7 +1,9 @@
 import XCTest
-@testable import Matrix
-
 import Yams
+
+//@testable import Matrix
+// Not using @testable since we are validating public-facing API
+import Matrix
 
 extension String: Error { }
 

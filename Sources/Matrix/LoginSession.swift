@@ -8,23 +8,23 @@
 import Foundation
 import AnyCodable
 
-class LoginSession: UIAuthSession {
-    let userId: UserId
+public class LoginSession: UIAuthSession {
+    public let userId: UserId
     
-    struct LoginRequestBody: Codable {
-        struct Identifier: Codable {
-            let type: String
-            let user: String
+    public struct LoginRequestBody: Codable {
+        public struct Identifier: Codable {
+            public let type: String
+            public let user: String
         }
-        var identifier: Identifier
-        var type: String?
-        var password: String?
-        var token: String?
-        var deviceId: String?
-        var initialDeviceDisplayName: String?
-        var refreshToken: Bool?
+        public var identifier: Identifier
+        public var type: String?
+        public var password: String?
+        public var token: String?
+        public var deviceId: String?
+        public var initialDeviceDisplayName: String?
+        public var refreshToken: Bool?
         
-        enum CodingKeys: String, CodingKey {
+        public enum CodingKeys: String, CodingKey {
             case identifier
             case type
             case password
@@ -35,7 +35,7 @@ class LoginSession: UIAuthSession {
         }
     }
     
-    init(userId: String, deviceId: String? = nil, initialDeviceDisplayName: String? = nil) async throws {
+    public init(userId: String, deviceId: String? = nil, initialDeviceDisplayName: String? = nil) async throws {
         let version = "v3"
         let urlPath = "/_matrix/client/\(version)/login"
         self.userId = UserId(userId)!
@@ -54,7 +54,7 @@ class LoginSession: UIAuthSession {
         super.init(method: "POST", url: url, requestDict: args)
     }
     
-    convenience init(username: String, domain: String, deviceId: String? = nil, initialDeviceDisplayName: String? = nil) async throws {
+    public convenience init(username: String, domain: String, deviceId: String? = nil, initialDeviceDisplayName: String? = nil) async throws {
         try await self.init(userId: "@\(username):\(domain)", deviceId: deviceId, initialDeviceDisplayName: initialDeviceDisplayName)
     }
 }

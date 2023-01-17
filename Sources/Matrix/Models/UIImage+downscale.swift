@@ -10,7 +10,7 @@ import Foundation
 #if !os(macOS)
 
 extension UIImage {
-    func downscale(to maxSize: CGSize) -> UIImage? {
+    public func downscale(to maxSize: CGSize) -> UIImage? {
         let height = self.size.height
         let width = self.size.width
         let MAX_HEIGHT = maxSize.height

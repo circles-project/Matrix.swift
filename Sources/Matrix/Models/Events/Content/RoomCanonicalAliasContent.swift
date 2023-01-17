@@ -8,11 +8,11 @@
 import Foundation
 
 /// m.room.canonical_alias: https://spec.matrix.org/v1.5/client-server-api/#mroomcanonical_alias
-struct RoomCanonicalAliasContent: Codable {
-    let alias: String
-    let altAliases: [String]
+public struct RoomCanonicalAliasContent: Codable {
+    public let alias: String
+    public let altAliases: [String]
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case alias
         case altAliases = "alt_aliases"
     }

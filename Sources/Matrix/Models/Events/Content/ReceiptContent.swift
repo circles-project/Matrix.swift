@@ -12,19 +12,19 @@ import AnyCodable
 // from the example JSON content
 
 /// m.receipt: https://spec.matrix.org/v1.5/client-server-api/#mreceipt
-struct ReceiptContent: Codable {
-    struct UserTimestamp: Codable, Equatable {
-        let ts: Int
+public struct ReceiptContent: Codable {
+    public struct UserTimestamp: Codable, Equatable {
+        public let ts: Int
     }
     
-    typealias ReceiptTypeContent = [String: [String: Int]]
+    public typealias ReceiptTypeContent = [String: [String: Int]]
         
-    enum ReceiptType: Codable, Equatable {
+    public enum ReceiptType: Codable, Equatable {
         case read([UserId: UserTimestamp]) // "m.read"
         case readPrivate([UserId: UserTimestamp]) // "m.read.private"
         case fullyRead([UserId: UserTimestamp]) // "m.fully_read"
         
-        static func == (lhs: ReceiptContent.ReceiptType, rhs: ReceiptContent.ReceiptType) -> Bool {
+        public static func == (lhs: ReceiptContent.ReceiptType, rhs: ReceiptContent.ReceiptType) -> Bool {
             switch (lhs, rhs) {
             case (.read(_), .read(_)):
                 return true
@@ -37,7 +37,7 @@ struct ReceiptContent: Codable {
             }
         }
         
-        static func === (lhs: ReceiptContent.ReceiptType, rhs: ReceiptContent.ReceiptType) -> Bool {
+        public static func === (lhs: ReceiptContent.ReceiptType, rhs: ReceiptContent.ReceiptType) -> Bool {
             switch (lhs, rhs) {
             case (let .read(lhsUsers), let .read(rhsUsers)):
                 return lhsUsers == rhsUsers
@@ -50,7 +50,7 @@ struct ReceiptContent: Codable {
             }
         }
         
-        init?(receiptType: String, receiptContent: ReceiptTypeContent) throws {
+        public init?(receiptType: String, receiptContent: ReceiptTypeContent) throws {
             var userDict: [UserId: UserTimestamp] = [:]
             for (k2, v2) in receiptContent {
                 if let userId = UserId(k2), let timestamp = v2["ts"] {
@@ -76,15 +76,15 @@ struct ReceiptContent: Codable {
         }
     }
     
-    let events: [EventId: [ReceiptType]]
+    public let events: [EventId: [ReceiptType]]
     
-    init(_ eventsDict: [EventId: [ReceiptType]]) {
+    public init(_ eventsDict: [EventId: [ReceiptType]]) {
         self.events = eventsDict
     }
 }
 
 extension KeyedDecodingContainer {
-    func decode(_ type: ReceiptContent.Type, forKey key: K) throws -> ReceiptContent? {
+    public func decode(_ type: ReceiptContent.Type, forKey key: K) throws -> ReceiptContent? {
         guard self.contains(key) else {
             return nil
         }

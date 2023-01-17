@@ -8,15 +8,15 @@
 import Foundation
 
 extension Matrix {
-    class User: ObservableObject, Identifiable {
-        let id: UserId // For Identifiable
-        var session: Session
-        @Published var displayName: String?
-        @Published var avatarUrl: String?
-        @Published var avatar: NativeImage?
-        @Published var statusMessage: String?
+    public class User: ObservableObject, Identifiable {
+        public let id: UserId // For Identifiable
+        public var session: Session
+        @Published public var displayName: String?
+        @Published public var avatarUrl: String?
+        @Published public var avatar: NativeImage?
+        @Published public var statusMessage: String?
                 
-        init(userId: UserId, session: Session) {
+        public init(userId: UserId, session: Session) {
             self.id = userId
             self.session = session
             
@@ -25,7 +25,7 @@ extension Matrix {
             }
         }
         
-        func refreshProfile() async throws {
+        public func refreshProfile() async throws {
             (self.displayName, self.avatarUrl) = try await self.session.getProfileInfo(userId: self.id)
         }
     }

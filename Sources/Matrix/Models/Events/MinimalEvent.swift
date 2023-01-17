@@ -10,25 +10,25 @@ import Foundation
 // The bare minimum implementation of the MatrixEvent protocol
 // Used for decoding other event types
 // Also used in the /sync response for AccountData, Presence, etc.
-struct MinimalEvent: Matrix.Event {
-    let type: Matrix.EventType
-    let sender: UserId?
-    let content: Codable
+public struct MinimalEvent: Matrix.Event {
+    public let type: Matrix.EventType
+    public let sender: UserId?
+    public let content: Codable
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case type
         case content
         case sender
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.type = try container.decode(Matrix.EventType.self, forKey: .type)
         self.sender = try container.decodeIfPresent(UserId.self, forKey: .sender)
         self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         
         if let senderUserId = sender {
@@ -37,7 +37,5 @@ struct MinimalEvent: Matrix.Event {
         try container.encode(type, forKey: .type)
         try Matrix.encodeEventContent(content: content, of: type, to: encoder)
     }
-
-    
 }
 

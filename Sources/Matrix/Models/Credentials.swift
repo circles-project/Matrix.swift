@@ -8,15 +8,14 @@
 import Foundation
 
 extension Matrix {
-
-    struct Credentials: Codable {
-        var accessToken: String
-        var deviceId: String
-        var userId: UserId
-        var wellKnown: Matrix.WellKnown?
-        //var homeServer: String? // Warning: Deprecated; Do not use
+    public struct Credentials: Codable {
+        public var accessToken: String
+        public var deviceId: String
+        public var userId: UserId
+        public var wellKnown: Matrix.WellKnown?
+        //public var homeServer: String? // Warning: Deprecated; Do not use
         
-        enum CodingKeys: String, CodingKey {
+        public enum CodingKeys: String, CodingKey {
             case accessToken = "access_token"
             case deviceId = "device_id"
             case userId = "user_id"

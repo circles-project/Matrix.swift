@@ -13,7 +13,7 @@ import AppKit
 
 extension NSImage {
     // https://stackoverflow.com/questions/11949250/how-to-resize-nsimage/42915296#42915296
-    func downscale(to maxSize: CGSize) -> NSImage? {
+    public func downscale(to maxSize: CGSize) -> NSImage? {
         if let bitmapRep = NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: Int(maxSize.width), pixelsHigh: Int(maxSize.height),
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
@@ -34,7 +34,7 @@ extension NSImage {
         return nil
     }
     
-    func jpegData(compressionQuality: CGFloat) -> Data? {
+    public func jpegData(compressionQuality: CGFloat) -> Data? {
         guard let cgImg = self.cgImage(forProposedRect: nil, context: nil, hints: nil)
         else {
             return nil

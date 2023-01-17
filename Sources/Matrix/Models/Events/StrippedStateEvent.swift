@@ -9,20 +9,20 @@ import Foundation
 
 // https://spec.matrix.org/v1.2/client-server-api/#stripped-state
 
-struct StrippedStateEvent: Matrix.Event {
-    let sender: UserId
-    let stateKey: String
-    let type: Matrix.EventType
-    let content: Codable
+public struct StrippedStateEvent: Matrix.Event {
+    public let sender: UserId
+    public let stateKey: String
+    public let type: Matrix.EventType
+    public let content: Codable
 
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case sender
         case stateKey = "state_key"
         case type
         case content
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         self.sender = try container.decode(UserId.self, forKey: .sender)
@@ -32,7 +32,7 @@ struct StrippedStateEvent: Matrix.Event {
         self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(sender, forKey: .sender)
         try container.encode(stateKey, forKey: .stateKey)
