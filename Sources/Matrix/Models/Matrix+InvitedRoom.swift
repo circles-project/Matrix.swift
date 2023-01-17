@@ -44,7 +44,7 @@ extension Matrix {
             }
             
             guard let createEvent = stateEventsCache[.mRoomCreate]?.first,
-                  let createContent = createEvent.content as? CreateContent
+                  let createContent = createEvent.content as? RoomCreateContent
             else {
                 throw Matrix.Error("No creation event for invited room")
             }

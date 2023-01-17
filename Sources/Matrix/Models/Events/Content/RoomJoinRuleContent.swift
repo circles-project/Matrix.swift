@@ -1,5 +1,5 @@
 //
-//  JoinRuleContent.swift
+//  RoomJoinRuleContent.swift
 //
 //
 //  Created by Charles Wright on 5/18/22.
@@ -8,7 +8,7 @@
 import Foundation
 
 /// m.room.join_rules: https://spec.matrix.org/v1.5/client-server-api/#mroomjoin_rules
-struct JoinRuleContent: Codable {
+struct RoomJoinRuleContent: Codable {
     struct AllowCondition: Codable {
         let roomId: RoomId
         enum AllowConditionType: String, Codable {

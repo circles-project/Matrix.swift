@@ -7,6 +7,7 @@
 
 import Foundation
 
+/// m.room.topic: https://spec.matrix.org/v1.5/client-server-api/#mroomtopic
 struct RoomTopicContent: Codable {
-    var topic: String
+    let topic: String
 }

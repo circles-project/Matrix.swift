@@ -15,16 +15,16 @@ extension Matrix {
             
         switch type {
         case .mRoomCanonicalAlias:
-            let content = try container.decode(CanonicalAliasContent.self, forKey: .content)
+            let content = try container.decode(RoomCanonicalAliasContent.self, forKey: .content)
             return content
         case .mRoomCreate:
-            let content = try container.decode(CreateContent.self, forKey: .content)
+            let content = try container.decode(RoomCreateContent.self, forKey: .content)
             return content
         case .mRoomMember:
             let content = try container.decode(RoomMemberContent.self, forKey: .content)
             return content
         case .mRoomJoinRules:
-            let content = try container.decode(JoinRuleContent.self, forKey: .content)
+            let content = try container.decode(RoomJoinRuleContent.self, forKey: .content)
             return content
         case .mRoomPowerLevels:
             let content = try container.decode(RoomPowerLevelsContent.self, forKey: .content)
@@ -65,7 +65,7 @@ extension Matrix {
             return content
             
         case .mTag:
-            let content = try container.decode(RoomTagContent.self, forKey: .content)
+            let content = try container.decode(TagContent.self, forKey: .content)
             return content
             
         case .mRoomEncryption:
@@ -151,10 +151,8 @@ extension Matrix {
         case .mSecretStorageKey(let string):
             throw Matrix.Error("Not implemented")
 
-        // Although specified as a room event, this event type is also used in sample JSON
-        // responses in the AccountData events
         case .mTag:
-            let content = try container.decode(RoomTagContent.self, forKey: .content)
+            let content = try container.decode(TagContent.self, forKey: .content)
             return content
         }
     }
