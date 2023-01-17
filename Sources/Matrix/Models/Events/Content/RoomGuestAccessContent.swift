@@ -8,15 +8,15 @@
 import Foundation
 
 /// m.room.guest_access: https://spec.matrix.org/v1.5/client-server-api/#mroomguest_access
-struct RoomGuestAccessContent: Codable {
-    enum GuestAccess: String, Codable {
+public struct RoomGuestAccessContent: Codable {
+    public enum GuestAccess: String, Codable {
         case canJoin = "can_join"
         case forbidden
     }
     
-    let guestAccess: GuestAccess
+    public let guestAccess: GuestAccess
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case guestAccess = "guest_access"
     }
 }

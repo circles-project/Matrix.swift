@@ -9,7 +9,7 @@ import Foundation
 
 extension Matrix {
     
-    static func decodeEventContent(of type: Matrix.EventType, from decoder: Decoder) throws -> Codable {
+    public static func decodeEventContent(of type: Matrix.EventType, from decoder: Decoder) throws -> Codable {
         
         let container = try decoder.container(keyedBy: MinimalEvent.CodingKeys.self)
             
@@ -125,7 +125,7 @@ extension Matrix {
         }
     }
     
-    static func decodeAccountData(of dataType: Matrix.AccountDataType, from decoder: Decoder) throws -> Decodable {
+    public static func decodeAccountData(of dataType: Matrix.AccountDataType, from decoder: Decoder) throws -> Decodable {
         let container = try decoder.container(keyedBy: MinimalEvent.CodingKeys.self)
 
         switch dataType {

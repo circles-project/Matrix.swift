@@ -7,9 +7,9 @@
 
 import Foundation
     
-struct UserId: LosslessStringConvertible, Codable, Equatable, Hashable {
-    let username: String
-    let domain: String
+public struct UserId: LosslessStringConvertible, Codable, Equatable, Hashable {
+    public let username: String
+    public let domain: String
     
     private static func validate(_ userId: String) -> Bool {
         let toks = userId.split(separator: ":")
@@ -26,7 +26,7 @@ struct UserId: LosslessStringConvertible, Codable, Equatable, Hashable {
         return true
     }
     
-    init?(_ userId: String) {
+    public init?(_ userId: String) {
         guard UserId.validate(userId) else {
             //let msg = "Invalid user id"
             //throw Matrix.Error(msg)
@@ -44,7 +44,7 @@ struct UserId: LosslessStringConvertible, Codable, Equatable, Hashable {
         self.domain = String(domainPart)
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let userId = try String(from: decoder)
         guard let me: UserId = .init(userId)
         else {
@@ -54,19 +54,19 @@ struct UserId: LosslessStringConvertible, Codable, Equatable, Hashable {
         self = me
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         try self.description.encode(to: encoder)
     }
 
-    var description: String {
+    public var description: String {
         "\(username):\(domain)"
     }
     
-    static func == (lhs: UserId, rhs: UserId) -> Bool {
+    public static func == (lhs: UserId, rhs: UserId) -> Bool {
         lhs.description == rhs.description
     }
 
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         self.description.hash(into: &hasher)
     }
 }

@@ -7,4 +7,4 @@
 
 import Foundation
 
-typealias DirectContent = [UserId: [RoomId]]
+public typealias DirectContent = [UserId: [RoomId]]

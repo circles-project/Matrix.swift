@@ -12,19 +12,19 @@ import BlindSaltSpeke
 // Implements the Matrix UI Auth for the Matrix /register endpoint
 // https://spec.matrix.org/v1.2/client-server-api/#post_matrixclientv3register
 
-let AUTH_TYPE_ENROLL_USERNAME = "m.enroll.username"
-let AUTH_TYPE_REGISTRATION_TOKEN = "m.login.registration_token"
-let AUTH_TYPE_APPLE_SUBSCRIPTION = "org.futo.subscriptions.apple"
-let AUTH_TYPE_LEGACY_EMAIL = "m.login.email.identity"
+public let AUTH_TYPE_ENROLL_USERNAME = "m.enroll.username"
+public let AUTH_TYPE_REGISTRATION_TOKEN = "m.login.registration_token"
+public let AUTH_TYPE_APPLE_SUBSCRIPTION = "org.futo.subscriptions.apple"
+public let AUTH_TYPE_LEGACY_EMAIL = "m.login.email.identity"
 
 
-class SignupSession: UIAuthSession {
-    let domain: String
-    //let deviceId: String?
-    //let initialDeviceDisplayName: String?
-    //let inhibitLogin = false
+public class SignupSession: UIAuthSession {
+    public let domain: String
+    //public let deviceId: String?
+    //public let initialDeviceDisplayName: String?
+    //public let inhibitLogin = false
 
-    init(domain: String,
+    public init(domain: String,
          deviceId: String? = nil,
          initialDeviceDisplayName: String? = nil,
          //showMSISDN: Bool = false,
@@ -54,7 +54,7 @@ class SignupSession: UIAuthSession {
     
     // MARK: Set username and password
     
-    func doUsernameStage(username: String) async throws {
+    public func doUsernameStage(username: String) async throws {
         let authDict = [
             "type": AUTH_TYPE_ENROLL_USERNAME,
             "username": username,
@@ -65,7 +65,7 @@ class SignupSession: UIAuthSession {
     
     // MARK: Token registration
     
-    func doTokenRegistrationStage(token: String) async throws {
+    public func doTokenRegistrationStage(token: String) async throws {
         
         guard _checkBasicSanity(userInput: token) == true
         else {
@@ -83,7 +83,7 @@ class SignupSession: UIAuthSession {
     
     // MARK: (New) Email stages
     
-    func doEmailRequestTokenStage(email: String) async throws -> String? {
+    public func doEmailRequestTokenStage(email: String) async throws -> String? {
 
         guard _looksLikeValidEmail(userInput: email) == true
         else {
@@ -107,7 +107,7 @@ class SignupSession: UIAuthSession {
         return clientSecret
     }
     
-    func doEmailSubmitTokenStage(token: String, secret: String) async throws {
+    public func doEmailSubmitTokenStage(token: String, secret: String) async throws {
         let emailAuthDict: [String: String] = [
             "type": AUTH_TYPE_ENROLL_EMAIL_SUBMIT_TOKEN,
             "token": token,
@@ -124,7 +124,7 @@ class SignupSession: UIAuthSession {
         
     // MARK: Apple Subscriptions
     
-    func doAppleSubscriptionStage(receipt: String) async throws {
+    public func doAppleSubscriptionStage(receipt: String) async throws {
         let args = [
             "type": AUTH_TYPE_APPLE_SUBSCRIPTION,
             "receipt": receipt,
@@ -134,12 +134,12 @@ class SignupSession: UIAuthSession {
     
     // MARK: Legacy email handling
     
-    struct LegacyEmailRequestTokenResponse: Codable {
-        var sid: String
-        var submitUrl: URL?
+    public struct LegacyEmailRequestTokenResponse: Codable {
+        public var sid: String
+        public var submitUrl: URL?
     }
     
-    func doLegacyEmailRequestToken(address: String) async throws -> LegacyEmailRequestTokenResponse {
+    public func doLegacyEmailRequestToken(address: String) async throws -> LegacyEmailRequestTokenResponse {
         let version = "r0"
         let url = URL(string: "https://\(url.host!)/_matrix/client/\(version)/register/email/requestToken")!
         
@@ -188,7 +188,7 @@ class SignupSession: UIAuthSession {
         return responseBody
     }
     
-    func doLegacyEmailValidateAddress(token: String, sid: String, url: URL) async throws -> Bool {
+    public func doLegacyEmailValidateAddress(token: String, sid: String, url: URL) async throws -> Bool {
         
         guard let sessionId = self.sessionId else {
             let msg = "No active signup session"
@@ -231,7 +231,7 @@ class SignupSession: UIAuthSession {
         return contents.success
     }
 
-    func doLegacyEmailStage(emailSessionId: String) async throws {
+    public func doLegacyEmailStage(emailSessionId: String) async throws {
         guard let sessionId = self.sessionId else {
             let msg = "No active signup session"
             print("LEGACY-EMAIL\t\(msg)")

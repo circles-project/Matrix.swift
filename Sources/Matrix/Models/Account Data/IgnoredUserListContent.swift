@@ -7,6 +7,6 @@
 
 import Foundation
 
-struct IgnoredUserListContent: Codable {
-    var ignoredUsers: [UserId: [String:String]]
+public struct IgnoredUserListContent: Codable {
+    public var ignoredUsers: [UserId: [String:String]]
 }

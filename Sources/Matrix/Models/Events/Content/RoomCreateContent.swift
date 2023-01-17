@@ -8,27 +8,27 @@
 import Foundation
 
 /// m.room.create: https://spec.matrix.org/v1.5/client-server-api/#mroomcreate
-struct RoomCreateContent: Codable {
-    let creator: UserId
+public struct RoomCreateContent: Codable {
+    public let creator: UserId
     /// Whether users on other servers can join this room. Defaults to true if key does not exist.
-    let federate: Bool?
+    public let federate: Bool?
     
-    struct PreviousRoom: Codable {
-        let eventId: EventId
-        let roomId: RoomId
+    public struct PreviousRoom: Codable {
+        public let eventId: EventId
+        public let roomId: RoomId
         
-        enum CodingKeys: String, CodingKey {
+        public enum CodingKeys: String, CodingKey {
             case eventId = "event_id"
             case roomId = "room_id"
         }
     }
-    let predecessor: PreviousRoom?
+    public let predecessor: PreviousRoom?
     
     /// The version of the room. Defaults to "1" if the key does not exist.
-    let roomVersion: String?
-    let type: String?
+    public let roomVersion: String?
+    public let type: String?
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case creator
         case federate = "m.federate"
         case predecessor

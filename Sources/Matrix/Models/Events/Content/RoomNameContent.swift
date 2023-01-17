@@ -8,6 +8,6 @@
 import Foundation
 
 /// m.room.name: https://spec.matrix.org/v1.5/client-server-api/#mroomname
-struct RoomNameContent: Codable {
-    let name: String
+public struct RoomNameContent: Codable {
+    public let name: String
 }

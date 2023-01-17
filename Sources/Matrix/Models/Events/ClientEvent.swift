@@ -7,28 +7,28 @@
 
 import Foundation
 
-struct ClientEvent: Matrix.Event {
-    let content: Codable
-    let eventId: String
-    let originServerTS: UInt64
-    let roomId: RoomId
-    let sender: UserId
-    let stateKey: String?
-    let type: Matrix.EventType
+public struct ClientEvent: Matrix.Event {
+    public let content: Codable
+    public let eventId: String
+    public let originServerTS: UInt64
+    public let roomId: RoomId
+    public let sender: UserId
+    public let stateKey: String?
+    public let type: Matrix.EventType
     
-    struct UnsignedData: Codable {
-        let age: Int
-        // let prevContent: Codable // Ugh how are we supposed to decode this???
-        // let redactedBecause: ClientEvent? // Ugh wtf Matrix?  We can't have a recursive structure here...
-        struct FakeClientEvent: Codable {
-            var eventId: String
+    public struct UnsignedData: Codable {
+        public let age: Int
+        // public let prevContent: Codable // Ugh how are we supposed to decode this???
+        // public let redactedBecause: ClientEvent? // Ugh wtf Matrix?  We can't have a recursive structure here...
+        public struct FakeClientEvent: Codable {
+            public var eventId: String
         }
-        let redactedBecause: FakeClientEvent?
-        let transactionId: String?
+        public let redactedBecause: FakeClientEvent?
+        public let transactionId: String?
     }
-    let unsigned: UnsignedData?
+    public let unsigned: UnsignedData?
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case content
         case eventId = "event_id"
         case originServerTS = "origin_server_ts"
@@ -39,7 +39,7 @@ struct ClientEvent: Matrix.Event {
         case unsigned
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         self.eventId = try container.decode(String.self, forKey: .eventId)
@@ -53,7 +53,7 @@ struct ClientEvent: Matrix.Event {
         self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(eventId, forKey: .eventId)
         try container.encode(originServerTS, forKey: .originServerTS)
@@ -67,11 +67,11 @@ struct ClientEvent: Matrix.Event {
 }
 
 extension ClientEvent: Hashable {
-    static func == (lhs: ClientEvent, rhs: ClientEvent) -> Bool {
+    public static func == (lhs: ClientEvent, rhs: ClientEvent) -> Bool {
         lhs.eventId == rhs.eventId
     }
 
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         //hasher.combine(roomId)
         hasher.combine(eventId)
     }

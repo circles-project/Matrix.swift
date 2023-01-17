@@ -8,29 +8,29 @@
 import Foundation
 
 extension Matrix {
-    class InvitedRoom: ObservableObject {
-        var session: Session
+    public class InvitedRoom: ObservableObject {
+        public var session: Session
         
-        let roomId: RoomId
-        let type: String?
-        let version: String
-        let predecessorRoomId: RoomId?
+        public let roomId: RoomId
+        public let type: String?
+        public let version: String
+        public let predecessorRoomId: RoomId?
         
-        let encrypted: Bool
+        public let encrypted: Bool
         
-        let creator: UserId
-        let sender: UserId
+        public let creator: UserId
+        public let sender: UserId
         
-        let name: String?
-        let topic: String?
-        let avatarUrl: MXC?
-        @Published var avatar: NativeImage?
+        public let name: String?
+        public let topic: String?
+        public let avatarUrl: MXC?
+        @Published public var avatar: NativeImage?
         
-        var members: [UserId]
+        public var members: [UserId]
         
         private var stateEventsCache: [EventType: [StrippedStateEvent]]  // From /sync
         
-        init(session: Session, roomId: RoomId, stateEvents: [StrippedStateEvent]) throws {
+        public init(session: Session, roomId: RoomId, stateEvents: [StrippedStateEvent]) throws {
             
             self.session = session
             self.roomId = roomId
@@ -126,11 +126,11 @@ extension Matrix {
             
         }
         
-        func join(reason: String? = nil) async throws {
+        public func join(reason: String? = nil) async throws {
             try await session.join(roomId: roomId, reason: reason)
         }
         
-        func getAvatarImage() async throws {
+        public func getAvatarImage() async throws {
             guard let mxc = self.avatarUrl else {
                 return
             }

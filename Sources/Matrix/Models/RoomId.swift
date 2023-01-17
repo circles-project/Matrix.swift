@@ -7,9 +7,9 @@
 
 import Foundation
 
-struct RoomId: LosslessStringConvertible, Codable, Equatable, Hashable {
-    let opaqueId: String
-    let domain: String
+public struct RoomId: LosslessStringConvertible, Codable, Equatable, Hashable {
+    public let opaqueId: String
+    public let domain: String
     
     private static func validate(_ roomId: String) -> Bool {
         let toks = roomId.split(separator: ":")
@@ -26,7 +26,7 @@ struct RoomId: LosslessStringConvertible, Codable, Equatable, Hashable {
         return true
     }
     
-    init?(_ roomId: String)  {
+    public init?(_ roomId: String)  {
         guard RoomId.validate(roomId) else {
             return nil
         }
@@ -40,7 +40,7 @@ struct RoomId: LosslessStringConvertible, Codable, Equatable, Hashable {
         self.domain = String(domainPart)
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let roomId = try String(from: decoder)
         guard let me: RoomId = .init(roomId)
         else {
@@ -50,15 +50,15 @@ struct RoomId: LosslessStringConvertible, Codable, Equatable, Hashable {
         self = me
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         try self.description.encode(to: encoder)
     }
     
-    var description: String {
+    public var description: String {
         "!\(opaqueId):\(domain)"
     }
 
-    static func == (lhs: RoomId, rhs: RoomId) -> Bool {
+    public static func == (lhs: RoomId, rhs: RoomId) -> Bool {
         lhs.description == rhs.description
     }
 }
