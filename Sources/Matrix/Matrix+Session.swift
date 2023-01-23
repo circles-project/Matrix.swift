@@ -14,7 +14,10 @@ import AppKit
 #endif
 
 extension Matrix {
-    public class Session: Matrix.Client, ObservableObject {
+    public class Session: Matrix.Client, ObservableObject, Codable, Storable {
+        public typealias StorableObject = Session
+        public typealias StorableKey = Credentials.StorableKey
+        
         @Published public var displayName: String?
         @Published public var avatarUrl: URL?
         @Published public var avatar: Matrix.NativeImage?
@@ -40,6 +43,25 @@ extension Matrix {
         // This saves us from struggling with UISI errors and unverified devices
         private var recoverySecretKey: Data?
         private var recoveryTimestamp: Date?
+        
+        public enum CodingKeys: String, CodingKey {
+            case credentials
+            case displayName
+            case avatarUrl
+            case avatar
+            case statusMessage
+            // rooms not being encoded in session object
+            // invitations not being encoded in session object
+            // syncRequestTask not being encoded
+            case syncToken
+            case syncRequestTimeout
+            case keepSyncing
+            case syncDelayNs
+            // backgroundSyncTask not being encoded
+            case ignoreUserIds
+            case recoverySecretKey
+            case recoveryTimestamp
+        }
         
         public init(creds: Credentials, startSyncing: Bool = true) throws {
             self.rooms = [:]
@@ -67,6 +89,40 @@ extension Matrix {
                     return count
                 }
             }
+        }
+            
+        public required convenience init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let creds = try container.decode(Credentials.self, forKey: .credentials)
+            let startSyncing = try container.decode(Bool.self, forKey: .keepSyncing)
+            // FIXME: do proper class initalization and decoding
+            try self.init(creds: creds, startSyncing: startSyncing)
+            
+            self.displayName = try container.decode(String.self, forKey: .displayName)
+            self.avatarUrl = try container.decode(URL.self, forKey: .avatarUrl)
+            self.avatar = try container.decode(NativeImage.self, forKey: .avatar)
+            self.statusMessage = try container.decode(String.self, forKey: .statusMessage)
+            self.syncToken = try container.decode(String.self, forKey: .syncToken)
+            self.syncRequestTimeout = try container.decode(Int.self, forKey: .syncRequestTimeout)
+            self.ignoreUserIds = try container.decode(Set<UserId>.self, forKey: .ignoreUserIds)
+            self.recoverySecretKey = try container.decode(Data.self, forKey: .recoverySecretKey)
+            self.recoveryTimestamp = try container.decode(Date.self, forKey: .recoveryTimestamp)
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            
+            try container.encode(self.creds, forKey: .credentials)
+            try container.encode(displayName, forKey: .displayName)
+            try container.encode(avatarUrl, forKey: .avatarUrl)
+            try container.encode(avatar, forKey: .avatar)
+            try container.encode(statusMessage, forKey: .statusMessage)
+            try container.encode(syncToken, forKey: .syncToken)
+            try container.encode(syncRequestTimeout, forKey: .syncRequestTimeout)
+            try container.encode(keepSyncing, forKey: .keepSyncing)
+            try container.encode(syncDelayNs, forKey: .syncDelayNs)
+            try container.encode(recoverySecretKey, forKey: .recoverySecretKey)
+            try container.encode(recoveryTimestamp, forKey: .recoveryTimestamp)
         }
         
         // MARK: Sync

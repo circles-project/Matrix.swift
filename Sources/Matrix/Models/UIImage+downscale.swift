@@ -36,4 +36,12 @@ extension UIImage {
     }
 }
 
+extension UIImage: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        if let data = self.tiffRepresentation {
+            try data.encode(to: encoder)
+        }
+    }
+}
+
 #endif

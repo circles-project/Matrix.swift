@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  NSImage+extensions.swift
 //  
 //
 //  Created by Charles Wright on 10/27/22.
@@ -40,6 +40,15 @@ extension NSImage {
             return nil
         }
         return NSBitmapImageRep(cgImage: cgImg).representation(using: .jpeg, properties: [.compressionFactor:compressionQuality])
+    }
+}
+
+// make note regarding why cannot implement codable (requires subclassing, which subclessing NSImage also has its issues) (also for uiimage?) also consider using the jpeg data representation for data store?
+extension NSImage: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        if let data = self.tiffRepresentation {
+            try data.encode(to: encoder)
+        }
     }
 }
 

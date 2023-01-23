@@ -241,3 +241,26 @@ public protocol _MatrixMessageContent: Codable {
     var body: String {get}
     var msgtype: Matrix.MessageType {get}
 }
+
+extension KeyedDecodingContainer {
+    public func decodeIfPresent(_ type: Matrix.NativeImage.Type, forKey key: K)
+    throws -> Matrix.NativeImage? {
+        guard self.contains(key) else {
+            return nil
+        }
+
+        // FIXME: Implement
+        
+        return nil
+    }
+
+    public func decode(_ type: Matrix.NativeImage.Type, forKey key: K) throws -> Matrix.NativeImage? {
+        guard self.contains(key) else {
+            return nil
+        }
+
+        // FIXME: Implement or remove?
+        
+        return nil
+    }
+}

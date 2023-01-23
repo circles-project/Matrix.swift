@@ -8,7 +8,10 @@
 import Foundation
 
 extension Matrix {
-    public class InvitedRoom: ObservableObject {
+    public class InvitedRoom: ObservableObject, Codable, Storable {
+        public typealias StorableObject = InvitedRoom
+        public typealias StorableKey = RoomId
+        
         public var session: Session
         
         public let roomId: RoomId
@@ -29,6 +32,23 @@ extension Matrix {
         public var members: [UserId]
         
         private var stateEventsCache: [EventType: [StrippedStateEvent]]  // From /sync
+        
+        public enum CodingKeys: String, CodingKey {
+            // session not being encoded
+            case roomId
+            case type
+            case version
+            case predecessorRoomId
+            case encrypted
+            case creator
+            case sender
+            case name
+            case topic
+            case avatarUrl
+            case avatar
+            case members
+            // stateEventsCache not being encoded
+        }
         
         public init(session: Session, roomId: RoomId, stateEvents: [StrippedStateEvent]) throws {
             
@@ -124,6 +144,44 @@ extension Matrix {
                 self.encrypted = false
             }
             
+        }
+        
+        public required init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            
+            self.roomId = try container.decode(RoomId.self, forKey: .roomId)
+            self.type = try container.decode(String.self, forKey: .type)
+            self.version = try container.decode(String.self, forKey: .version)
+            self.predecessorRoomId = try container.decode(RoomId.self, forKey: .predecessorRoomId)
+            self.encrypted = try container.decode(Bool.self, forKey: .encrypted)
+            self.creator = try container.decode(UserId.self, forKey: .creator)
+            self.sender = try container.decode(UserId.self, forKey: .sender)
+            self.name = try container.decode(String.self, forKey: .name)
+            self.topic = try container.decode(String.self, forKey: .topic)
+            self.avatarUrl = try container.decode(MXC.self, forKey: .avatarUrl)
+            self.avatar = try container.decode(NativeImage.self, forKey: .avatar)
+            self.members = try container.decode([UserId].self, forKey: .members)
+            
+            // FIXME: do proper class initalization and decoding
+            self.session = try Matrix.Session(creds: Matrix.Credentials(userId: UserId("TODO")!, deviceId: "TODO", accessToken: "TODO"))
+            self.stateEventsCache = [:]
+        }
+        
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            
+            try container.encode(roomId, forKey: .roomId)
+            try container.encode(type, forKey: .type)
+            try container.encode(version, forKey: .version)
+            try container.encode(predecessorRoomId, forKey: .predecessorRoomId)
+            try container.encode(encrypted, forKey: .encrypted)
+            try container.encode(creator, forKey: .creator)
+            try container.encode(sender, forKey: .sender)
+            try container.encode(name, forKey: .name)
+            try container.encode(topic, forKey: .topic)
+            try container.encode(avatarUrl, forKey: .avatarUrl)
+            try container.encode(avatar, forKey: .avatar)
+            try container.encode(members, forKey: .members)
         }
         
         public func join(reason: String? = nil) async throws {

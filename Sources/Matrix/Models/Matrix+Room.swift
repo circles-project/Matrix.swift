@@ -8,7 +8,10 @@
 import Foundation
 
 extension Matrix {
-    public class Room: ObservableObject {
+    public class Room: ObservableObject, Codable, Storable {
+        public typealias StorableObject = Room
+        public typealias StorableKey = RoomId
+        
         public let roomId: RoomId
         public let session: Session
         
@@ -40,6 +43,31 @@ extension Matrix {
         @Published public var knockingMembers: Set<UserId> = []
 
         @Published public var encryptionParams: RoomEncryptionContent?
+        
+        public enum CodingKeys: String, CodingKey {
+            case roomId
+            // session not being encoded
+            case type
+            case version
+            case name
+            case topic
+            case avatarUrl
+            case avatar
+            case predecessorRoomId
+            case successorRoomId
+            case tombstoneEventId
+            case messages
+            case localEchoEvent
+            // stateEventsCache not being encoded
+            case highlightCount
+            case notificationCount
+            case joinedMembers
+            case invitedMembers
+            case leftMembers
+            case bannedMembers
+            case knockingMembers
+            case encryptionParams
+        }
         
         public init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialMessages: [ClientEventWithoutRoomId] = []) throws {
             self.roomId = roomId
@@ -129,7 +157,84 @@ extension Matrix {
             }
             
         }
+                
+        public required init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            
+            self.roomId = try container.decode(RoomId.self, forKey: .roomId)
+            self.type = try container.decodeIfPresent(String.self, forKey: .type)
+            self.version = try container.decode(String.self, forKey: .version)
+            self.name = try container.decodeIfPresent(String.self, forKey: .name)
+            self.topic = try container.decodeIfPresent(String.self, forKey: .topic)
+            self.avatarUrl = try container.decodeIfPresent(MXC.self, forKey: .avatarUrl)
+            self.avatar = try container.decodeIfPresent(NativeImage.self, forKey: .avatar)
+            self.predecessorRoomId = try container.decodeIfPresent(RoomId.self, forKey: .predecessorRoomId)
+            self.successorRoomId = try container.decodeIfPresent(RoomId.self, forKey: .successorRoomId)
+            self.tombstoneEventId = try container.decodeIfPresent(EventId.self, forKey: .tombstoneEventId)
+            self.messages = try container.decode(Set<ClientEventWithoutRoomId>.self, forKey: .messages)
+            
+            if let clientEvent = try container.decodeIfPresent(ClientEvent.self, forKey: .localEchoEvent) {
+                self.localEchoEvent = clientEvent
+            }
+            else if let clientEventWithoutRoomId = try container.decodeIfPresent(ClientEventWithoutRoomId.self, forKey: .localEchoEvent) {
+                self.localEchoEvent = clientEventWithoutRoomId
+            }
+            else if let minimalEvent = try container.decodeIfPresent(MinimalEvent.self, forKey: .localEchoEvent) {
+                self.localEchoEvent = minimalEvent
+            }
+            else if let strippedStateEvent = try container.decodeIfPresent(StrippedStateEvent.self, forKey: .localEchoEvent) {
+                self.localEchoEvent = strippedStateEvent
+            }
+            else if let toDeviceEvent = try container.decodeIfPresent(ToDeviceEvent.self, forKey: .localEchoEvent) {
+                self.localEchoEvent = toDeviceEvent
+            }
+            else {
+                self.localEchoEvent = nil
+            }
+            
+            self.highlightCount = try container.decode(Int.self, forKey: .highlightCount)
+            self.notificationCount = try container.decode(Int.self, forKey: .notificationCount)
+            self.joinedMembers = try container.decode(Set<UserId>.self, forKey: .joinedMembers)
+            self.invitedMembers = try container.decode(Set<UserId>.self, forKey: .invitedMembers)
+            self.leftMembers = try container.decode(Set<UserId>.self, forKey: .leftMembers)
+            self.bannedMembers = try container.decode(Set<UserId>.self, forKey: .bannedMembers)
+            self.knockingMembers = try container.decode(Set<UserId>.self, forKey: .knockingMembers)
+            self.encryptionParams = try container.decodeIfPresent(RoomEncryptionContent.self, forKey: .encryptionParams)
+            
+            // FIXME: do proper class initalization and encoding/decoding
+            var creds = Matrix.Credentials(userId: UserId("@TODO:TODO.com")!, deviceId: "TODO", accessToken: "TODO")
+            creds.wellKnown = WellKnown(homeserver: Matrix.WellKnown.ServerConfig(baseUrl: "http://todo.todo"))
+            self.session = try Matrix.Session(creds: creds)
+            self.stateEventsCache = [:]
+        }
         
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            
+            try container.encode(roomId, forKey: .roomId)
+            try container.encode(type, forKey: .type)
+            try container.encode(version, forKey: .version)
+            try container.encode(name, forKey: .name)
+            try container.encode(topic, forKey: .topic)
+            try container.encode(avatarUrl, forKey: .avatarUrl)
+            try container.encode(avatar, forKey: .avatar)
+            try container.encode(predecessorRoomId, forKey: .predecessorRoomId)
+            try container.encode(successorRoomId, forKey: .successorRoomId)
+            try container.encode(tombstoneEventId, forKey: .tombstoneEventId)
+            try container.encode(messages, forKey: .messages)
+            if let unwrapedLocalEchoEvent = localEchoEvent {
+                try container.encode(unwrapedLocalEchoEvent, forKey: .localEchoEvent)
+            }
+            try container.encode(highlightCount, forKey: .highlightCount)
+            try container.encode(notificationCount, forKey: .notificationCount)
+            try container.encode(joinedMembers, forKey: .joinedMembers)
+            try container.encode(invitedMembers, forKey: .invitedMembers)
+            try container.encode(leftMembers, forKey: .leftMembers)
+            try container.encode(bannedMembers, forKey: .bannedMembers)
+            try container.encode(knockingMembers, forKey: .knockingMembers)
+            try container.encode(encryptionParams, forKey: .encryptionParams)
+        }
+                
         public func updateState(from events: [ClientEventWithoutRoomId]) {
             for event in events {
                 
