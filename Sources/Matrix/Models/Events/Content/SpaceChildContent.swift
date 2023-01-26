@@ -12,4 +12,10 @@ public struct SpaceChildContent: Codable {
     public var order: String?
     public var suggested: Bool?
     public var via: [String]?
+    
+    public init(order: String? = nil, suggested: Bool? = nil, via: [String]? = nil) {
+        self.order = order
+        self.suggested = suggested
+        self.via = via
+    }
 }

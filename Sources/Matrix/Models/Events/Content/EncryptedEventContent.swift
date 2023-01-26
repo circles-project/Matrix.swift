@@ -12,6 +12,10 @@ public protocol MatrixCiphertext: Codable {}
 public struct MegolmCiphertext: MatrixCiphertext {
     public let base64: String
     
+    public init(base64: String) {
+        self.base64 = base64
+    }
+    
     public init(from decoder: Decoder) throws {
         self.base64 = try .init(from: decoder)
     }
@@ -25,8 +29,17 @@ public struct OlmCiphertext: MatrixCiphertext {
     public struct EncryptedPayload: Codable {
         public let type: Int
         public let body: String
+        
+        public init(type: Int, body: String) {
+            self.type = type
+            self.body = body
+        }
     }
     public let ciphertext: [String: EncryptedPayload]
+    
+    public init(ciphertext: [String : EncryptedPayload]) {
+        self.ciphertext = ciphertext
+    }
     
     public init(from decoder: Decoder) throws {
         self.ciphertext = try .init(from: decoder)
@@ -55,6 +68,15 @@ public struct EncryptedEventContent: Codable {
         case deviceId = "device_id"
         case sessionId = "session_id"
         case ciphertext
+    }
+    
+    public init(algorithm: Algorithm, senderKey: String, deviceId: String, sessionId: String,
+                ciphertext: MatrixCiphertext) {
+        self.algorithm = algorithm
+        self.senderKey = senderKey
+        self.deviceId = deviceId
+        self.sessionId = sessionId
+        self.ciphertext = ciphertext
     }
     
     public init(from decoder: Decoder) throws {

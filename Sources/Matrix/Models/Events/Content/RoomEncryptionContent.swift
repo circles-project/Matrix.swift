@@ -22,6 +22,12 @@ public struct RoomEncryptionContent: Codable {
         rotationPeriodMsgs = 100
     }
     
+    public init(algorithm: Algorithm, rotationPeriodMs: Int, rotationPeriodMsgs: Int) {
+        self.algorithm = algorithm
+        self.rotationPeriodMs = rotationPeriodMs
+        self.rotationPeriodMsgs = rotationPeriodMsgs
+    }
+    
     public enum CodingKeys: String, CodingKey {
         case algorithm
         case rotationPeriodMs = "rotation_period_ms"

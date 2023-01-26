@@ -14,4 +14,8 @@ public struct TypingContent: Codable {
     public enum CodingKeys: String, CodingKey {
         case userIds = "user_ids"
     }
+    
+    public init(userIds: [UserId]) {
+        self.userIds = userIds
+    }
 }

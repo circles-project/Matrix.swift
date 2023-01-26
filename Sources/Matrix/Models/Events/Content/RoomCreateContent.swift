@@ -17,6 +17,11 @@ public struct RoomCreateContent: Codable {
         public let eventId: EventId
         public let roomId: RoomId
         
+        public init(eventId: EventId, roomId: RoomId) {
+            self.eventId = eventId
+            self.roomId = roomId
+        }
+        
         public enum CodingKeys: String, CodingKey {
             case eventId = "event_id"
             case roomId = "room_id"
@@ -27,6 +32,15 @@ public struct RoomCreateContent: Codable {
     /// The version of the room. Defaults to "1" if the key does not exist.
     public let roomVersion: String?
     public let type: String?
+    
+    public init(creator: UserId, federate: Bool?, predecessor: PreviousRoom?,
+                roomVersion: String?, type: String?) {
+        self.creator = creator
+        self.federate = federate
+        self.predecessor = predecessor
+        self.roomVersion = roomVersion
+        self.type = type
+    }
     
     public enum CodingKeys: String, CodingKey {
         case creator

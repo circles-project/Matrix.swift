@@ -15,6 +15,10 @@ import AnyCodable
 public struct ReceiptContent: Codable {
     public struct UserTimestamp: Codable, Equatable {
         public let ts: Int
+        
+        public init(ts: Int) {
+            self.ts = ts
+        }
     }
     
     public typealias ReceiptTypeContent = [String: [String: Int]]
@@ -78,8 +82,8 @@ public struct ReceiptContent: Codable {
     
     public let events: [EventId: [ReceiptType]]
     
-    public init(_ eventsDict: [EventId: [ReceiptType]]) {
-        self.events = eventsDict
+    public init(events: [EventId : [ReceiptType]]) {
+        self.events = events
     }
 }
 
@@ -107,6 +111,6 @@ extension KeyedDecodingContainer {
             }
         }
         
-        return ReceiptContent(receiptContentEvents)
+        return ReceiptContent(events: receiptContentEvents)
     }
 }

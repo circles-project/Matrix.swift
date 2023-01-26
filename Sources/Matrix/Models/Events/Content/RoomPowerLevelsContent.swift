@@ -25,6 +25,21 @@ public struct RoomPowerLevelsContent: Codable {
     public let users: [String: Int]
     public let usersDefault: Int
     
+    public init(invite: Int, kick: Int, ban: Int, events: [String : Int], eventsDefault: Int,
+                notifications: [String : Int]?, redact: Int, stateDefault: Int, users: [String : Int],
+                usersDefault: Int) {
+        self.invite = invite
+        self.kick = kick
+        self.ban = ban
+        self.events = events
+        self.eventsDefault = eventsDefault
+        self.notifications = notifications
+        self.redact = redact
+        self.stateDefault = stateDefault
+        self.users = users
+        self.usersDefault = usersDefault
+    }
+    
     public enum CodingKeys: String, CodingKey {
         case invite
         case kick

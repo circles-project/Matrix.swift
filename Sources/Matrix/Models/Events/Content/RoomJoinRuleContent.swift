@@ -27,6 +27,11 @@ public struct RoomJoinRuleContent: Codable {
     public let allow: [AllowCondition]?
     public let joinRule: JoinRule
     
+    public init(allow: [AllowCondition]?, joinRule: JoinRule) {
+        self.allow = allow
+        self.joinRule = joinRule
+    }
+    
     public enum CodingKeys: String, CodingKey {
         case allow
         case joinRule = "join_rule"
