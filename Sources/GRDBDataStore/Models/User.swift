@@ -26,20 +26,16 @@ extension Matrix.User: FetchableRecord, PersistableRecord {
     }
 
     public static let databaseTableName = "users"
-
-    public func save(_ store: GRDBDataStore) async throws {
-        try await store.save(self)
+    public static var databaseDecodingUserInfo: [CodingUserInfoKey : Any] = [:]
+    private static let userInfoSessionKey = CodingUserInfoKey(rawValue: Matrix.User.CodingKeys.session.stringValue)!
+    
+    internal static func load(_ store: GRDBDataStore, key: StorableKey, session: Matrix.Session) throws -> Matrix.User? {
+        Matrix.User.databaseDecodingUserInfo = [Matrix.User.userInfoSessionKey: session]
+        return try store.load(Matrix.User.self, key: key)
     }
-
-    public func load(_ store: GRDBDataStore) async throws -> Matrix.User? {
-        return try await store.load(Matrix.User.self, self.id)
-    }
-
-    public static func load(_ store: GRDBDataStore, key: StorableKey) async throws -> Matrix.User? {
-        return try await store.load(Matrix.User.self, key)
-    }
-
-    public func remove(_ store: GRDBDataStore) async throws {
-        try await store.remove(self)
+    
+    internal static func load(_ store: GRDBDataStore, key: StorableKey, session: Matrix.Session) async throws -> Matrix.User? {
+        Matrix.User.databaseDecodingUserInfo = [Matrix.User.userInfoSessionKey: session]
+        return try await store.load(Matrix.User.self, key: key)
     }
 }

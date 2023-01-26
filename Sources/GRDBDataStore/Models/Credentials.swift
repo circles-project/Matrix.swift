@@ -28,24 +28,16 @@ extension Matrix.Credentials: FetchableRecord, PersistableRecord {
     }
     
     public static let databaseTableName = "credentials"
-        
-    public func save(_ store: GRDBDataStore) async throws {
-        try await store.save(self)
-    }
     
-    public func load(_ store: GRDBDataStore) async throws -> Matrix.Credentials? {
-        let compositeKey: [String: DatabaseValueConvertible] = [Matrix.Credentials.CodingKeys.userId.stringValue: self.userId,
-                                                                Matrix.Credentials.CodingKeys.deviceId.stringValue: self.deviceId]
-        return try await store.load(Matrix.Credentials.self, compositeKey)
-    }
-    
-    public static func load(_ store: GRDBDataStore, key: StorableKey) async throws -> Matrix.Credentials? {
+    internal static func load(_ store: GRDBDataStore, key: StorableKey) throws -> Matrix.Credentials? {
         let compositeKey: [String: DatabaseValueConvertible] = [Matrix.Credentials.CodingKeys.userId.stringValue: key.0,
                                                                 Matrix.Credentials.CodingKeys.deviceId.stringValue: key.1]
-        return try await store.load(Matrix.Credentials.self, compositeKey)
+        return try store.load(Matrix.Credentials.self, key: compositeKey)
     }
     
-    public func remove(_ store: GRDBDataStore) async throws {
-        try await store.remove(self)
+    internal static func load(_ store: GRDBDataStore, key: StorableKey) async throws -> Matrix.Credentials? {
+        let compositeKey: [String: DatabaseValueConvertible] = [Matrix.Credentials.CodingKeys.userId.stringValue: key.0,
+                                                                Matrix.Credentials.CodingKeys.deviceId.stringValue: key.1]
+        return try await store.load(Matrix.Credentials.self, key: compositeKey)
     }
 }

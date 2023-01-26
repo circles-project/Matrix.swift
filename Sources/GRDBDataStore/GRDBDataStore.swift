@@ -9,9 +9,7 @@ import Foundation
 import Matrix
 import GRDB
 
-public class GRDBDataStore: DataStore {
-    public typealias StorableKey = DatabaseValueConvertible
-    
+public class GRDBDataStore {
     public var url: URL
     
     // docs tbd: exposing if user requires lower-level sql access instead of developing wrapper functions
@@ -66,22 +64,88 @@ public class GRDBDataStore: DataStore {
             try Matrix.User.deleteAll(db)
         }
     }
-        
-    public func save<T: Storable & PersistableRecord>(_ object: T) async throws {
-        try await dbQueue.write { db in
+    
+    // MARK: Non-async methods
+    
+    internal func save(_ object: PersistableRecord) throws {
+        try dbQueue.unsafeReentrantWrite { db in
             try object.upsert(db)
         }
     }
     
-    public func saveAll<T: Storable & PersistableRecord>(_ objectList: [T]) async throws {
-        try await dbQueue.write { db in
-            for obj in objectList {
+    internal func saveAll(_ objects: [PersistableRecord]) throws {
+        try dbQueue.unsafeReentrantWrite { db in
+            for obj in objects {
                 try obj.upsert(db)
             }
         }
     }
     
-    public func load<T: Storable & FetchableRecord & TableRecord>(_ type: T.Type, _ key: StorableKey) async throws -> T? {
+    internal func load<T>(_ type: T.Type, key: DatabaseValueConvertible) throws -> T?
+    where T: FetchableRecord & TableRecord {
+        try dbQueue.unsafeReentrantRead { db in
+            if let obj = try T.fetchOne(db, key: key) {
+                return obj
+            }
+            return nil
+        }
+    }
+    
+    // docs TBD (composite primary key)
+    internal func load<T>(_ type: T.Type, key: [String: DatabaseValueConvertible]) throws -> T?
+    where T: FetchableRecord & TableRecord {
+        try dbQueue.unsafeReentrantRead { db in
+            if let obj = try T.fetchOne(db, key: key) {
+                return obj
+            }
+            return nil
+        }
+    }
+    
+    internal func loadAll<T>(_ type: T.Type) throws -> [T] where T: FetchableRecord & TableRecord {
+        try dbQueue.unsafeReentrantRead { db in
+            return try T.fetchAll(db)
+        }
+    }
+        
+    internal func remove(_ object: PersistableRecord) throws {
+        try dbQueue.unsafeReentrantWrite { db in
+            try object.delete(db)
+        }
+    }
+    
+    internal func remove(_ type: PersistableRecord.Type, key: DatabaseValueConvertible) throws {
+        try dbQueue.unsafeReentrantWrite { db in
+            try type.deleteOne(db, key: key)
+        }
+    }
+    
+    internal func removeAll(_ objects: [PersistableRecord]) throws {
+        try dbQueue.unsafeReentrantWrite { db in
+            for obj in objects {
+                try obj.delete(db)
+            }
+        }
+    }
+    
+    // MARK: Async methods
+    
+    internal func save(_ object: PersistableRecord) async throws {
+        try await dbQueue.write { db in
+            try object.upsert(db)
+        }
+    }
+    
+    internal func saveAll(_ objects: [PersistableRecord]) async throws {
+        try await dbQueue.write { db in
+            for obj in objects {
+                try obj.upsert(db)
+            }
+        }
+    }
+    
+    internal func load<T>(_ type: T.Type, key: DatabaseValueConvertible) async throws -> T?
+    where T: FetchableRecord & TableRecord {
         try await dbQueue.read { db in
             if let obj = try T.fetchOne(db, key: key) {
                 return obj
@@ -91,7 +155,8 @@ public class GRDBDataStore: DataStore {
     }
     
     // docs TBD (composite primary key)
-    internal func load<T: Storable & FetchableRecord & TableRecord>(_ type: T.Type, _ key: [String: StorableKey]) async throws -> T? {
+    internal func load<T>(_ type: T.Type, key: [String: DatabaseValueConvertible]) async throws -> T?
+    where T: FetchableRecord & TableRecord {
         try await dbQueue.read { db in
             if let obj = try T.fetchOne(db, key: key) {
                 return obj
@@ -100,7 +165,7 @@ public class GRDBDataStore: DataStore {
         }
     }
     
-    public func loadAll<T: Storable & FetchableRecord & TableRecord>(_ type: T.Type) async throws -> [T] {
+    internal func loadAll<T>(_ type: T.Type) async throws -> [T] where T: FetchableRecord & TableRecord {
         try await dbQueue.read { db in
             return try T.fetchAll(db)
         }
@@ -127,15 +192,21 @@ public class GRDBDataStore: DataStore {
 //        }
 //    }
     
-    public func remove<T: Storable & PersistableRecord>(_ object: T) async throws {
+    internal func remove(_ object: PersistableRecord) async throws {
         try await dbQueue.write { db in
             try object.delete(db)
         }
     }
     
-    public func removeAll<T: Storable & PersistableRecord>(_ objectList: [T]) async throws {
+    internal func remove(_ type: PersistableRecord.Type, key: DatabaseValueConvertible) async throws {
         try await dbQueue.write { db in
-            for obj in objectList {
+            try type.deleteOne(db, key: key)
+        }
+    }
+    
+    internal func removeAll(_ objects: [PersistableRecord]) async throws {
+        try await dbQueue.write { db in
+            for obj in objects {
                 try obj.delete(db)
             }
         }

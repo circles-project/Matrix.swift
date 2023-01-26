@@ -39,6 +39,8 @@ extension Matrix.Session: FetchableRecord, PersistableRecord { //}, EncodableRec
     }
     
     public static let databaseTableName = "sessions"
+    public static var databaseDecodingUserInfo: [CodingUserInfoKey : Any] = [:]
+    private static let userInfoDataStoreKey = CodingUserInfoKey(rawValue: Matrix.Session.CodingKeys.dataStore.stringValue)!
     
 //    public func encode(to container: inout PersistenceContainer) throws {
 //        //container[Matrix.Session.CodingKeys.credentials.stringValue] =
@@ -56,24 +58,19 @@ extension Matrix.Session: FetchableRecord, PersistableRecord { //}, EncodableRec
 //        container[Matrix.Session.CodingKeys.recoverySecretKey.stringValue] = self.recoverySecretKey
 //        container[Matrix.Session.CodingKeys.recoveryTimestamp.stringValue] = self.recoveryTimestamp
 //    }
-    
-    public func save(_ store: GRDBDataStore) async throws {
-        try await store.save(self)
-    }
-    
-    public func load(_ store: GRDBDataStore) async throws -> Matrix.Session? {
-        let compositeKey: [String: DatabaseValueConvertible] = [Matrix.Credentials.CodingKeys.userId.stringValue: self.creds.userId,
-                                                                Matrix.Credentials.CodingKeys.deviceId.stringValue: self.creds.deviceId]
-        return try await store.load(Matrix.Session.self, compositeKey)
-    }
-    
-    public func load(_ store: GRDBDataStore, key: StorableKey) async throws -> Matrix.Session? {
+
+
+    internal static func load(_ store: GRDBDataStore, key: StorableKey) throws -> Matrix.Session? {
         let compositeKey: [String: DatabaseValueConvertible] = [Matrix.Credentials.CodingKeys.userId.stringValue: key.0,
                                                                 Matrix.Credentials.CodingKeys.deviceId.stringValue: key.1]
-        return try await store.load(Matrix.Session.self, compositeKey)
+        Matrix.Session.databaseDecodingUserInfo = [Matrix.Session.userInfoDataStoreKey: store]
+        return try store.load(Matrix.Session.self, key: compositeKey)
     }
-    
-    public func remove(_ store: GRDBDataStore) async throws {
-        try await store.remove(self)
+
+    internal static func load(_ store: GRDBDataStore, key: StorableKey) async throws -> Matrix.Session? {
+        let compositeKey: [String: DatabaseValueConvertible] = [Matrix.Credentials.CodingKeys.userId.stringValue: key.0,
+                                                                Matrix.Credentials.CodingKeys.deviceId.stringValue: key.1]
+        Matrix.Session.databaseDecodingUserInfo = [Matrix.Session.userInfoDataStoreKey: store]
+        return try await store.load(Matrix.Session.self, key: compositeKey)
     }
 }

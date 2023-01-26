@@ -33,20 +33,16 @@ extension Matrix.InvitedRoom: FetchableRecord, PersistableRecord {
     }
     
     public static let databaseTableName = "invitedRooms"
-            
-    public func save(_ store: GRDBDataStore) async throws {
-        try await store.save(self)
+    public static var databaseDecodingUserInfo: [CodingUserInfoKey : Any] = [:]
+    private static let userInfoSessionKey = CodingUserInfoKey(rawValue: Matrix.InvitedRoom.CodingKeys.session.stringValue)!
+        
+    internal static func load(_ store: GRDBDataStore, key: StorableKey, session: Matrix.Session) throws -> Matrix.InvitedRoom? {
+        Matrix.InvitedRoom.databaseDecodingUserInfo = [Matrix.InvitedRoom.userInfoSessionKey: session]
+        return try store.load(Matrix.InvitedRoom.self, key: key)
     }
     
-    public func load(_ store: GRDBDataStore) async throws -> Matrix.Room? {
-        return try await store.load(Matrix.Room.self, self.roomId)
-    }
-    
-    public static func load(_ store: GRDBDataStore, key: StorableKey) async throws -> Matrix.Room? {
-        return try await store.load(Matrix.Room.self, key)
-    }
-    
-    public func remove(_ store: GRDBDataStore) async throws {
-        try await store.remove(self)
+    internal static func load(_ store: GRDBDataStore, key: StorableKey, session: Matrix.Session) async throws -> Matrix.InvitedRoom? {
+        Matrix.InvitedRoom.databaseDecodingUserInfo = [Matrix.InvitedRoom.userInfoSessionKey: session]
+        return try await store.load(Matrix.InvitedRoom.self, key: key)
     }
 }

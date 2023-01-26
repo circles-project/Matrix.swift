@@ -37,7 +37,7 @@ let package = Package(
                 .product(name: "MatrixSDKCrypto", package: "MatrixSDKCrypto"),
             ]),
         .target(
-            name: "DataStore",
+            name: "GRDBDataStore",
             dependencies: [
                 "Matrix",
                 .product(name: "GRDB", package: "GRDB.swift"),
@@ -47,7 +47,7 @@ let package = Package(
             name: "MatrixTests",
             dependencies: [
                 "Matrix",
-                "DataStore",
+                "GRDBDataStore",
                 .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "AnyCodable", package: "anycodable"),
                 .product(name: "BlindSaltSpeke", package: "blindsaltspeke"),

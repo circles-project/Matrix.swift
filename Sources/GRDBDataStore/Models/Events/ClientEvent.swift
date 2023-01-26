@@ -29,20 +29,4 @@ extension ClientEvent: FetchableRecord, PersistableRecord {
     }
     
     public static let databaseTableName = "clientEvents"
-
-    public func save(_ store: GRDBDataStore) async throws {
-        try await store.save(self)
-    }
-
-    public func load(_ store: GRDBDataStore) async throws -> ClientEvent? {
-        return try await store.load(ClientEvent.self, self.eventId)
-    }
-
-    public static func load(_ store: GRDBDataStore, key: StorableKey) async throws -> ClientEvent? {
-        return try await store.load(ClientEvent.self, key)
-    }
-    
-    public func remove(_ store: GRDBDataStore) async throws {
-        try await store.remove(self)
-    }
 }

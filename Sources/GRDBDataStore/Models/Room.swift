@@ -28,7 +28,7 @@ extension Matrix.Room: FetchableRecord, PersistableRecord {
                 t.column(Matrix.Room.CodingKeys.tombstoneEventId.stringValue, .text)
                 
                 // FIXME: Change to list of foreign keys to clientEvents with added room ids (self)
-                t.column(Matrix.Room.CodingKeys.messages.stringValue, .blob)
+                t.column(Matrix.Room.CodingKeys.messages.stringValue, .blob) // List of foreign keys to events in 'clientEvents'
                 t.column(Matrix.Room.CodingKeys.localEchoEvent.stringValue, .blob)
                 t.column(Matrix.Room.CodingKeys.highlightCount.stringValue, .integer)
                 t.column(Matrix.Room.CodingKeys.notificationCount.stringValue, .integer)
@@ -43,20 +43,16 @@ extension Matrix.Room: FetchableRecord, PersistableRecord {
     }
     
     public static let databaseTableName = "rooms"
-        
-    public func save(_ store: GRDBDataStore) async throws {
-        try await store.save(self)
+    public static var databaseDecodingUserInfo: [CodingUserInfoKey : Any] = [:]
+    private static let userInfoSessionKey = CodingUserInfoKey(rawValue: Matrix.Room.CodingKeys.session.stringValue)!
+    
+    internal static func load(_ store: GRDBDataStore, key: StorableKey, session: Matrix.Session) throws -> Matrix.Room? {
+        Matrix.Room.databaseDecodingUserInfo = [Matrix.Room.userInfoSessionKey: session]
+        return try store.load(Matrix.Room.self, key: key)
     }
     
-    public func load(_ store: GRDBDataStore) async throws -> Matrix.Room? {
-        return try await store.load(Matrix.Room.self, self.roomId)
-    }
-    
-    public static func load(_ store: GRDBDataStore, key: StorableKey) async throws -> Matrix.Room? {
-        return try await store.load(Matrix.Room.self, key)
-    }
-    
-    public func remove(_ store: GRDBDataStore) async throws {
-        try await store.remove(self)
+    internal static func load(_ store: GRDBDataStore, key: StorableKey, session: Matrix.Session) async throws -> Matrix.Room? {
+        Matrix.Room.databaseDecodingUserInfo = [Matrix.Room.userInfoSessionKey: session]
+        return try await store.load(Matrix.Room.self, key: key)
     }
 }
