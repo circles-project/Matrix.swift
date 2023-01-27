@@ -18,6 +18,10 @@ public struct RoomHistoryVisibilityContent: Codable {
     
     public let historyVisibility: HistoryVisibility
     
+    public init(historyVisibility: HistoryVisibility) {
+        self.historyVisibility = historyVisibility
+    }
+    
     public enum CodingKeys: String, CodingKey {
         case historyVisibility = "history_visibility"
     }

@@ -12,6 +12,11 @@ public struct RoomTombstoneContent: Codable {
     public let body: String
     public let replacementRoom: RoomId
     
+    public init(body: String, replacementRoom: RoomId) {
+        self.body = body
+        self.replacementRoom = replacementRoom
+    }
+    
     public enum CodingKeys: String, CodingKey {
         case body
         case replacementRoom = "replacement_room"

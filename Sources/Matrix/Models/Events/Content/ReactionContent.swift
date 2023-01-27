@@ -17,6 +17,12 @@ public struct ReactionContent: Codable {
         public let eventId: EventId
         public let key: String
         
+        public init(relType: RelType, eventId: EventId, key: String) {
+            self.relType = relType
+            self.eventId = eventId
+            self.key = key
+        }
+        
         public enum CodingKeys: String, CodingKey {
             case relType = "rel_type"
             case eventId = "event_id"
@@ -31,5 +37,9 @@ public struct ReactionContent: Codable {
     
     public init(eventId: EventId, reaction: String) {
         self.relatesTo = RelatesTo(relType: .annotation, eventId: eventId, key: reaction)
+    }
+    
+    public init(relatesTo: RelatesTo) {
+        self.relatesTo = relatesTo
     }
 }

@@ -16,6 +16,10 @@ public struct RoomGuestAccessContent: Codable {
     
     public let guestAccess: GuestAccess
     
+    public init(guestAccess: GuestAccess) {
+        self.guestAccess = guestAccess
+    }
+    
     public enum CodingKeys: String, CodingKey {
         case guestAccess = "guest_access"
     }

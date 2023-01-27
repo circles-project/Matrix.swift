@@ -24,8 +24,24 @@ public struct RoomMemberContent: Codable {
     public let reason: String?
     public struct Invite: Codable {
         public let displayName: String
+        
+        public init(displayName: String) {
+            self.displayName = displayName
+        }
     }
     public let thirdPartyInvite: Invite?
+    
+    public init(avatarUrl: String?, displayname: String?, isDirect: Bool?,
+                joinAuthorizedUsersViaServer: String?, membership: Membership, reason: String?,
+                thirdPartyInvite: Invite?) {
+        self.avatarUrl = avatarUrl
+        self.displayname = displayname
+        self.isDirect = isDirect
+        self.joinAuthorizedUsersViaServer = joinAuthorizedUsersViaServer
+        self.membership = membership
+        self.reason = reason
+        self.thirdPartyInvite = thirdPartyInvite
+    }
     
     public enum CodingKeys: String, CodingKey {
         case avatarUrl = "avatar_url"

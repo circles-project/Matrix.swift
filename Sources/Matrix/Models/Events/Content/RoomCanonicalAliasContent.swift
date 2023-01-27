@@ -12,6 +12,11 @@ public struct RoomCanonicalAliasContent: Codable {
     public let alias: String
     public let altAliases: [String]
     
+    public init(alias: String, altAliases: [String]) {
+        self.alias = alias
+        self.altAliases = altAliases
+    }
+    
     public enum CodingKeys: String, CodingKey {
         case alias
         case altAliases = "alt_aliases"

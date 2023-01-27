@@ -23,6 +23,16 @@ public struct PresenceContent: Codable {
     public let presence: Presence
     public let statusMessage: String?
     
+    public init(avatarUrl: String?, currentlyActive: Bool?, displayname: String?,
+                lastActiveAgo: Int?, presence: Presence, statusMessage: String?) {
+        self.avatarUrl = avatarUrl
+        self.currentlyActive = currentlyActive
+        self.displayname = displayname
+        self.lastActiveAgo = lastActiveAgo
+        self.presence = presence
+        self.statusMessage = statusMessage
+    }
+    
     public enum CodingKeys: String, CodingKey {
         case avatarUrl = "avatar_url"
         case currentlyActive = "currently_active"

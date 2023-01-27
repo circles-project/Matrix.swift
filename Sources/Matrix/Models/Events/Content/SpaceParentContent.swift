@@ -11,4 +11,9 @@ import Foundation
 public struct SpaceParentContent: Codable {
     public var canonical: Bool?
     public var via: [String]?
+    
+    public init(canonical: Bool? = nil, via: [String]? = nil) {
+        self.canonical = canonical
+        self.via = via
+    }
 }

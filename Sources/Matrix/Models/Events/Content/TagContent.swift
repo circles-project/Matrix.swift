@@ -13,4 +13,8 @@ public struct TagContent: Codable {
         public let order: Float
     }
     public let tags: [String: Tag]
+    
+    public init(tags: [String : Tag]) {
+        self.tags = tags
+    }
 }

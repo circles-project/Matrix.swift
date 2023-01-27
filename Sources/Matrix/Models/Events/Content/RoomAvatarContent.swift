@@ -11,4 +11,9 @@ import Foundation
 public struct RoomAvatarContent: Codable {
     public let mxc: MXC
     public let info: Matrix.mImageInfo
+    
+    public init(mxc: MXC, info: Matrix.mImageInfo) {
+        self.mxc = mxc
+        self.info = info
+    }
 }
