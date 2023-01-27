@@ -69,13 +69,23 @@ extension Matrix {
     public struct mImageContent: Matrix.MessageContent {
         public var msgtype: Matrix.MessageType
         public var body: String
+        public var file: mEncryptedFile?
         public var url: MXC?
         public var info: mImageInfo
         
         public init(msgtype: Matrix.MessageType, body: String, url: MXC? = nil, info: mImageInfo) {
             self.msgtype = msgtype
             self.body = body
+            self.file = nil
             self.url = url
+            self.info = info
+        }
+
+        public init(msgtype: Matrix.MessageType, body: String, file: mEncryptedFile? = nil, info: mImageInfo) {
+            self.msgtype = msgtype
+            self.body = body
+            self.file = file
+            self.url = nil
             self.info = info
         }
     }

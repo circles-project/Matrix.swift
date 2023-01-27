@@ -269,21 +269,22 @@ extension Matrix {
         }
         
         public func sendImage(image: NativeImage) async throws -> EventId {
+            guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
+                throw Matrix.Error("Couldn't create JPEG for image")
+            }
+            let info = mImageInfo(h: Int(image.size.height),
+                                  w: Int(image.size.width),
+                                  mimetype: "image/jpeg",
+                                  size: jpegData.count)
             if !self.isEncrypted {
-                guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
-                    throw Matrix.Error("Couldn't create JPEG for image")
-                }
                 let mxc = try await self.session.uploadData(data: jpegData, contentType: "image/jpeg")
-                let info = mImageInfo(h: Int(image.size.height),
-                                      w: Int(image.size.width),
-                                      mimetype: "image/jpeg",
-                                      size: jpegData.count)
-                let content = mImageContent(msgtype: .image, body: "\(mxc.mediaId).jpeg", info: info)
+                let content = mImageContent(msgtype: .image, body: "\(mxc.mediaId).jpeg", url: mxc, info: info)
                 return try await self.session.sendMessageEvent(to: self.roomId, type: .mRoomMessage, content: content)
             }
             else {
-                // FIXME: *Actually* implement uploading encrypted images here
-                throw Matrix.Error("Not implemented")
+                let encryptedFile = try await self.session.encryptAndUploadData(plaintext: jpegData, contentType: "image/jpeg")
+                let content = mImageContent(msgtype: .image, body: "\(encryptedFile.url.mediaId).jpeg", file: encryptedFile, info: info)
+                return try await self.session.sendMessageEvent(to: self.roomId, type: .mRoomMessage, content: content)
             }
         }
         
