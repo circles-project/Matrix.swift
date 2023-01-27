@@ -11,7 +11,7 @@ extension Matrix {
     
     // MARK: Encoding
     
-    static func encodeEventContent(content: Codable, of type: Matrix.EventType, to encoder: Encoder) throws {
+    public static func encodeEventContent(content: Codable, of type: Matrix.EventType, to encoder: Encoder) throws {
         enum CodingKeys: String, CodingKey {
             case content
         }
@@ -26,19 +26,19 @@ extension Matrix {
             try container.encode(avatarContent, forKey: .content)
             
         case .mRoomCanonicalAlias:
-            guard let aliasContent = content as? CanonicalAliasContent else {
+            guard let aliasContent = content as? RoomCanonicalAliasContent else {
                 throw Matrix.Error("Couldn't convert content")
             }
             try container.encode(aliasContent, forKey: .content)
             
         case .mRoomCreate:
-            guard let createContent = content as? CreateContent else {
+            guard let createContent = content as? RoomCreateContent else {
                 throw Matrix.Error("Couldn't convert content")
             }
             try container.encode(createContent, forKey: .content)
             
         case .mRoomJoinRules:
-            guard let joinruleContent = content as? JoinRuleContent else {
+            guard let joinruleContent = content as? RoomJoinRuleContent else {
                 throw Matrix.Error("Couldn't convert content")
             }
             try container.encode(joinruleContent, forKey: .content)
@@ -178,7 +178,7 @@ extension Matrix {
             try container.encode(roomTombstoneContent, forKey: .content)
             
         case .mTag:
-            guard let roomTagContent = content as? RoomTagContent else {
+            guard let roomTagContent = content as? TagContent else {
                 throw Matrix.Error("Couldn't convert content")
             }
             try container.encode(roomTagContent, forKey: .content)

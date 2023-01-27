@@ -7,28 +7,39 @@
 
 import Foundation
 
-struct ReactionContent: Codable {
-    struct RelatesTo: Codable {
-        enum RelType: String, Codable {
+/// m.reaction: https://github.com/uhoreg/matrix-doc/blob/aggregations-reactions/proposals/2677-reactions.md
+public struct ReactionContent: Codable {
+    public struct RelatesTo: Codable {
+        public enum RelType: String, Codable {
             case annotation = "m.annotation"
         }
-        var relType: RelType
-        var eventId: EventId
-        var key: String
+        public let relType: RelType
+        public let eventId: EventId
+        public let key: String
         
-        enum CodingKeys: String, CodingKey {
+        public init(relType: RelType, eventId: EventId, key: String) {
+            self.relType = relType
+            self.eventId = eventId
+            self.key = key
+        }
+        
+        public enum CodingKeys: String, CodingKey {
             case relType = "rel_type"
             case eventId = "event_id"
             case key
         }
     }
-    var relatesTo: RelatesTo
+    public let relatesTo: RelatesTo
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case relatesTo = "m.relates_to"
     }
     
-    init(eventId: EventId, reaction: String) {
+    public init(eventId: EventId, reaction: String) {
         self.relatesTo = RelatesTo(relType: .annotation, eventId: eventId, key: reaction)
+    }
+    
+    public init(relatesTo: RelatesTo) {
+        self.relatesTo = relatesTo
     }
 }

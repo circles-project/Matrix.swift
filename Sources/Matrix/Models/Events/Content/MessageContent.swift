@@ -9,29 +9,46 @@ import Foundation
 
 extension Matrix {
 
-    struct mInReplyTo: Codable {
-        var event_id: String
+    public struct mInReplyTo: Codable {
+        public var event_id: String
+        
+        public init(event_id: String) {
+            self.event_id = event_id
+        }
     }
-    struct mRelatesTo: Codable {
-        var in_reply_to: mInReplyTo?
+    public struct mRelatesTo: Codable {
+        public var in_reply_to: mInReplyTo?
 
-        enum CodingKeys: String, CodingKey {
+        public init(in_reply_to: mInReplyTo? = nil) {
+            self.in_reply_to = in_reply_to
+        }
+        
+        public enum CodingKeys: String, CodingKey {
             case in_reply_to = "m.in_reply_to"
         }
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-text
-    struct mTextContent: Matrix.MessageContent {
-        var msgtype: Matrix.MessageType
-        var body: String
-        var format: String?
-        var formatted_body: String?
+    public struct mTextContent: Matrix.MessageContent {
+        public var msgtype: Matrix.MessageType
+        public var body: String
+        public var format: String?
+        public var formatted_body: String?
 
         // https://matrix.org/docs/spec/client_server/r0.6.0#rich-replies
         // Maybe should have made the "Rich replies" functionality a protocol...
-        var relates_to: mRelatesTo?
+        public var relates_to: mRelatesTo?
 
-        enum CodingKeys : String, CodingKey {
+        public init(msgtype: Matrix.MessageType, body: String, format: String? = nil,
+                    formatted_body: String? = nil, relates_to: mRelatesTo? = nil) {
+            self.msgtype = msgtype
+            self.body = body
+            self.format = format
+            self.formatted_body = formatted_body
+            self.relates_to = relates_to
+        }
+        
+        public enum CodingKeys : String, CodingKey {
             case msgtype
             case body
             case format
@@ -42,137 +59,248 @@ extension Matrix {
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-emote
     // cvw: Same as text.
-    typealias mEmoteContent = mTextContent
+    public typealias mEmoteContent = mTextContent
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-notice
     // cvw: Same as text.
-    typealias mNoticeContent = mTextContent
+    public typealias mNoticeContent = mTextContent
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-image
-    struct mImageContent: Matrix.MessageContent {
-        var msgtype: Matrix.MessageType
-        var body: String
-        var url: MXC?
-        var info: mImageInfo
+    public struct mImageContent: Matrix.MessageContent {
+        public var msgtype: Matrix.MessageType
+        public var body: String
+        public var url: MXC?
+        public var info: mImageInfo
+        
+        public init(msgtype: Matrix.MessageType, body: String, url: MXC? = nil, info: mImageInfo) {
+            self.msgtype = msgtype
+            self.body = body
+            self.url = url
+            self.info = info
+        }
     }
 
-    struct mImageInfo: Codable {
-        var h: Int
-        var w: Int
-        var mimetype: String
-        var size: Int
-        var file: mEncryptedFile?
-        var thumbnail_url: URL?
-        var thumbnail_file: mEncryptedFile?
-        var thumbnail_info: mThumbnailInfo?
-        var blurhash: String?
+    public struct mImageInfo: Codable {
+        public var h: Int
+        public var w: Int
+        public var mimetype: String
+        public var size: Int
+        public var file: mEncryptedFile?
+        public var thumbnail_url: URL?
+        public var thumbnail_file: mEncryptedFile?
+        public var thumbnail_info: mThumbnailInfo?
+        public var blurhash: String?
+        
+        public init(h: Int, w: Int, mimetype: String, size: Int, file: mEncryptedFile? = nil,
+                    thumbnail_url: URL? = nil, thumbnail_file: mEncryptedFile? = nil,
+                    thumbnail_info: mThumbnailInfo? = nil, blurhash: String? = nil) {
+            self.h = h
+            self.w = w
+            self.mimetype = mimetype
+            self.size = size
+            self.file = file
+            self.thumbnail_url = thumbnail_url
+            self.thumbnail_file = thumbnail_file
+            self.thumbnail_info = thumbnail_info
+            self.blurhash = blurhash
+        }
     }
 
-    struct mThumbnailInfo: Codable {
-        var h: Int
-        var w: Int
-        var mimetype: String
-        var size: Int
+    public struct mThumbnailInfo: Codable {
+        public var h: Int
+        public var w: Int
+        public var mimetype: String
+        public var size: Int
+        
+        public init(h: Int, w: Int, mimetype: String, size: Int) {
+            self.h = h
+            self.w = w
+            self.mimetype = mimetype
+            self.size = size
+        }
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-file
-    struct mFileContent: Matrix.MessageContent {
-        let msgtype: Matrix.MessageType
-        var body: String
-        var filename: String
-        var info: mFileInfo
-        var file: mEncryptedFile
+    public struct mFileContent: Matrix.MessageContent {
+        public let msgtype: Matrix.MessageType
+        public var body: String
+        public var filename: String
+        public var info: mFileInfo
+        public var file: mEncryptedFile
+        
+        public init(msgtype: Matrix.MessageType, body: String, filename: String,
+                    info: mFileInfo, file: mEncryptedFile) {
+            self.msgtype = msgtype
+            self.body = body
+            self.filename = filename
+            self.info = info
+            self.file = file
+        }
     }
 
-    struct mFileInfo: Codable {
-        var mimetype: String
-        var size: UInt
-        var thumbnail_file: mEncryptedFile
-        var thumbnail_info: mThumbnailInfo
+    public struct mFileInfo: Codable {
+        public var mimetype: String
+        public var size: UInt
+        public var thumbnail_file: mEncryptedFile
+        public var thumbnail_info: mThumbnailInfo
+        
+        public init(mimetype: String, size: UInt, thumbnail_file: mEncryptedFile,
+                    thumbnail_info: mThumbnailInfo) {
+            self.mimetype = mimetype
+            self.size = size
+            self.thumbnail_file = thumbnail_file
+            self.thumbnail_info = thumbnail_info
+        }
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#extensions-to-m-message-msgtypes
-    struct mEncryptedFile: Codable {
-        var url: MXC
-        var key: JWK
-        var iv: String
-        var hashes: [String: String]
-        var v: String
+    public struct mEncryptedFile: Codable {
+        public var url: MXC 
+        public var key: JWK
+        public var iv: String
+        public var hashes: [String: String]
+        public var v: String
+        
+        public init(url: MXC, key: JWK, iv: String, hashes: [String : String], v: String) {
+            self.url = url
+            self.key = key
+            self.iv = iv
+            self.hashes = hashes
+            self.v = v
+        }
     }
 
-    //https://spec.matrix.org/v1.5/client-server-api/#extensions-to-mroommessage-msgtypes
-    struct JWK: Codable {
-        enum KeyType: String, Codable {
+    // https://matrix.org/docs/spec/client_server/r0.6.0#extensions-to-m-message-msgtypes
+    public struct JWK: Codable {
+        public enum KeyType: String, Codable {
             case oct
         }
-        enum KeyOperation: String, Codable {
+        public enum KeyOperation: String, Codable {
             case encrypt
             case decrypt
         }
-        enum Algorithm: String, Codable {
+        public enum Algorithm: String, Codable {
             case A256CTR
         }
-        
-        var kty: KeyType
-        var key_ops: [KeyOperation]
-        var alg: Algorithm
-        var k: String
-        var ext: Bool
-        
-        init(_ key: [UInt8]) {
+
+        public var kty: KeyType
+        public var key_ops: [KeyOperation]
+        public var alg: Algorithm
+        public var k: String
+        public var ext: Bool
+
+        public init(_ key: [UInt8]) {
             self.kty = .oct
             self.key_ops = [.decrypt]
             self.alg = .A256CTR
             self.k = Data(key).base64EncodedString()
             self.ext = true
         }
+        
+        public init(kty: KeyType, key_ops: [KeyOperation], alg: Algorithm, k: String, ext: Bool) {
+            self.kty = kty
+            self.key_ops = key_ops
+            self.alg = alg
+            self.k = k
+            self.ext = ext
+        }
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-audio
-    struct mAudioContent: Matrix.MessageContent {
-        let msgtype: Matrix.MessageType
-        var body: String
-        var info: mAudioInfo
-        var file: mEncryptedFile
+    public struct mAudioContent: Matrix.MessageContent {
+        public let msgtype: Matrix.MessageType
+        public var body: String
+        public var info: mAudioInfo
+        public var file: mEncryptedFile
+        
+        public init(msgtype: Matrix.MessageType, body: String, info: mAudioInfo,
+                    file: mEncryptedFile) {
+            self.msgtype = msgtype
+            self.body = body
+            self.info = info
+            self.file = file
+        }
     }
 
-    struct mAudioInfo: Codable {
-        var duration: UInt
-        var mimetype: String
-        var size: UInt
+    public struct mAudioInfo: Codable {
+        public var duration: UInt
+        public var mimetype: String
+        public var size: UInt
+        
+        public init(duration: UInt, mimetype: String, size: UInt) {
+            self.duration = duration
+            self.mimetype = mimetype
+            self.size = size
+        }
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-location
-    struct mLocationContent: Matrix.MessageContent {
-        let msgtype: Matrix.MessageType
-        var body: String
-        var geo_uri: String
-        var info: mLocationInfo
+    public struct mLocationContent: Matrix.MessageContent {
+        public let msgtype: Matrix.MessageType
+        public var body: String
+        public var geo_uri: String
+        public var info: mLocationInfo
+        
+        public init(msgtype: Matrix.MessageType, body: String, geo_uri: String,
+                    info: mLocationInfo) {
+            self.msgtype = msgtype
+            self.body = body
+            self.geo_uri = geo_uri
+            self.info = info
+        }
     }
 
-    struct mLocationInfo: Codable {
-        var thumbnail_url: URL?
-        var thumbnail_file: mEncryptedFile?
-        var thumbnail_info: mThumbnailInfo
+    public struct mLocationInfo: Codable {
+        public var thumbnail_url: URL?
+        public var thumbnail_file: mEncryptedFile?
+        public var thumbnail_info: mThumbnailInfo
+        
+        public init(thumbnail_url: URL? = nil, thumbnail_file: mEncryptedFile? = nil,
+                    thumbnail_info: mThumbnailInfo) {
+            self.thumbnail_url = thumbnail_url
+            self.thumbnail_file = thumbnail_file
+            self.thumbnail_info = thumbnail_info
+        }
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-video
-    struct mVideoContent: Matrix.MessageContent {
-        let msgtype: Matrix.MessageType
-        var body: String
-        var info: mVideoInfo
-        var file: mEncryptedFile
+    public struct mVideoContent: Matrix.MessageContent {
+        public let msgtype: Matrix.MessageType
+        public var body: String
+        public var info: mVideoInfo
+        public var file: mEncryptedFile
+        
+        public init(msgtype: Matrix.MessageType, body: String, info: mVideoInfo,
+                    file: mEncryptedFile) {
+            self.msgtype = msgtype
+            self.body = body
+            self.info = info
+            self.file = file
+        }
     }
 
-    struct mVideoInfo: Codable {
-        var duration: UInt
-        var h: UInt
-        var w: UInt
-        var mimetype: String
-        var size: UInt
-        var thumbnail_url: MXC?
-        var thumbnail_file: mEncryptedFile?
-        var thumbnail_info: mThumbnailInfo
+    public struct mVideoInfo: Codable {
+        public var duration: UInt
+        public var h: UInt
+        public var w: UInt
+        public var mimetype: String
+        public var size: UInt
+        public var thumbnail_url: MXC?
+        public var thumbnail_file: mEncryptedFile?
+        public var thumbnail_info: mThumbnailInfo
+        
+        public init(duration: UInt, h: UInt, w: UInt, mimetype: String, size: UInt,
+                    thumbnail_url: MXC? = nil, thumbnail_file: mEncryptedFile? = nil,
+                    thumbnail_info: mThumbnailInfo) {
+            self.duration = duration
+            self.h = h
+            self.w = w
+            self.mimetype = mimetype
+            self.size = size
+            self.thumbnail_url = thumbnail_url
+            self.thumbnail_file = thumbnail_file
+            self.thumbnail_info = thumbnail_info
+        }
     }
 
 } // end extension Matrix

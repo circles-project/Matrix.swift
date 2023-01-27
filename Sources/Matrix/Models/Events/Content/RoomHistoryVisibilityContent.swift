@@ -8,17 +8,21 @@
 import Foundation
 
 /// m.room.history_visibility: https://spec.matrix.org/v1.5/client-server-api/#mroomhistory_visibility
-struct RoomHistoryVisibilityContent: Codable {
-    enum HistoryVisibility: String, Codable {
+public struct RoomHistoryVisibilityContent: Codable {
+    public enum HistoryVisibility: String, Codable {
         case invited
         case joined
         case shared
         case worldReadable = "world_readable"
     }
     
-    var historyVisibility: HistoryVisibility
+    public let historyVisibility: HistoryVisibility
     
-    enum CodingKeys: String, CodingKey {
+    public init(historyVisibility: HistoryVisibility) {
+        self.historyVisibility = historyVisibility
+    }
+    
+    public enum CodingKeys: String, CodingKey {
         case historyVisibility = "history_visibility"
     }
 }

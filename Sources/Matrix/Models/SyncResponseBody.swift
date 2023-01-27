@@ -9,16 +9,16 @@ import Foundation
 
 extension Matrix {
     
-    struct AccountDataEvent: Decodable {
-        var type: AccountDataType
-        var content: Decodable
+    public struct AccountDataEvent: Decodable {
+        public var type: AccountDataType
+        public var content: Decodable
         
-        enum CodingKeys: String, CodingKey {
+        public enum CodingKeys: String, CodingKey {
             case type
             case content
         }
         
-        init(from decoder: Decoder) throws {
+        public init(from decoder: Decoder) throws {
             print("Decoding account data event")
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
@@ -28,85 +28,85 @@ extension Matrix {
         }
     }
     
-    struct SyncResponseBody: Decodable {
-        struct MinimalEventsContainer: Decodable {
-            var events: [MinimalEvent]?
+    public struct SyncResponseBody: Decodable {
+        public struct MinimalEventsContainer: Decodable {
+            public var events: [MinimalEvent]?
         }
         
-        struct AccountData: Decodable {
+        public struct AccountData: Decodable {
             // Here we can't use the MinimalEvent type that we already defined
             // Because Matrix is batshit and puts crazy stuff into these `type`s
-            var events: [AccountDataEvent]?
+            public var events: [AccountDataEvent]?
         }
         
-        typealias Presence =  MinimalEventsContainer
-        typealias Ephemeral = MinimalEventsContainer
+        public typealias Presence =  MinimalEventsContainer
+        public typealias Ephemeral = MinimalEventsContainer
         
-        struct Rooms: Decodable {
-            var invite: [RoomId: InvitedRoomSyncInfo]?
-            var join: [RoomId: JoinedRoomSyncInfo]?
-            var knock: [RoomId: KnockedRoomSyncInfo]?
-            var leave: [RoomId: LeftRoomSyncInfo]?
+        public struct Rooms: Decodable {
+            public var invite: [RoomId: InvitedRoomSyncInfo]?
+            public var join: [RoomId: JoinedRoomSyncInfo]?
+            public var knock: [RoomId: KnockedRoomSyncInfo]?
+            public var leave: [RoomId: LeftRoomSyncInfo]?
         }
         
-        struct InvitedRoomSyncInfo: Decodable {
-            struct InviteState: Decodable {
-                var events: [StrippedStateEvent]?
+        public struct InvitedRoomSyncInfo: Decodable {
+            public struct InviteState: Decodable {
+                public var events: [StrippedStateEvent]?
             }
-            var inviteState: InviteState?
+            public var inviteState: InviteState?
             
-            enum CodingKeys: String, CodingKey {
+            public enum CodingKeys: String, CodingKey {
                 case inviteState = "invite_state"
             }
         }
         
-        struct StateEventsContainer: Decodable {
-            var events: [ClientEventWithoutRoomId]?
+        public struct StateEventsContainer: Decodable {
+            public var events: [ClientEventWithoutRoomId]?
         }
         
-        struct Timeline: Decodable {
-            var events: [ClientEventWithoutRoomId]
-            var limited: Bool?
-            var prevBatch: String?
+        public struct Timeline: Decodable {
+            public var events: [ClientEventWithoutRoomId]
+            public var limited: Bool?
+            public var prevBatch: String?
             
-            enum CodingKeys: String, CodingKey {
+            public enum CodingKeys: String, CodingKey {
                 case events
                 case limited
                 case prevBatch = "prev_batch"
             }
         }
         
-        struct JoinedRoomSyncInfo: Decodable {
-            struct RoomSummary: Decodable {
-                var heroes: [UserId]?
-                var invitedMemberCount: Int?
-                var joinedMemberCount: Int?
+        public struct JoinedRoomSyncInfo: Decodable {
+            public struct RoomSummary: Decodable {
+                public var heroes: [UserId]?
+                public var invitedMemberCount: Int?
+                public var joinedMemberCount: Int?
                 
-                enum CodingKeys: String, CodingKey {
+                public enum CodingKeys: String, CodingKey {
                     case heroes = "m.heroes"
                     case invitedMemberCount = "m.invited_member_count"
                     case joinedMemberCount = "m.joined_member_count"
                 }
             }
-            struct UnreadNotificationCounts: Decodable {
+            public struct UnreadNotificationCounts: Decodable {
                 // FIXME: The spec gives the type for these as "Highlighted notification count" and "Total notification count" -- Hopefully it's a typo, and those should have been in the description column instead
-                var highlightCount: Int
-                var notificationCount: Int
+                public var highlightCount: Int
+                public var notificationCount: Int
                 
-                enum CodingKeys: String, CodingKey {
+                public enum CodingKeys: String, CodingKey {
                     case highlightCount = "highlight_count"
                     case notificationCount = "notification_count"
                 }
             }
-            var accountData: AccountData?
-            var ephemeral: Ephemeral?
-            var state: StateEventsContainer?
-            var summary: RoomSummary?
-            var timeline: Timeline?
-            var unreadNotifications: UnreadNotificationCounts?
-            var unreadThreadNotifications: [EventId: UnreadNotificationCounts]?
+            public var accountData: AccountData?
+            public var ephemeral: Ephemeral?
+            public var state: StateEventsContainer?
+            public var summary: RoomSummary?
+            public var timeline: Timeline?
+            public var unreadNotifications: UnreadNotificationCounts?
+            public var unreadThreadNotifications: [EventId: UnreadNotificationCounts]?
             
-            enum CodingKeys: String, CodingKey {
+            public enum CodingKeys: String, CodingKey {
                 case accountData = "account_data"
                 case ephemeral
                 case state
@@ -117,48 +117,50 @@ extension Matrix {
             }
         }
         
-        struct KnockedRoomSyncInfo: Decodable {
-            struct KnockState: Decodable {
-                var events: [StrippedStateEvent]
+        public struct KnockedRoomSyncInfo: Decodable {
+            public struct KnockState: Decodable {
+                public var events: [StrippedStateEvent]
             }
-            var knockState: KnockState?
+            public var knockState: KnockState?
             
-            enum CodingKeys: String, CodingKey {
+            public enum CodingKeys: String, CodingKey {
                 case knockState = "knock_state"
             }
         }
         
-        struct LeftRoomSyncInfo: Decodable {
-            var accountData: AccountData?
-            var state: StateEventsContainer?
-            var timeline: Timeline?
+        public struct LeftRoomSyncInfo: Decodable {
+            public var accountData: AccountData?
+            public var state: StateEventsContainer?
+            public var timeline: Timeline?
             
-            enum CodingKeys: String, CodingKey {
+            public enum CodingKeys: String, CodingKey {
                 case accountData = "account_data"
                 case state
                 case timeline
             }
         }
         
-        struct ToDevice: Decodable {
-            var events: [ToDeviceEvent]
+        public struct ToDevice: Decodable {
+            public var events: [ToDeviceEvent]
         }
         
-        struct DeviceLists: Decodable {
-            var changed: [UserId]?
-            var left: [UserId]?
+        public struct DeviceLists: Decodable {
+            public var changed: [UserId]?
+            public var left: [UserId]?
         }
-                
-        var accountData: AccountData?
-        var deviceLists: DeviceLists?
-        var deviceOneTimeKeysCount: [String: Int32]?
-        var deviceUnusedFallbackKeyTypes: [String]
-        var nextBatch: String
-        var presence: Presence?
-        var rooms: Rooms?
-        var toDevice: ToDevice?
+
+        public typealias OneTimeKeysCount = [String : Int32]
         
-        enum CodingKeys: String, CodingKey {
+        public var accountData: AccountData?
+        public var deviceLists: DeviceLists?
+        public var deviceOneTimeKeysCount: OneTimeKeysCount?
+        public var deviceUnusedFallbackKeyTypes: [String]
+        public var nextBatch: String
+        public var presence: Presence?
+        public var rooms: Rooms?
+        public var toDevice: ToDevice?
+        
+        public enum CodingKeys: String, CodingKey {
             case accountData = "account_data"
             case deviceLists = "device_lists"
             case deviceOneTimeKeysCount = "device_one_time_keys_count"
@@ -169,7 +171,7 @@ extension Matrix {
             case toDevice = "to_device"
         }
         
-        init(from decoder: Decoder) throws {
+        public init(from decoder: Decoder) throws {
             print("Decoding /sync response")
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
@@ -180,7 +182,7 @@ extension Matrix {
             self.deviceLists = try container.decodeIfPresent(DeviceLists.self, forKey: .deviceLists)
             
             print("\tDevice one-time keys count")
-            self.deviceOneTimeKeysCount = try container.decodeIfPresent([String:Int32].self, forKey: .deviceOneTimeKeysCount)
+            self.deviceOneTimeKeysCount = try container.decodeIfPresent(OneTimeKeysCount.self, forKey: .deviceOneTimeKeysCount)
             
             print("\tDevice unused fallback keys")
             self.deviceUnusedFallbackKeyTypes = try container.decode([String].self, forKey: .deviceUnusedFallbackKeyTypes)
@@ -201,7 +203,7 @@ extension Matrix {
 }
 
 extension KeyedDecodingContainer {
-    func decodeIfPresent(_ type: Dictionary<RoomId, Matrix.SyncResponseBody.InvitedRoomSyncInfo>.Type, forKey key: K)
+    public func decodeIfPresent(_ type: Dictionary<RoomId, Matrix.SyncResponseBody.InvitedRoomSyncInfo>.Type, forKey key: K)
     throws -> Dictionary<RoomId, Matrix.SyncResponseBody.InvitedRoomSyncInfo>? {
         guard self.contains(key) else {
             return nil
@@ -221,7 +223,7 @@ extension KeyedDecodingContainer {
         return inviteDictionary
     }
     
-    func decodeIfPresent(_ type: Dictionary<RoomId, Matrix.SyncResponseBody.KnockedRoomSyncInfo>.Type, forKey key: K)
+    public func decodeIfPresent(_ type: Dictionary<RoomId, Matrix.SyncResponseBody.KnockedRoomSyncInfo>.Type, forKey key: K)
     throws -> Dictionary<RoomId, Matrix.SyncResponseBody.KnockedRoomSyncInfo>? {
         guard self.contains(key) else {
             return nil
@@ -241,7 +243,7 @@ extension KeyedDecodingContainer {
         return knockedDictionary
     }
     
-    func decodeIfPresent(_ type: Dictionary<RoomId, Matrix.SyncResponseBody.LeftRoomSyncInfo>.Type, forKey key: K)
+    public func decodeIfPresent(_ type: Dictionary<RoomId, Matrix.SyncResponseBody.LeftRoomSyncInfo>.Type, forKey key: K)
     throws -> Dictionary<RoomId, Matrix.SyncResponseBody.LeftRoomSyncInfo>? {
         guard self.contains(key) else {
             return nil
@@ -261,7 +263,7 @@ extension KeyedDecodingContainer {
         return leftDictionary
     }
     
-    func decodeIfPresent(_ type: Dictionary<RoomId, Matrix.SyncResponseBody.JoinedRoomSyncInfo>.Type, forKey key: K)
+    public func decodeIfPresent(_ type: Dictionary<RoomId, Matrix.SyncResponseBody.JoinedRoomSyncInfo>.Type, forKey key: K)
     throws -> Dictionary<RoomId, Matrix.SyncResponseBody.JoinedRoomSyncInfo>? {
         guard self.contains(key) else {
             return nil

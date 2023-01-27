@@ -8,26 +8,42 @@
 import Foundation
 
 /// m.room.member: https://spec.matrix.org/v1.5/client-server-api/#mroommember
-struct RoomMemberContent: Codable {
-    let avatarUrl: String?
-    let displayname: String?
-    let isDirect: Bool?
-    let joinAuthorizedUsersViaServer: String?
-    enum Membership: String, Codable {
+public struct RoomMemberContent: Codable {
+    public let avatarUrl: String?
+    public let displayname: String?
+    public let isDirect: Bool?
+    public let joinAuthorizedUsersViaServer: String?
+    public enum Membership: String, Codable {
         case invite
         case join
         case knock
         case leave
         case ban
     }
-    let membership: Membership
-    let reason: String?
-    struct Invite: Codable {
-        let displayName: String
+    public let membership: Membership
+    public let reason: String?
+    public struct Invite: Codable {
+        public let displayName: String
+        
+        public init(displayName: String) {
+            self.displayName = displayName
+        }
     }
-    let thirdPartyInvite: Invite?
+    public let thirdPartyInvite: Invite?
     
-    enum CodingKeys: String, CodingKey {
+    public init(avatarUrl: String?, displayname: String?, isDirect: Bool?,
+                joinAuthorizedUsersViaServer: String?, membership: Membership, reason: String?,
+                thirdPartyInvite: Invite?) {
+        self.avatarUrl = avatarUrl
+        self.displayname = displayname
+        self.isDirect = isDirect
+        self.joinAuthorizedUsersViaServer = joinAuthorizedUsersViaServer
+        self.membership = membership
+        self.reason = reason
+        self.thirdPartyInvite = thirdPartyInvite
+    }
+    
+    public enum CodingKeys: String, CodingKey {
         case avatarUrl = "avatar_url"
         case displayname
         case isDirect = "is_direct"

@@ -7,6 +7,11 @@
 
 import Foundation
 
-struct RoomNameContent: Codable {
-    var name: String
+/// m.room.name: https://spec.matrix.org/v1.5/client-server-api/#mroomname
+public struct RoomNameContent: Codable {
+    public let name: String
+    
+    public init(name: String) {
+        self.name = name
+    }
 }

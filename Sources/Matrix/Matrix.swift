@@ -16,27 +16,29 @@ import AnyCodable
 import MatrixSDKCrypto
 
 @available(macOS 12.0, *)
-enum Matrix {
+public enum Matrix {
     
     // MARK: Error Types
     
-    struct Error: Swift.Error {
-        var msg: String
+    public struct Error: LocalizedError {
+        public var msg: String
+        public var errorDescription: String?
         
-        init(_ msg: String) {
+        public init(_ msg: String) {
             self.msg = msg
+            self.errorDescription = NSLocalizedString(msg, comment: msg)
         }
     }
     
-    struct RateLimitError: Swift.Error, Codable {
-        var errcode: String
-        var error: String?
-        var retryAfterMs: Int?
+    public struct RateLimitError: Swift.Error, Codable {
+        public var errcode: String
+        public var error: String?
+        public var retryAfterMs: Int?
     }
 
     // MARK: Utility Functions
     
-    static func getDomainFromUserId(_ userId: String) -> String? {
+    public static func getDomainFromUserId(_ userId: String) -> String? {
         let toks = userId.split(separator: ":")
         if toks.count != 2 {
             return nil
@@ -48,24 +50,24 @@ enum Matrix {
     
     // MARK: Well-Known
     
-    struct WellKnown: Codable {
-        struct ServerConfig: Codable {
-            var baseUrl: String
+    public struct WellKnown: Codable {
+        public struct ServerConfig: Codable {
+            public var baseUrl: String
             
-            enum CodingKeys: String, CodingKey {
+            public enum CodingKeys: String, CodingKey {
                 case baseUrl = "base_url"
             }
         }
-        var homeserver: ServerConfig
-        var identityserver: ServerConfig?
+        public var homeserver: ServerConfig
+        public var identityserver: ServerConfig?
 
-        enum CodingKeys: String, CodingKey {
+        public enum CodingKeys: String, CodingKey {
             case homeserver = "m.homeserver"
             case identityserver = "m.identity_server"
         }
     }
     
-    static func fetchWellKnown(for domain: String) async throws -> WellKnown {
+    public static func fetchWellKnown(for domain: String) async throws -> WellKnown {
         
         guard let url = URL(string: "https://\(domain)/.well-known/matrix/client") else {
             let msg = "Couldn't construct well-known URL"
@@ -110,26 +112,26 @@ enum Matrix {
     // Swift doesn't allow you to nest protocols inside other types, because fuck you.
     // Well fuck you too Swift, we're doing it anyway.
     // See below for the "real" type definitions.
-    typealias EventType = _MatrixEventType
-    typealias Event = _MatrixEvent
-    typealias AccountDataType = _MatrixAccountDataType
-    typealias MessageType = _MatrixMessageType
-    typealias MessageContent = _MatrixMessageContent
+    public typealias EventType = _MatrixEventType
+    public typealias Event = _MatrixEvent
+    public typealias AccountDataType = _MatrixAccountDataType
+    public typealias MessageType = _MatrixMessageType
+    public typealias MessageContent = _MatrixMessageContent
     
     // We're still in this dumb situation where Apple uses UIImage everywhere except MacOS
     #if os(macOS)
-    typealias NativeImage = NSImage
+    public typealias NativeImage = NSImage
     #else
-    typealias NativeImage = UIImage
+    public typealias NativeImage = UIImage
     #endif
     
     // Types imported from the Rust Crypto SDK
-    typealias Device = MatrixSDKCrypto.Device
+    public typealias Device = MatrixSDKCrypto.Device
 }
 
 
 // MARK: EventType
-enum _MatrixEventType: String, Codable {
+public enum _MatrixEventType: String, Codable {
     case mRoomCanonicalAlias = "m.room.canonical_alias"
     case mRoomCreate = "m.room.create"
     case mRoomJoinRules = "m.room.join_rules"
@@ -160,13 +162,13 @@ enum _MatrixEventType: String, Codable {
 }
 
 // MARK: Event
-protocol _MatrixEvent: Codable {
+public protocol _MatrixEvent: Codable {
     var type: Matrix.EventType {get}
     var content: Codable {get}
 }
 
 // MARK: AccountDataType
-enum _MatrixAccountDataType: Codable, Equatable {
+public enum _MatrixAccountDataType: Codable, Equatable {
     case mIdentityServer // "m.identity_server"
     case mFullyRead // "m.fully_read"
     case mDirect // "m.direct"
@@ -175,7 +177,7 @@ enum _MatrixAccountDataType: Codable, Equatable {
     case mSecretStorageKey(String) // "m.secret_storage.key.[key ID]"
     case mTag // "m.tag"
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let string = try String(from: decoder)
         
         switch string {
@@ -226,7 +228,7 @@ enum _MatrixAccountDataType: Codable, Equatable {
 }
 
 // MARK: MessageType
-enum _MatrixMessageType: String, Codable {
+public enum _MatrixMessageType: String, Codable {
     case text = "m.text"
     case emote = "m.emote"
     case notice = "m.notice"
@@ -238,7 +240,7 @@ enum _MatrixMessageType: String, Codable {
 }
 
 // MARK: MessageContent
-protocol _MatrixMessageContent: Codable {
+public protocol _MatrixMessageContent: Codable {
     var body: String {get}
     var msgtype: Matrix.MessageType {get}
 }

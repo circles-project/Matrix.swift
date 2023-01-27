@@ -9,18 +9,18 @@ import Foundation
 
     
 // https://spec.matrix.org/v1.2/client-server-api/#extensions-to-sync
-struct ToDeviceEvent: Matrix.Event {
-    var content: Codable
-    var type: Matrix.EventType
-    var sender: UserId
+public struct ToDeviceEvent: Matrix.Event {
+    public var content: Codable
+    public var type: Matrix.EventType
+    public var sender: UserId
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case content
         case type
         case sender
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.sender = try container.decode(UserId.self, forKey: .sender)
         self.type = try container.decode(Matrix.EventType.self, forKey: .type)
@@ -29,7 +29,7 @@ struct ToDeviceEvent: Matrix.Event {
         self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(sender, forKey: .sender)
         try container.encode(type, forKey: .type)

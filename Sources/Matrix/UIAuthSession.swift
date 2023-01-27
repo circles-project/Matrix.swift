@@ -10,7 +10,7 @@ import AnyCodable
 import BlindSaltSpeke
 
 @available(macOS 12.0, *)
-protocol UIASession {
+public protocol UIASession {
     var url: URL { get }
     
     var state: UIAuthSession.State { get }
@@ -27,40 +27,40 @@ protocol UIASession {
     
 }
 
-let AUTH_TYPE_ENROLL_BSSPEKE_OPRF = "m.enroll.bsspeke-ecc.oprf"
-let AUTH_TYPE_ENROLL_BSSPEKE_SAVE = "m.enroll.bsspeke-ecc.save"
-let AUTH_TYPE_TERMS = "m.login.terms"
-let AUTH_TYPE_ENROLL_PASSWORD = "m.enroll.password"
-let AUTH_TYPE_DUMMY = "m.login.dummy"
-let AUTH_TYPE_ENROLL_EMAIL_REQUEST_TOKEN = "m.enroll.email.request_token"
-let AUTH_TYPE_ENROLL_EMAIL_SUBMIT_TOKEN = "m.enroll.email.submit_token"
+public let AUTH_TYPE_ENROLL_BSSPEKE_OPRF = "m.enroll.bsspeke-ecc.oprf"
+public let AUTH_TYPE_ENROLL_BSSPEKE_SAVE = "m.enroll.bsspeke-ecc.save"
+public let AUTH_TYPE_TERMS = "m.login.terms"
+public let AUTH_TYPE_ENROLL_PASSWORD = "m.enroll.password"
+public let AUTH_TYPE_DUMMY = "m.login.dummy"
+public let AUTH_TYPE_ENROLL_EMAIL_REQUEST_TOKEN = "m.enroll.email.request_token"
+public let AUTH_TYPE_ENROLL_EMAIL_SUBMIT_TOKEN = "m.enroll.email.submit_token"
 
-let AUTH_TYPE_LOGIN_PASSWORD = "m.login.password"
-let AUTH_TYPE_LOGIN_BSSPEKE_OPRF = "m.login.bsspeke-ecc.oprf"
-let AUTH_TYPE_LOGIN_BSSPEKE_VERIFY = "m.login.bsspeke-ecc.verify"
-let AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN = "m.login.email.request_token"
-let AUTH_TYPE_LOGIN_EMAIL_SUBMIT_TOKEN = "m.login.email.submit_token"
+public let AUTH_TYPE_LOGIN_PASSWORD = "m.login.password"
+public let AUTH_TYPE_LOGIN_BSSPEKE_OPRF = "m.login.bsspeke-ecc.oprf"
+public let AUTH_TYPE_LOGIN_BSSPEKE_VERIFY = "m.login.bsspeke-ecc.verify"
+public let AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN = "m.login.email.request_token"
+public let AUTH_TYPE_LOGIN_EMAIL_SUBMIT_TOKEN = "m.login.email.submit_token"
 
 @available(macOS 12.0, *)
-class UIAuthSession: UIASession, ObservableObject {
+public class UIAuthSession: UIASession, ObservableObject {
         
-    enum State {
+    public enum State {
         case notConnected
         case connected(UIAA.SessionState)
         case inProgress(UIAA.SessionState,[String])
         case finished(Matrix.Credentials)
     }
     
-    let url: URL
-    let method: String
-    //let accessToken: String? // FIXME: Make this MatrixCredentials ???
-    let creds: Matrix.Credentials?
-    @Published var state: State
-    var realRequestDict: [String:AnyCodable] // The JSON fields for the "real" request behind the UIA protection
-    var storage = [String: Any]() // For holding onto data between requests, like we do on the server side
+    public let url: URL
+    public let method: String
+    //public let accessToken: String? // FIXME: Make this MatrixCredentials ???
+    public let creds: Matrix.Credentials?
+    @Published public var state: State
+    public var realRequestDict: [String:AnyCodable] // The JSON fields for the "real" request behind the UIA protection
+    public var storage = [String: Any]() // For holding onto data between requests, like we do on the server side
     
     // Shortcut to get around a bunch of `case let` nonsense everywhere
-    var sessionState: UIAA.SessionState? {
+    public var sessionState: UIAA.SessionState? {
         switch state {
         case .connected(let sessionState):
             return sessionState
@@ -71,7 +71,7 @@ class UIAuthSession: UIASession, ObservableObject {
         }
     }
         
-    init(method: String, url: URL, credentials: Matrix.Credentials? = nil, requestDict: [String:AnyCodable]) {
+    public init(method: String, url: URL, credentials: Matrix.Credentials? = nil, requestDict: [String:AnyCodable]) {
         self.method = method
         self.url = url
         //self.accessToken = accessToken
@@ -86,7 +86,7 @@ class UIAuthSession: UIASession, ObservableObject {
         */
     }
     
-    var sessionId: String? {
+    public var sessionId: String? {
         switch state {
         case .inProgress(let (uiaaState, selectedFlow)):
             return uiaaState.session
@@ -95,7 +95,7 @@ class UIAuthSession: UIASession, ObservableObject {
         }
     }
     
-    func _checkBasicSanity(userInput: String) -> Bool {
+    public func _checkBasicSanity(userInput: String) -> Bool {
         if userInput.contains(" ")
             || userInput.contains("\"")
             || userInput.isEmpty
@@ -105,7 +105,7 @@ class UIAuthSession: UIASession, ObservableObject {
         return true
     }
     
-    func _looksLikeValidEmail(userInput: String) -> Bool {
+    public func _looksLikeValidEmail(userInput: String) -> Bool {
         if !_checkBasicSanity(userInput: userInput) {
             return false
         }
@@ -138,7 +138,7 @@ class UIAuthSession: UIASession, ObservableObject {
         return false
     }
     
-    func connect() async throws {
+    public func connect() async throws {
         let tag = "UIA(init)"
         
         var request = URLRequest(url: url)
@@ -193,7 +193,7 @@ class UIAuthSession: UIASession, ObservableObject {
         }
     }
     
-    func selectFlow(flow: UIAA.Flow) async {
+    public func selectFlow(flow: UIAA.Flow) async {
         guard case .connected(let uiaState) = state else {
             // throw some error
             return
@@ -207,7 +207,7 @@ class UIAuthSession: UIASession, ObservableObject {
         }
     }
     
-    func doDummyAuthStage() async throws {
+    public func doDummyAuthStage() async throws {
         let authDict = [
             "type": AUTH_TYPE_DUMMY
         ]
@@ -215,7 +215,7 @@ class UIAuthSession: UIASession, ObservableObject {
         try await doUIAuthStage(auth: authDict)
     }
     
-    func doPasswordAuthStage(password: String) async throws {
+    public func doPasswordAuthStage(password: String) async throws {
 
         // Added base64 encoding here to prevent a possible injection attack on the password field
         let base64Password = Data(password.utf8).base64EncodedString()
@@ -228,7 +228,7 @@ class UIAuthSession: UIASession, ObservableObject {
         try await doUIAuthStage(auth: passwordAuthDict)
     }
     
-    func doPasswordEnrollStage(newPassword: String) async throws {
+    public func doPasswordEnrollStage(newPassword: String) async throws {
         let base64Password = Data(newPassword.utf8).base64EncodedString()
 
         let passwordAuthDict: [String: String] = [
@@ -240,7 +240,7 @@ class UIAuthSession: UIASession, ObservableObject {
     }
 
     
-    func doTermsStage() async throws {
+    public func doTermsStage() async throws {
         let auth: [String: String] = [
             "type": AUTH_TYPE_TERMS,
         ]
@@ -248,7 +248,7 @@ class UIAuthSession: UIASession, ObservableObject {
     }
     
     // FIXME: We need some way to know if this succeeded or failed
-    func doUIAuthStage(auth: [String:Codable]) async throws {
+    public func doUIAuthStage(auth: [String:Codable]) async throws {
         guard let AUTH_TYPE = auth["type"] as? String else {
             print("No auth type")
             return
@@ -368,7 +368,7 @@ class UIAuthSession: UIASession, ObservableObject {
     //       because it isn't logged in with a userId yet.
     //       Below, the Login OPRF has the same thing for the LoginSession.
     //       The "normal" UIAuthSession should always use the simple password: version when already logged in.
-    func doBSSpekeEnrollOprfStage(password: String) async throws {
+    public func doBSSpekeEnrollOprfStage(password: String) async throws {
         guard let userId = self.creds?.userId else {
             let msg = "Couldn't find user id for BS-SPEKE enrollment"
             print(msg)
@@ -377,7 +377,7 @@ class UIAuthSession: UIASession, ObservableObject {
         try await self.doBSSpekeEnrollOprfStage(userId: userId, password: password)
     }
     
-    func doBSSpekeEnrollOprfStage(userId: UserId, password: String) async throws {
+    public func doBSSpekeEnrollOprfStage(userId: UserId, password: String) async throws {
 
         let stage = AUTH_TYPE_ENROLL_BSSPEKE_OPRF
         
@@ -405,7 +405,7 @@ class UIAuthSession: UIASession, ObservableObject {
         try await doUIAuthStage(auth: args)
     }
     
-    func b64decode(_ str: String) -> [UInt8]? {
+    public func b64decode(_ str: String) -> [UInt8]? {
         guard let data = Data(base64Encoded: str) else {
             return nil
         }
@@ -414,7 +414,7 @@ class UIAuthSession: UIASession, ObservableObject {
     }
     
     // OK this one *is* exactly the same as in SignupSession
-    func doBSSpekeEnrollSaveStage() async throws {
+    public func doBSSpekeEnrollSaveStage() async throws {
         // Need to send
         // V, our long-term public key (from "verifier"?  Although here the actual verifiers are hashes.)
         // P, our base point on the curve
@@ -464,7 +464,7 @@ class UIAuthSession: UIASession, ObservableObject {
     // NOTE: Just as the SignupSession needs a userId:password: version of the Enroll OPRF,
     //       here we also need a userId:password: version of the Login OPRF for the LoginSession.
     //       The "normal" UIAuthSession should always use the simple password: version when already logged in.
-    func doBSSpekeLoginOprfStage(password: String) async throws {
+    public func doBSSpekeLoginOprfStage(password: String) async throws {
         guard let userId = self.creds?.userId
         else {
             let msg = "Couldn't find user id for BS-SPEKE login"
@@ -474,7 +474,7 @@ class UIAuthSession: UIASession, ObservableObject {
         try await self.doBSSpekeLoginOprfStage(userId: userId, password: password)
     }
     
-    func doBSSpekeLoginOprfStage(userId: UserId, password: String) async throws {
+    public func doBSSpekeLoginOprfStage(userId: UserId, password: String) async throws {
         let stage = AUTH_TYPE_LOGIN_BSSPEKE_OPRF
         
         // Make sure that nobody is up to any shenanigans, calling this with a fake userId when already logged in
@@ -497,7 +497,7 @@ class UIAuthSession: UIASession, ObservableObject {
     
     
     
-    func doBSSpekeLoginVerifyStage() async throws {
+    public func doBSSpekeLoginVerifyStage() async throws {
         // Need to send
         // V, our long-term public key (from "verifier"?  Although here the actual verifiers are hashes.)
         // P, our base point on the curve

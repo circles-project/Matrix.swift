@@ -17,17 +17,17 @@ import IDZSwiftCommonCrypto
 import MatrixSDKCrypto
 
 extension Matrix {
-    class Session: Matrix.Client, ObservableObject {
-        @Published var displayName: String?
-        @Published var avatarUrl: URL?
-        @Published var avatar: Matrix.NativeImage?
-        @Published var statusMessage: String?
+    public class Session: Matrix.Client, ObservableObject {
+        @Published public var displayName: String?
+        @Published public var avatarUrl: URL?
+        @Published public var avatar: Matrix.NativeImage?
+        @Published public var statusMessage: String?
         
         // cvw: Leaving these as comments for now, as they require us to define even more types
-        //@Published var device: MatrixDevice
+        //@Published public var device: MatrixDevice
         
-        @Published var rooms: [RoomId: Matrix.Room]
-        @Published var invitations: [RoomId: Matrix.InvitedRoom]
+        @Published public var rooms: [RoomId: Matrix.Room]
+        @Published public var invitations: [RoomId: Matrix.InvitedRoom]
 
         // Need some private stuff that outside callers can't see
         private var syncRequestTask: Task<String?,Swift.Error>? // FIXME Use a TaskGroup to make this subordinate to the backgroundSyncTask
@@ -47,7 +47,7 @@ extension Matrix {
         // Matrix Rust crypto
         private var crypto: MatrixSDKCrypto.OlmMachine
         
-        init(creds: Credentials, startSyncing: Bool = true) throws {
+        public init(creds: Credentials, startSyncing: Bool = true) throws {
             self.rooms = [:]
             self.invitations = [:]
             
@@ -82,7 +82,7 @@ extension Matrix {
         
         // MARK: Sync
         // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3sync
-        func sync() async throws -> String? {
+        public func sync() async throws -> String? {
             
             // FIXME: Use a TaskGroup
             syncRequestTask = syncRequestTask ?? .init(priority: .background) {
@@ -269,33 +269,33 @@ extension Matrix {
 
         // MARK: Session state management
         
-        func pause() async throws {
+        public func pause() async throws {
             // pause() doesn't actually make any API calls
             // It just tells our own local sync task to take a break
             throw Matrix.Error("Not implemented yet")
         }
         
-        func close() async throws {
+        public func close() async throws {
             // close() is like pause; it doesn't make any API calls
             // It just tells our local sync task to shut down
             throw Matrix.Error("Not implemented yet")
         }
         
-        func createRecovery(privateKey: Data) async throws {
+        public func createRecovery(privateKey: Data) async throws {
             throw Matrix.Error("Not implemented yet")
         }
         
-        func deleteRecovery() async throws {
+        public func deleteRecovery() async throws {
             throw Matrix.Error("Not implemented yet")
         }
         
-        func whoAmI() async throws -> UserId {
+        public func whoAmI() async throws -> UserId {
             return self.creds.userId
         }
         
         // MARK: Sending messages
         
-        override func sendMessageEvent(to roomId: RoomId,
+        override public func sendMessageEvent(to roomId: RoomId,
                                        type: Matrix.EventType,
                                        content: Codable
         ) async throws -> EventId {
@@ -464,7 +464,7 @@ extension Matrix {
         
         // MARK: Fetching Messages
         
-        override func getMessages(roomId: RoomId,
+        override public func getMessages(roomId: RoomId,
                                   forward: Bool = false,
                                   from token: String? = nil,
                                   limit: Int? = 25

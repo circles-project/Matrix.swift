@@ -7,4 +7,4 @@
 
 import Foundation
 
-typealias EventId = String
+public typealias EventId = String

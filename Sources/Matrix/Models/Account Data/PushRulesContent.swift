@@ -11,16 +11,16 @@ import AnyCodable
 // https://spec.matrix.org/v1.5/client-server-api/#push-rules
 // This is some of the messiest crap in the entire Matrix spec.
 // And that is saying something.
-struct PushRulesContent: Codable {
-    struct PushRule: Codable {
-        var actions: [Action]
-        var conditions: [PushCondition]?
-        var isDefault: Bool
-        var isEnabled: Bool
-        var pattern: String?
-        var ruleId: String
+public struct PushRulesContent: Codable {
+    public struct PushRule: Codable {
+        public var actions: [Action]
+        public var conditions: [PushCondition]?
+        public var isDefault: Bool
+        public var isEnabled: Bool
+        public var pattern: String?
+        public var ruleId: String
         
-        enum CodingKeys: String, CodingKey {
+        public enum CodingKeys: String, CodingKey {
             case actions
             case conditions
             case isDefault = "default"
@@ -29,13 +29,13 @@ struct PushRulesContent: Codable {
             case ruleId = "rule_id"
         }
         
-        struct PushCondition: Codable {
-            var isA: String?
-            var key: String?
-            var kind: String
-            var pattern: String?
+        public struct PushCondition: Codable {
+            public var isA: String?
+            public var key: String?
+            public var kind: String
+            public var pattern: String?
             
-            enum CodingKeys: String, CodingKey {
+            public enum CodingKeys: String, CodingKey {
                 case isA = "is"
                 case key
                 case kind
@@ -43,7 +43,7 @@ struct PushRulesContent: Codable {
             }
         }
         
-        enum Action: Codable {
+        public enum Action: Codable {
             case notify
             case dontNotify
             case coalesce
@@ -51,7 +51,7 @@ struct PushRulesContent: Codable {
             case setHighlightTweak(highlight: Bool)
             case setGenericTweak(tweak:String, value:String)
             
-            init(from decoder: Decoder) throws {
+            public init(from decoder: Decoder) throws {
                 print("Decoding push rule action")
                                 
                 struct ActionDecodingError: Error {
@@ -104,12 +104,12 @@ struct PushRulesContent: Codable {
             }
         }
     }
-    struct RuleSet: Codable {
-        var content: [PushRule]?
-        var override: [PushRule]?
-        var room: [PushRule]?
-        var sender: [PushRule]?
-        var underride: [PushRule]?
+    public struct RuleSet: Codable {
+        public var content: [PushRule]?
+        public var override: [PushRule]?
+        public var room: [PushRule]?
+        public var sender: [PushRule]?
+        public var underride: [PushRule]?
     }
-    var global: RuleSet?
+    public var global: RuleSet?
 }

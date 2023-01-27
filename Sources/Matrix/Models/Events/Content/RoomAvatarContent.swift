@@ -7,7 +7,13 @@
 
 import Foundation
 
-struct RoomAvatarContent: Codable {
-    var mxc: MXC
-    var info: Matrix.mImageInfo
+/// m.room.avatar: https://spec.matrix.org/v1.5/client-server-api/#mroomavatar
+public struct RoomAvatarContent: Codable {
+    public let mxc: MXC
+    public let info: Matrix.mImageInfo
+    
+    public init(mxc: MXC, info: Matrix.mImageInfo) {
+        self.mxc = mxc
+        self.info = info
+    }
 }

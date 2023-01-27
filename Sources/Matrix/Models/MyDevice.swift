@@ -9,14 +9,14 @@ import Foundation
 
 extension Matrix {
     
-    class MyDevice: ObservableObject {
-        //var matrix: MatrixAPI
-        var deviceId: String
-        @Published var displayName: String?
-        @Published var lastSeenIp: String?
-        @Published var lastSeenTs: Date?
+    public class MyDevice: ObservableObject {
+        //public var matrix: MatrixAPI
+        public var deviceId: String
+        @Published public var displayName: String?
+        @Published public var lastSeenIp: String?
+        @Published public var lastSeenTs: Date?
         
-        init(/*matrix: MatrixAPI,*/ deviceId: String, displayName: String? = nil, lastSeenIp: String? = nil, lastSeenUnixMs: Int? = nil) {
+        public init(/*matrix: MatrixAPI,*/ deviceId: String, displayName: String? = nil, lastSeenIp: String? = nil, lastSeenUnixMs: Int? = nil) {
             //self.matrix = matrix
             self.deviceId = deviceId
             self.displayName = displayName

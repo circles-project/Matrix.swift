@@ -8,10 +8,14 @@
 import Foundation
 
 /// m.typing: https://spec.matrix.org/v1.5/client-server-api/#mtyping
-struct TypingContent: Codable {
-    let userIds: [UserId]
+public struct TypingContent: Codable {
+    public let userIds: [UserId]
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case userIds = "user_ids"
+    }
+    
+    public init(userIds: [UserId]) {
+        self.userIds = userIds
     }
 }

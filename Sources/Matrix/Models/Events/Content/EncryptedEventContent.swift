@@ -7,49 +7,62 @@
 
 import Foundation
 
-protocol MatrixCiphertext: Codable {}
+public protocol MatrixCiphertext: Codable {}
 
-struct MegolmCiphertext: MatrixCiphertext {
-    let base64: String
+public struct MegolmCiphertext: MatrixCiphertext {
+    public let base64: String
     
-    init(from decoder: Decoder) throws {
+    public init(base64: String) {
+        self.base64 = base64
+    }
+    
+    public init(from decoder: Decoder) throws {
         self.base64 = try .init(from: decoder)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         try self.base64.encode(to: encoder)
     }
 }
 
-struct OlmCiphertext: MatrixCiphertext {
-    struct EncryptedPayload: Codable {
-        let type: Int
-        let body: String
+public struct OlmCiphertext: MatrixCiphertext {
+    public struct EncryptedPayload: Codable {
+        public let type: Int
+        public let body: String
+        
+        public init(type: Int, body: String) {
+            self.type = type
+            self.body = body
+        }
     }
-    let ciphertext: [String: EncryptedPayload]
+    public let ciphertext: [String: EncryptedPayload]
     
-    init(from decoder: Decoder) throws {
+    public init(ciphertext: [String : EncryptedPayload]) {
+        self.ciphertext = ciphertext
+    }
+    
+    public init(from decoder: Decoder) throws {
         self.ciphertext = try .init(from: decoder)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         try self.ciphertext.encode(to: encoder)
     }
 }
 
-struct EncryptedEventContent: Codable {
-    enum Algorithm: String, Codable {
+public struct EncryptedEventContent: Codable {
+    public enum Algorithm: String, Codable {
         case olmV1 = "m.olm.v1.curve25519-aes-sha2"
         case megolmV1 = "m.megolm.v1.aes-sha2"
     }
     
-    let algorithm: Algorithm
-    let senderKey: String
-    let deviceId: String
-    let sessionId: String
-    let ciphertext: MatrixCiphertext
+    public let algorithm: Algorithm
+    public let senderKey: String
+    public let deviceId: String
+    public let sessionId: String
+    public let ciphertext: MatrixCiphertext
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case algorithm
         case senderKey = "sender_key"
         case deviceId = "device_id"
@@ -57,7 +70,16 @@ struct EncryptedEventContent: Codable {
         case ciphertext
     }
     
-    init(from decoder: Decoder) throws {
+    public init(algorithm: Algorithm, senderKey: String, deviceId: String, sessionId: String,
+                ciphertext: MatrixCiphertext) {
+        self.algorithm = algorithm
+        self.senderKey = senderKey
+        self.deviceId = deviceId
+        self.sessionId = sessionId
+        self.ciphertext = ciphertext
+    }
+    
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         self.algorithm = try container.decode(Algorithm.self, forKey: .algorithm)
@@ -73,7 +95,7 @@ struct EncryptedEventContent: Codable {
         }
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         let container = encoder.container(keyedBy: CodingKeys.self)
         // FIXME
         // TODO
@@ -82,12 +104,12 @@ struct EncryptedEventContent: Codable {
 }
 
 /*
-struct EventPlaintextPayload: Codable {
-    let type: String
-    let content: MatrixMessageContent
-    let roomId: String
+public struct EventPlaintextPayload: Codable {
+    public let type: String
+    public let content: MatrixMessageContent
+    public let roomId: String
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         // FIXME: Need to borrow code from MatrixClientEvent to decode this thing
     }
     

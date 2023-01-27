@@ -1,10 +1,12 @@
 import XCTest
 
-@testable import Matrix
-
 enum XCTError: Error {
     case error(String)
 }
+
+//@testable import Matrix
+// Not using @testable since we are validating public-facing API
+import Matrix
 
 /// Sanity tests for validating the JSON parsing from the examples given in the spec: https://spec.matrix.org/v1.5/
 final class ModelTests: XCTestCase {
@@ -37,7 +39,7 @@ final class ModelTests: XCTestCase {
         print("AccountData:\n\t \(syncResponse.accountData!)")
         XCTAssertEqual(syncResponse.accountData!.events![0].type, _MatrixAccountDataType.mTag)
         XCTAssertEqual((syncResponse.accountData!.events![0].content
-                        as! RoomTagContent).tags["u.work"]!.order, 0.9)
+                        as! TagContent).tags["u.work"]!.order, 0.9)
         
         XCTAssertEqual(syncResponse.nextBatch, "s72595_4483_1934")
         
@@ -76,7 +78,7 @@ final class ModelTests: XCTestCase {
         print("Room Join:\n\t \(join)")
         XCTAssertEqual(join[joinRoomId]!.accountData!.events![0].type, _MatrixAccountDataType.mTag)
         XCTAssertEqual((join[joinRoomId]!.accountData!.events![0].content
-                        as! RoomTagContent).tags["u.work"]!.order, 0.9)
+                        as! TagContent).tags["u.work"]!.order, 0.9)
         
         XCTAssertEqual(join[joinRoomId]!.ephemeral!.events![0].type, _MatrixEventType.mTyping)
         XCTAssertEqual((join[joinRoomId]!.ephemeral!.events![0].content
@@ -165,5 +167,26 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(knock[knockRoomId]!.knockState!.events[1].stateKey, "@bob:example.com")
         XCTAssertEqual((knock[knockRoomId]!.knockState!.events[1].content
                         as! RoomMemberContent).membership, RoomMemberContent.Membership.knock)
+    }
+    
+    func testEventCreateContentModel() throws {
+        let decoder = JSONDecoder()
+        let room = try decoder.decode(ClientEvent.self, from: JSONResponses.RoomEvent.roomCreate)
+        print(room)
+        
+        XCTAssertEqual(room.type, _MatrixEventType.mRoomCreate)
+        XCTAssertEqual(room.eventId, "$143273582443PhrSn:example.org")
+        XCTAssertEqual(room.originServerTS, 1432735824653)
+        XCTAssertEqual(room.roomId, RoomId("!jEsUZKDJdhlrceRyVU:example.org"))
+        XCTAssertEqual(room.sender, UserId("@example:example.org"))
+        XCTAssertEqual(room.stateKey, "")
+        XCTAssertEqual(room.unsigned!.age, 1234)
+        
+        let roomContent = room.content as! RoomCreateContent
+        XCTAssertEqual(roomContent.creator, UserId("@example:example.org"))
+        XCTAssertEqual(roomContent.federate, true)
+        XCTAssertEqual(roomContent.predecessor!.eventId, "$something:example.org")
+        XCTAssertEqual(roomContent.predecessor!.roomId, RoomId("!oldroom:example.org"))
+        XCTAssertEqual(roomContent.roomVersion, "1")
     }
 }
