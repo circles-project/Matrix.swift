@@ -20,6 +20,12 @@ public struct ToDeviceEvent: Matrix.Event {
         case sender
     }
     
+    public init(content: Codable, type: Matrix.EventType, sender: UserId) {
+        self.content = content
+        self.type = type
+        self.sender = sender
+    }
+    
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.sender = try container.decode(UserId.self, forKey: .sender)

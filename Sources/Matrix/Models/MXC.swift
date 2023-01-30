@@ -36,4 +36,8 @@ public struct MXC: Codable, Equatable, LosslessStringConvertible {
         }
         self = me
     }
+    
+    public func encode(to encoder: Encoder) throws {
+        try self.description.encode(to: encoder)
+    }
 }

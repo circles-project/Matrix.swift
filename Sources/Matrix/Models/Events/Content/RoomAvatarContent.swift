@@ -16,4 +16,9 @@ public struct RoomAvatarContent: Codable {
         self.mxc = mxc
         self.info = info
     }
+    
+    public enum CodingKeys: String, CodingKey {
+        case mxc = "url"
+        case info
+    }
 }

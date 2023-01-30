@@ -22,6 +22,13 @@ public struct StrippedStateEvent: Matrix.Event {
         case content
     }
 
+    public init(sender: UserId, stateKey: String, type: Matrix.EventType, content: Codable) {
+        self.sender = sender
+        self.stateKey = stateKey
+        self.type = type
+        self.content = content
+    }
+    
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         

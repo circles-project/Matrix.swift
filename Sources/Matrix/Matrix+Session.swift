@@ -47,8 +47,8 @@ extension Matrix {
         public enum CodingKeys: String, CodingKey {
             // note regarding encoding rules?
             case credentials
-            case credentialsUserId
-            case credentialsDeviceId
+            case credentialsUserId = "user_id"
+            case credentialsDeviceId = "device_id"
             
             case dataStore
             case displayName
@@ -104,9 +104,10 @@ extension Matrix {
             if let credsKey = CodingUserInfoKey(rawValue: CodingKeys.credentials.stringValue),
                let unwrappedCreds = decoder.userInfo[credsKey] as? Matrix.Credentials  {
                 creds = unwrappedCreds
+                
             }
             else {
-                throw Matrix.Error("Error initializing messages field")
+                throw Matrix.Error("Error initializing creds field")
             }
             
             var dataStore: any DataStore
@@ -115,7 +116,7 @@ extension Matrix {
                 dataStore = unwrappedDataStore
             }
             else {
-                throw Matrix.Error("Error initializing session field")
+                throw Matrix.Error("Error initializing dataStore field")
             }
             
             try self.init(creds: creds, startSyncing: false, dataStore: dataStore)
@@ -131,9 +132,15 @@ extension Matrix {
                 self.rooms = unwrappedRooms
             }
             else {
-                throw Matrix.Error("Error initializing messages field")
+                throw Matrix.Error("Error initializing rooms field")
             }
             
+            // note circular dependency for initialization, and reference semantics workaround...
+            let userInfoSessionKey = CodingUserInfoKey(rawValue: "session")!
+            if var userInfoSessionArraySingleton = decoder.userInfo[userInfoSessionKey] as? NSMutableArray {
+                userInfoSessionArraySingleton.add(self)
+            }
+
             self.invitations = try container.decode([RoomId: Matrix.InvitedRoom].self, forKey: .invitations)
             // syncRequestTask not being encoded
             self.syncToken = try container.decodeIfPresent(String.self, forKey: .syncToken)

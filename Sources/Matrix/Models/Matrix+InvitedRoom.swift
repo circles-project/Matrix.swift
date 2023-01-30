@@ -147,8 +147,10 @@ extension Matrix {
         public required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
+            // note issue with reference type / get only issue with userinfo for blob encoding
             if let sessionKey = CodingUserInfoKey(rawValue: CodingKeys.session.stringValue),
-               let unwrappedSession = decoder.userInfo[sessionKey] as? Session {
+               let unwrappedSessions = decoder.userInfo[sessionKey] as? [Session],
+               let unwrappedSession = unwrappedSessions.first {
                 self.session = unwrappedSession
             }
             else {

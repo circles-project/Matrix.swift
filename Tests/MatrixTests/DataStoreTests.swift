@@ -1,37 +1,110 @@
 import XCTest
 import Matrix
-@testable import DataStore
+//@testable import GRDBDataStore
+
+// Not using @testable since we are validating public-facing API
+import GRDBDataStore
 
 final class DataStoreTests: XCTestCase {
     func testDataStoreInitialization() async throws {
         let decoder = JSONDecoder()
-        let credentials = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(userId: credentials.userId, deviceId: credentials.deviceId)
+        let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
+        let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: store.url.path))
 
         addTeardownBlock {
+            try store.dbQueue.close()
             try FileManager.default.removeItem(atPath: store.url.path)
         }
     }
 
-    func testDataStoreClear() throws {
+    func testDataStoreClear() async throws {
+        let decoder = JSONDecoder()
+        let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
+        let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
 
+        let roomName = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.name)
+        try await store.save(creds)
+        try await store.save(roomName)
+        try await store.clearStore()
+        
+        let newCreds = try await store.load(Matrix.Credentials.self, key: (creds.userId, creds.deviceId))
+        XCTAssertNil(newCreds)
+        
+        let newRoomName = try await store.load(ClientEventWithoutRoomId.self, key: roomName.eventId)
+        XCTAssertNil(newRoomName)
+        
+        let rooms = try await store.loadAll(Matrix.Room.self)!
+        XCTAssertEqual(rooms.count, 0)
     }
+    
+    func testDataStoreModelClientEvent() async throws {
+        let decoder = JSONDecoder()
+        let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
+        let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
 
+        let roomName = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.name)
+        
+        // Verify proper key retrevial for later validation
+        let test1 = try ClientEvent(content: RoomNameContent(name: "foo"), eventId: "$foo:bar.com", originServerTS: 1234, roomId: RoomId("!foo:bar.com")!, sender: UserId("@foo:bar.com")!, type: Matrix.EventType.mRoomName)
+        try await store.save(test1)
+
+        let test2 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "bar"), eventId: "$bar:foo.com", originServerTS: 1234, sender: UserId("@bar:foo.com")!, type: Matrix.EventType.mRoomName)
+        try await store.save(test2)
+
+        // Save/load validation
+        try await store.save(roomName)
+        var newRoomName: ClientEventWithoutRoomId? = try await store.load(ClientEventWithoutRoomId.self, key: roomName.eventId)!
+        XCTAssertEqual(roomName, newRoomName)
+
+        // Remove
+        try await store.remove(roomName)
+        newRoomName = try await store.load(ClientEventWithoutRoomId.self, key: roomName.eventId)
+        XCTAssertNil(newRoomName)
+
+        // Remove by key
+        try await store.save(roomName)
+        try await store.remove(ClientEventWithoutRoomId.self, key: roomName.eventId)
+        newRoomName = try await store.load(ClientEventWithoutRoomId.self, key: roomName.eventId)
+        XCTAssertNil(newRoomName)
+
+        // Save all / load all validation
+        try await store.clearStore()
+        try await store.saveAll([roomName, test2])
+        var eventList = try await store.loadAll(ClientEventWithoutRoomId.self)!
+        XCTAssertEqual([roomName, test2], eventList)
+
+        // Remove all
+        try await store.removeAll(eventList)
+        eventList = try await store.loadAll(ClientEventWithoutRoomId.self)!
+        XCTAssertEqual(eventList, [])
+        
+        // Additional tests
+        try await store.save(test1)
+        let newTest1 = try await store.load(ClientEvent.self, key: test1.eventId)!
+        XCTAssertEqual(test1, newTest1)
+        
+        let newTest1WithoutRoomId = try await store.load(ClientEventWithoutRoomId.self, key: test1.eventId)!
+        XCTAssertEqual(test1.eventId, newTest1WithoutRoomId.eventId)
+        XCTAssertEqual(test1.type, newTest1WithoutRoomId.type)
+        XCTAssertEqual(test1.originServerTS, newTest1WithoutRoomId.originServerTS)
+        XCTAssertEqual(test1.sender, newTest1WithoutRoomId.sender)
+    }
+    
     func testDataStoreModelCredentials() async throws {
         let decoder = JSONDecoder()
         var creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
         let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
 
         // Verify proper key retrevial for later validation
-        var test1 = Matrix.Credentials(userId: UserId("@foo:bar.com")!, deviceId: "foobar", accessToken: "baz")
-        try await test1.save(store)
+        let test1 = Matrix.Credentials(userId: UserId("@foo:bar.com")!, deviceId: "foobar", accessToken: "baz")
+        try await store.save(test1)
 
-        var test2 = Matrix.Credentials(userId: UserId("@bar:foo.com")!, deviceId: "barfoo", accessToken: "zab")
+        let test2 = Matrix.Credentials(userId: UserId("@bar:foo.com")!, deviceId: "barfoo", accessToken: "zab")
 
         // Save/load validation
-        try await creds.save(store)
+        try await store.save(creds)
         creds.accessToken = "def456"
         creds.expiresInMs = 999999
         creds.refreshToken = nil
@@ -39,144 +112,262 @@ final class DataStoreTests: XCTestCase {
         creds.wellKnown?.homeserver.baseUrl = "https://org.example"
         creds.wellKnown?.identityserver?.baseUrl = "https://org.example.id"
 
-        creds = try await creds.load(store)!
+        creds = try await store.load(Matrix.Credentials.self, key: (creds.userId, creds.deviceId))!
         let originalCreds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        XCTAssertEqual(creds.accessToken, originalCreds.accessToken)
-        XCTAssertEqual(creds.deviceId, originalCreds.deviceId)
-        XCTAssertEqual(creds.expiresInMs, originalCreds.expiresInMs)
-        XCTAssertEqual(creds.refreshToken, originalCreds.refreshToken)
-        XCTAssertEqual(creds.userId, originalCreds.userId)
-        XCTAssertEqual(creds.wellKnown!.homeserver.baseUrl, originalCreds.wellKnown!.homeserver.baseUrl)
-        XCTAssertEqual(creds.wellKnown!.identityserver!.baseUrl, originalCreds.wellKnown!.identityserver!.baseUrl)
 
-        // Initialization
-        let initCreds = try await Matrix.Credentials.load(store, key: (originalCreds.userId, originalCreds.deviceId))!
-        XCTAssertEqual(initCreds.accessToken, originalCreds.accessToken)
-        XCTAssertEqual(initCreds.deviceId, originalCreds.deviceId)
-        XCTAssertEqual(initCreds.expiresInMs, originalCreds.expiresInMs)
-        XCTAssertEqual(initCreds.refreshToken, originalCreds.refreshToken)
-        XCTAssertEqual(initCreds.userId, originalCreds.userId)
-        XCTAssertEqual(initCreds.wellKnown!.homeserver.baseUrl, originalCreds.wellKnown!.homeserver.baseUrl)
-        XCTAssertEqual(initCreds.wellKnown!.identityserver!.baseUrl, originalCreds.wellKnown!.identityserver!.baseUrl)
+        let initCreds = try await store.load(Matrix.Credentials.self, key: (originalCreds.userId, originalCreds.deviceId))!
+        XCTAssertEqual(initCreds, originalCreds)
 
-        // Delete
-        try await creds.remove(store)
-        let newCreds = try await creds.load(store)
+        // Remove
+        try await store.remove(creds)
+        var newCreds = try await store.load(Matrix.Credentials.self, key: (creds.userId, creds.deviceId))
         XCTAssertNil(newCreds)
-
+        
+        // Remove by key
+        try await store.save(creds)
+        try await store.remove(Matrix.Credentials.self, key: (creds.userId, creds.deviceId))
+        newCreds = try await store.load(Matrix.Credentials.self, key: (creds.userId, creds.deviceId))
+        XCTAssertNil(newCreds)
+        
+        // Save all / load all validation
+        try await store.clearStore()
+        try await store.saveAll([creds, test1, test2])
+        var credList = try await store.loadAll(Matrix.Credentials.self)!
+        XCTAssertEqual([creds, test1, test2], credList)
+        
+        // Remove all
+        try await store.removeAll(credList)
+        credList = try await store.loadAll(Matrix.Credentials.self)!
+        XCTAssertEqual(credList, [])
     }
 
     func testDataStoreModelRoom() async throws {
         let decoder = JSONDecoder()
-        var creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
+        let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
         let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
 
-        var session = try Matrix.Session(creds: creds)
+        let session = try Matrix.Session(creds: creds, dataStore: store)
         var initialState: [ClientEventWithoutRoomId] = []
-        
-        var roomCreate = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.roomCreate)
-        var roomName = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.name)
-        var roomTopic = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.topic)
-        //var roomAvatarUrl = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.avatar)
-        var roomTombstone = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.tombstone)
-        var roomEncryption = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.encryption)
-        
-        
-        initialState.append(contentsOf: [roomCreate, roomName, roomTopic, roomTombstone, roomEncryption]) // roomAvatarUrl
-        
-        var room = try Matrix.Room(roomId: RoomId("!foo:bar.com")!, session: session, initialState: initialState)
-        let originalRoom = try Matrix.Room(roomId: RoomId("!foo:bar.com")!, session: session, initialState: initialState)
-                
+        var messages: [ClientEventWithoutRoomId] = []
+
+        let roomCreate = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.roomCreate)
+        let roomName = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.name)
+        let roomTopic = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.topic)
+        let roomAvatarUrl = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.avatar)
+        let roomTombstone = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.tombstone)
+        let roomEncryption = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.encryption)
+        initialState.append(contentsOf: [roomCreate, roomName, roomTopic, roomAvatarUrl, roomTombstone, roomEncryption])
+
+        let roomName1 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "foo"), eventId: "$foo:bar.com", originServerTS: 1234, sender: UserId("@foo:bar.com")!, type: Matrix.EventType.mRoomName)
+        let roomName2 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "bar"), eventId: "$bar:foo.com", originServerTS: 4321, sender: UserId("@bar:foo.com")!, type: Matrix.EventType.mRoomName)
+        let roomMessage1 = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.message)
+        let roomMessage2 = try ClientEventWithoutRoomId(content: Matrix.mTextContent(msgtype: Matrix.MessageType.text, body: "bar message"), eventId: "$bar123:foo.com", originServerTS: 4321, sender: UserId("@bar:foo.com")!, type: Matrix.EventType.mRoomMessage)
+        let roomMessage3 = try ClientEventWithoutRoomId(content: Matrix.mTextContent(msgtype: Matrix.MessageType.text, body: "foo message"), eventId: "$foo123:bar.com", originServerTS: 1234, sender: UserId("@foo:bar.com")!, type: Matrix.EventType.mRoomMessage)
+
+        messages.append(contentsOf: [roomName1, roomName2, roomMessage1, roomMessage2])
+
+        var room = try Matrix.Room(roomId: RoomId("!foo:bar.com")!, session: session, initialState: initialState, initialMessages: messages)
+        let originalRoom = try Matrix.Room(roomId: RoomId("!foo:bar.com")!, session: session, initialState: initialState, initialMessages: messages)
+
         // Verify proper key retrevial for later validation
-        var test1 = try Matrix.Room(roomId: RoomId("!bar:foo.com")!, session: session, initialState: initialState)
-        try await test1.save(store)
+        var test1: Matrix.Room? = try Matrix.Room(roomId: RoomId("!bar:foo.com")!, session: session, initialState: initialState)
+        try await store.save(test1)
 
-        var test2 = try Matrix.Room(roomId: RoomId("!baz:oof.com")!, session: session, initialState: initialState)
+        var test2: Matrix.Room? = try Matrix.Room(roomId: RoomId("!baz:oof.com")!, session: session, initialState: initialState)
+        try await store.save(test2)
 
-        print("ROOM INFO")
-        print(room.name, room.topic, room.avatarUrl, room.predecessorRoomId, room.successorRoomId, room.tombstoneEventId,
-              room.messages, room.localEchoEvent, room.highlightCount, room.notificationCount,
-              room.joinedMembers, room.invitedMembers, room.leftMembers, room.bannedMembers, room.knockingMembers, room.encryptionParams) // avatar
+        // Save/load validation
+        try await store.save(room)
+        room.name = "Another room name"
+        room.topic = "Another topic"
+        room.messages.insert(roomMessage3)
+
+        room = try await store.load(Matrix.Room.self, key: room.roomId, session: session)!
+        XCTAssertEqual(room.name, originalRoom.name)
+        XCTAssertEqual(room.topic, originalRoom.topic)
+        XCTAssertEqual(room.messages, originalRoom.messages)
         
+        // Remove
+        try await store.remove(room)
+        var newRoom = try await store.load(Matrix.Room.self, key: room.roomId)
+        XCTAssertNil(newRoom)
         
+        // Remove by key
+        try await store.save(room)
+        try await store.remove(Matrix.Room.self, key: room.roomId)
+        newRoom = try await store.load(Matrix.Room.self, key: room.roomId)
+        XCTAssertNil(newRoom)
         
+        // Save all / load all validation
+        try await store.clearStore()
+        try await store.saveAll([room, test1, test2])
         
+        var roomList = try await store.loadAll(Matrix.Room.self)!
+        XCTAssertEqual(roomList.count, 3)
+        XCTAssertEqual(room.name, originalRoom.name)
+        XCTAssertEqual(room.topic, originalRoom.topic)
+        XCTAssertEqual(room.messages, originalRoom.messages)
+
+        // Remove all
+        try await store.removeAll(roomList)
+        roomList = try await store.loadAll(Matrix.Room.self)!
+        XCTAssertEqual(roomList.count, 0)
+    }
+
+    func testDataStoreSession() async throws {
+        let decoder = JSONDecoder()
+        let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
+        let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
+
+        let session = try Matrix.Session(creds: creds, dataStore: store)
+        var initialState: [ClientEventWithoutRoomId] = []
+        var messages: [ClientEventWithoutRoomId] = []
+        var stateEvents: [StrippedStateEvent] = []
+
+        let roomCreate = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.roomCreate)
+        let roomName = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.name)
+        let roomTopic = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.topic)
+        let roomAvatarUrl = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.avatar)
+        let roomTombstone = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.tombstone)
+        let roomEncryption = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.encryption)
+        initialState.append(contentsOf: [roomCreate, roomName, roomTopic, roomAvatarUrl, roomTombstone, roomEncryption])
         
-//        public let roomId: RoomId
-//        public let session: Session
-//
-//        public let type: String?
-//        public let version: String
-//
-//        @Published public var name: String?
-//        @Published public var topic: String?
-//        @Published public var avatarUrl: MXC?
-//        @Published public var avatar: NativeImage?
-//
-//        public let predecessorRoomId: RoomId?
-//        public let successorRoomId: RoomId?
-//        public let tombstoneEventId: EventId?
-//
-//        @Published public var messages: Set<ClientEventWithoutRoomId>
-//        @Published public var localEchoEvent: Event?
-//
-//        @Published public var highlightCount: Int = 0
-//        @Published public var notificationCount: Int = 0
-//
-//        @Published public var joinedMembers: Set<UserId> = []
-//        @Published public var invitedMembers: Set<UserId> = []
-//        @Published public var leftMembers: Set<UserId> = []
-//        @Published public var bannedMembers: Set<UserId> = []
-//        @Published public var knockingMembers: Set<UserId> = []
-//
-//        @Published public var encryptionParams: RoomEncryptionContent?
+        let roomCreate2 = try decoder.decode(StrippedStateEvent.self, from: JSONResponses.RoomEvent.roomCreate)
+        let roomName2 = try decoder.decode(StrippedStateEvent.self, from: JSONResponses.RoomEvent.name)
+        let roomTopic2 = try decoder.decode(StrippedStateEvent.self, from: JSONResponses.RoomEvent.topic)
+        let roomAvatarUrl2 = try decoder.decode(StrippedStateEvent.self, from: JSONResponses.RoomEvent.avatar)
+        let roomTombstone2 = try decoder.decode(StrippedStateEvent.self, from: JSONResponses.RoomEvent.tombstone)
+        let roomEncryption2 = try decoder.decode(StrippedStateEvent.self, from: JSONResponses.RoomEvent.encryption)
+        let roomMember1_temp = try decoder.decode(StrippedStateEvent.self, from: JSONResponses.RoomEvent.member1)
+        let roomMember1 = StrippedStateEvent(sender: roomMember1_temp.sender, stateKey: creds.userId.description, type: roomMember1_temp.type, content: roomMember1_temp.content)
+        var roomMember2_temp = try decoder.decode(StrippedStateEvent.self, from: JSONResponses.RoomEvent.member2)
+        let roomMember2 = StrippedStateEvent(sender: roomMember2_temp.sender, stateKey: creds.userId.description, type: roomMember2_temp.type, content: roomMember2_temp.content)
+        stateEvents.append(contentsOf: [roomCreate2, roomName2, roomTopic2, roomAvatarUrl2, roomTombstone2, roomEncryption2, roomMember1, roomMember2])
+
+        let roomName3 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "foo"), eventId: "$foo:bar.com", originServerTS: 1234, sender: UserId("@foo:bar.com")!, type: Matrix.EventType.mRoomName)
+        let roomName4 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "bar"), eventId: "$bar:foo.com", originServerTS: 4321, sender: UserId("@bar:foo.com")!, type: Matrix.EventType.mRoomName)
+        let roomMessage1 = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.message)
+        let roomMessage2 = try ClientEventWithoutRoomId(content: Matrix.mTextContent(msgtype: Matrix.MessageType.text, body: "bar message"), eventId: "$bar123:foo.com", originServerTS: 4321, sender: UserId("@bar:foo.com")!, type: Matrix.EventType.mRoomMessage)
+        let roomMessage3 = try ClientEventWithoutRoomId(content: Matrix.mTextContent(msgtype: Matrix.MessageType.text, body: "foo message"), eventId: "$foo123:bar.com", originServerTS: 1234, sender: UserId("@foo:bar.com")!, type: Matrix.EventType.mRoomMessage)
+
+        messages.append(contentsOf: [roomName3, roomName4, roomMessage1, roomMessage2])
+
+        var room = try Matrix.Room(roomId: RoomId("!foo:bar.com")!, session: session, initialState: initialState, initialMessages: messages)
+        let originalRoom = try Matrix.Room(roomId: RoomId("!foo:bar.com")!, session: session, initialState: initialState, initialMessages: messages)
+
+        // Verify proper key retrevial for later validation
+        var test1: Matrix.Room = try Matrix.Room(roomId: RoomId("!bar:foo.com")!, session: session, initialState: initialState)
+        var test2: Matrix.Room = try Matrix.Room(roomId: RoomId("!baz:oof.com")!, session: session, initialState: initialState)
+        var test3: Matrix.InvitedRoom = try Matrix.InvitedRoom(session: session, roomId: RoomId("!rab:oof.com")!, stateEvents: stateEvents)
+        var test4: Matrix.InvitedRoom = try Matrix.InvitedRoom(session: session, roomId: RoomId("!oof:rab.com")!, stateEvents: stateEvents)
+        
+        session.displayName = "foo"
+        session.rooms = [test1.roomId: test1, test2.roomId: test2]
+        session.invitations = [test3.roomId: test3, test4.roomId: test4]
+        let originalSession = try Matrix.Session(creds: creds, dataStore: store)
+        originalSession.displayName = session.displayName
+        originalSession.rooms = session.rooms
+        originalSession.invitations = session.invitations
         
         // Save/load validation
-        try await room.save(store)
+        try await store.save(session)
+        session.displayName = "bar"
+        session.rooms = [:]
+        session.invitations = [:]
+
+        var newSession = try await store.load(Matrix.Session.self, key: (session.creds.userId, session.creds.deviceId))!
+        XCTAssertEqual(newSession.displayName, originalSession.displayName)
+        XCTAssertEqual(newSession.rooms.isEmpty, false)
+        XCTAssertEqual(newSession.invitations.isEmpty, false)
         
-        room.name = "Another room name"
-//        creds.accessToken = "def456"
-//        creds.expiresInMs = 999999
-//        creds.refreshToken = nil
-//        creds.homeServer = "https://example.org"
-//        creds.wellKnown?.homeserver.baseUrl = "https://org.example"
-//        creds.wellKnown?.identityserver?.baseUrl = "https://org.example.id"
-
-        print("loading room, before: \(room.name)")
-        room = try await room.load(store)!
-        print(room.name)
-//        XCTAssertEqual(creds.accessToken, originalCreds.accessToken)
-//        XCTAssertEqual(creds.deviceId, originalCreds.deviceId)
-//        XCTAssertEqual(creds.expiresInMs, originalCreds.expiresInMs)
-//        XCTAssertEqual(creds.refreshToken, originalCreds.refreshToken)
-//        XCTAssertEqual(creds.userId, originalCreds.userId)
-//        XCTAssertEqual(creds.wellKnown!.homeserver.baseUrl, originalCreds.wellKnown!.homeserver.baseUrl)
-//        XCTAssertEqual(creds.wellKnown!.identityserver!.baseUrl, originalCreds.wellKnown!.identityserver!.baseUrl)
-
-//        // Initialization
-//        let initCreds = try await Matrix.Credentials(store, key: (originalCreds.userId, originalCreds.deviceId))!
-//        XCTAssertEqual(initCreds.accessToken, originalCreds.accessToken)
-//        XCTAssertEqual(initCreds.deviceId, originalCreds.deviceId)
-//        XCTAssertEqual(initCreds.expiresInMs, originalCreds.expiresInMs)
-//        XCTAssertEqual(initCreds.refreshToken, originalCreds.refreshToken)
-//        XCTAssertEqual(initCreds.userId, originalCreds.userId)
-//        XCTAssertEqual(initCreds.wellKnown!.homeserver.baseUrl, originalCreds.wellKnown!.homeserver.baseUrl)
-//        XCTAssertEqual(initCreds.wellKnown!.identityserver!.baseUrl, originalCreds.wellKnown!.identityserver!.baseUrl)
-//
-//        // Delete
-//        try await creds.remove(store)
-//        let newCreds = try await creds.load(store)
-//        XCTAssertNil(newCreds)
-
+        // Remove
+        try await store.remove(session)
+        var newSession2: Matrix.Session? = try await store.load(Matrix.Session.self, key: (session.creds.userId, session.creds.deviceId))
+        XCTAssertNil(newSession2)
         
-    }
+        // Remove by key
+        try await store.save(session)
+        try await store.remove(Matrix.Session.self, key: (session.creds.userId, session.creds.deviceId))
+        newSession2 = try await store.load(Matrix.Session.self, key: (session.creds.userId, session.creds.deviceId))
+        XCTAssertNil(newSession2)
 
-    func testDataStoreUserLogin() async throws {
-        // uses pre-existing user db and attempts login from stored credentials
-    }
+        // Save all / load all validation
+        try await store.clearStore()
+        var creds2 = Matrix.Credentials(userId: UserId("@foo:bar.com")!, deviceId: "abc123", accessToken: "def456")
+        creds2.wellKnown = Matrix.WellKnown(homeserverUrl: "https://foo.bar")
+        let session2 = try Matrix.Session(creds: creds2)
+        try await store.saveAll([session, session2])
 
-    func testDataStoreSync() async throws {
-        // test saving sync data to store
-    }
+        var sessionList = try await store.loadAll(Matrix.Session.self)!
+        XCTAssertEqual(sessionList.count, 2)
 
+        // Remove all
+        try await store.removeAll(sessionList)
+        sessionList = try await store.loadAll(Matrix.Session.self)!
+        XCTAssertEqual(sessionList.count, 0)
+    }
+    
+    func testDataStoreUser() async throws {
+        let decoder = JSONDecoder()
+        let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
+        let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
+        let session = try Matrix.Session(creds: creds, dataStore: store)
+
+        // Verify proper key retrevial for later validation
+        let test1 = Matrix.User(userId: UserId("@foo:bar.com")!, session: session)
+        try await store.save(test1)
+
+        let test2 = Matrix.User(userId: UserId("@bar:foo.com")!, session: session)
+        let originalTest2 = Matrix.User(userId: UserId("@bar:foo.com")!, session: session)
+        
+        let url = NSURL(string: "https://www.wikipedia.org/portal/wikipedia.org/assets/img/Wikipedia-logo-v2@2x.png")!
+        let imageSource = CGImageSourceCreateWithURL(url, nil)!
+        let image = CGImageSourceCreateImageAtIndex(imageSource, 0, nil)!
+        let nsImage = NSImage(cgImage: image, size: NSSize(width: 256, height: 256))
+        
+        test2.avatar = nsImage
+        test2.avatarUrl = "https://bar.foo"
+        test2.displayName = "BarFoo"
+        test2.statusMessage = "status"
+        originalTest2.avatar = nsImage
+        originalTest2.avatarUrl = "https://bar.foo"
+        originalTest2.displayName = "BarFoo"
+        originalTest2.statusMessage = "status"
+        try await store.save(test2)
+        
+        // Save/load validation
+        test2.avatar = nil
+        test2.displayName = "Raboof"
+        test2.statusMessage = "sutats"
+
+        let newTest2 = try await store.load(Matrix.User.self, key: test2.id, session: session)!
+        XCTAssertEqual(originalTest2.id, newTest2.id)
+//        XCTAssertEqual(test2.session, newTest2.session)
+        XCTAssertEqual(originalTest2.displayName, newTest2.displayName)
+        XCTAssertEqual(originalTest2.avatarUrl, newTest2.avatarUrl)
+        XCTAssertEqual(originalTest2.avatar?.tiffRepresentation, newTest2.avatar?.tiffRepresentation)
+        XCTAssertEqual(originalTest2.statusMessage, newTest2.statusMessage)
+
+        // Remove
+        try await store.remove(test1)
+        var newUser = try await store.load(Matrix.User.self, key: test1.id)
+        XCTAssertNil(newUser)
+
+        // Remove by key
+        try await store.save(test1)
+        try await store.remove(Matrix.User.self, key: test1.id)
+        newUser = try await store.load(Matrix.User.self, key: test1.id)
+        XCTAssertNil(newUser)
+
+        // Save all / load all validation
+        try await store.clearStore()
+        try await store.saveAll([test1, test2])
+        var userList = try await store.loadAll(Matrix.User.self)!
+        XCTAssertEqual([test1, test2].count, userList.count)
+
+        // Remove all
+        try await store.removeAll(userList)
+        userList = try await store.loadAll(Matrix.User.self)!
+        XCTAssertEqual(userList.count, 0)
+    }
 }

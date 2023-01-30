@@ -51,6 +51,13 @@ public enum Matrix {
         public var homeserver: ServerConfig
         public var identityserver: ServerConfig?
 
+        public init(homeserverUrl: String, identityserverUrl: String? = nil) {
+            self.homeserver = ServerConfig(baseUrl: homeserverUrl)
+            if let unwrappedIdentityserverUrl = identityserverUrl {
+                identityserver = ServerConfig(baseUrl: unwrappedIdentityserverUrl)
+            }
+        }
+        
         public static func == (lhs: Matrix.WellKnown, rhs: Matrix.WellKnown) -> Bool {
             return lhs.homeserver.baseUrl == rhs.homeserver.baseUrl &&
             lhs.identityserver?.baseUrl == rhs.identityserver?.baseUrl

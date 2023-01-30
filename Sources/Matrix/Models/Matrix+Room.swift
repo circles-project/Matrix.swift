@@ -12,10 +12,10 @@ extension Matrix {
         public typealias StorableKey = RoomId
         
         public let roomId: RoomId
-        public let session: Session
+        public var session: Session
         
-        public let type: String?
-        public let version: String
+        public var type: String?
+        public var version: String
         
         @Published public var name: String?
         @Published public var topic: String?

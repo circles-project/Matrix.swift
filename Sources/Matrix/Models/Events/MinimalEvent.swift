@@ -21,6 +21,12 @@ public struct MinimalEvent: Matrix.Event {
         case sender
     }
     
+    public init(type: Matrix.EventType, sender: UserId?, content: Codable) {
+        self.type = type
+        self.sender = sender
+        self.content = content
+    }
+    
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.type = try container.decode(Matrix.EventType.self, forKey: .type)

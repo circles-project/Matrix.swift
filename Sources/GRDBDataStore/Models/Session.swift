@@ -50,9 +50,9 @@ extension Matrix.Session: FetchableRecord, PersistableRecord { //}, EncodableRec
     
     // required to prevent reentrant db querying, which can be unsafe an concurrent context (also save functions)
     // also specify raw decoding causing reentrant invocation
-    private static func decodeRooms(_ db: Database, _ key: StorableKey) throws {
+    private static func decodeRooms(_ store: GRDBDataStore, _ db: Database, _ key: StorableKey) throws {
         // For some reason SQL interpolation only works for the WHERE condition value...
-        let sqlRequest: SQLRequest<EventId> = "SELECT rooms FROM sessions WHERE userId = \(key.0) AND deviceID = \(key.1)"
+        let sqlRequest: SQLRequest<EventId> = "SELECT rooms FROM sessions WHERE user_id = \(key.0) AND device_id = \(key.1)"
 
         if let roomIdsJSON = try String.fetchOne(db, sqlRequest),
            let roomIdsJSONData = roomIdsJSON.data(using: .utf8) {
@@ -61,13 +61,35 @@ extension Matrix.Session: FetchableRecord, PersistableRecord { //}, EncodableRec
 
             let roomIds = try decoder.decode([RoomId].self, from: roomIdsJSONData)
             for roomId in roomIds {
-                if let room = try Matrix.Room.fetchOne(db, key: roomId) {
-                    rooms[roomId] = room
+                // note dummy session / circular dependency
+                if let creds: Matrix.Credentials = Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoCredentialsKey] as? Matrix.Credentials {
+                    let dummySesssion = try Matrix.Session(creds: creds)
+                    if let room = try Matrix.Room.load(store, key: roomId, session: dummySesssion, database: db) {
+                        rooms[roomId] = room
+                    }
                 }
             }
 
-            Matrix.Room.databaseDecodingUserInfo[Matrix.Session.userInfoRoomsKey] = rooms
+            Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoRoomsKey] = rooms
         }
+    }
+    
+    private static func loadAll(_ store: GRDBDataStore, _ db: Database) throws -> [Matrix.Session] {
+        // For some reason SQL interpolation only works for the WHERE condition value...
+        let sqlRequest: SQLRequest<Matrix.Session.StorableKey> = "SELECT user_id, device_id FROM sessions"
+        
+        let rows = try Row.fetchAll(db, sqlRequest)
+        var sessions: [Matrix.Session] = []
+        for row in rows {
+            if let userIdStr = row[Matrix.Session.CodingKeys.credentialsUserId.stringValue] as? String,
+               let deviceId = row[Matrix.Session.CodingKeys.credentialsDeviceId.stringValue] as? DeviceId,
+               let userId = UserId(userIdStr),
+               let session = try Matrix.Session.load(store, key: (userId, deviceId), database: db) {
+                sessions.append(session)
+            }
+        }
+        
+        return sessions
     }
     
     internal static func save(_ store: GRDBDataStore, object: Matrix.Session, database: Database? = nil) throws {
@@ -98,45 +120,34 @@ extension Matrix.Session: FetchableRecord, PersistableRecord { //}, EncodableRec
     internal static func load(_ store: GRDBDataStore, key: StorableKey, database: Database? = nil) throws -> Matrix.Session? {
         Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoDataStoreKey] = store
         Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoRoomsKey] = [:]
-
-        let compositeKey: [String: DatabaseValueConvertible] = [Matrix.Credentials.CodingKeys.userId.stringValue: key.0,
-                                                                Matrix.Credentials.CodingKeys.deviceId.stringValue: key.1]
+        let compositeKey = Matrix.Credentials.getDatabaseValueConvertibleKey(key)
+        
+        // note circular dependency for initialization, and reference semantics workaround...
+        let userInfoSessionKey = CodingUserInfoKey(rawValue: "session")!
+        Matrix.Session.databaseDecodingUserInfo[userInfoSessionKey] = NSMutableArray()
         
         if let db = database {
             Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoCredentialsKey] = try store.load(Matrix.Credentials.self, key: compositeKey, database: db)
-            try decodeRooms(db, key)
+            try decodeRooms(store, db, key)
             return try store.load(Matrix.Session.self, key: compositeKey, database: db)
         }
         else {
             return try store.dbQueue.read { db in
                 Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoCredentialsKey] = try store.load(Matrix.Credentials.self, key: compositeKey, database: db)
-                try decodeRooms(db, key)
+                try decodeRooms(store, db, key)
                 return try store.load(Matrix.Session.self, key: compositeKey, database: db)
             }
         }
     }
     
     internal static func loadAll(_ store: GRDBDataStore) throws -> [Matrix.Session]? {
-        // For some reason SQL interpolation only works for the WHERE condition value...
-        let sqlRequest: SQLRequest<Matrix.Session.StorableKey> = "SELECT (userId, deviceId) FROM sessions"
-        
         return try store.dbQueue.read { db in
-            let rows = try Row.fetchAll(db, sqlRequest)
-            var sessions: [Matrix.Session] = []
-            for row in rows {
-                if let userId = row[Matrix.Session.CodingKeys.credentialsUserId.stringValue] as? UserId,
-                   let deviceId = row[Matrix.Session.CodingKeys.credentialsDeviceId.stringValue] as? DeviceId,
-                   let session = try Matrix.Session.load(store, key: (userId, deviceId), database: db) {
-                    sessions.append(session)
-                }
-            }
-            return sessions
+            try loadAll(store, db)
         }
     }
     
     internal static func remove(_ store: GRDBDataStore, key: StorableKey) throws {
-        let compositeKey: [String: DatabaseValueConvertible] = [Matrix.Credentials.CodingKeys.userId.stringValue: key.0,
-                                                                Matrix.Credentials.CodingKeys.deviceId.stringValue: key.1]
+        let compositeKey = Matrix.Credentials.getDatabaseValueConvertibleKey(key)
         try store.remove(Matrix.Session.self, key: compositeKey)
     }
     
@@ -168,38 +179,27 @@ extension Matrix.Session: FetchableRecord, PersistableRecord { //}, EncodableRec
     internal static func load(_ store: GRDBDataStore, key: StorableKey) async throws -> Matrix.Session? {
         Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoDataStoreKey] = store
         Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoRoomsKey] = [:]
+        let compositeKey = Matrix.Credentials.getDatabaseValueConvertibleKey(key)
         
-        let compositeKey: [String: DatabaseValueConvertible] = [Matrix.Credentials.CodingKeys.userId.stringValue: key.0,
-                                                                Matrix.Credentials.CodingKeys.deviceId.stringValue: key.1]
+        // note circular dependency for initialization, and reference semantics workaround...
+        let userInfoSessionKey = CodingUserInfoKey(rawValue: "session")!
+        Matrix.Session.databaseDecodingUserInfo[userInfoSessionKey] = NSMutableArray()
         
         return try await store.dbQueue.read { db in
             Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoCredentialsKey] = try store.load(Matrix.Credentials.self, key: compositeKey, database: db)
-            try decodeRooms(db, key)
+            try decodeRooms(store, db, key)
             return try store.load(Matrix.Session.self, key: compositeKey, database: db)
         }
     }
     
     internal static func loadAll(_ store: GRDBDataStore) async throws -> [Matrix.Session]? {
-        // For some reason SQL interpolation only works for the WHERE condition value...
-        let sqlRequest: SQLRequest<Matrix.Session.StorableKey> = "SELECT (userId, deviceId) FROM sessions"
-        
         return try await store.dbQueue.read { db in
-            let rows = try Row.fetchAll(db, sqlRequest)
-            var sessions: [Matrix.Session] = []
-            for row in rows {
-                if let userId = row[Matrix.Session.CodingKeys.credentialsUserId.stringValue] as? UserId,
-                   let deviceId = row[Matrix.Session.CodingKeys.credentialsDeviceId.stringValue] as? DeviceId,
-                   let session = try Matrix.Session.load(store, key: (userId, deviceId), database: db) {
-                    sessions.append(session)
-                }
-            }
-            return sessions
+            try loadAll(store, db)
         }
     }
     
     internal static func remove(_ store: GRDBDataStore, key: StorableKey) async throws {
-        let compositeKey: [String: DatabaseValueConvertible] = [Matrix.Credentials.CodingKeys.userId.stringValue: key.0,
-                                                                Matrix.Credentials.CodingKeys.deviceId.stringValue: key.1]
+        let compositeKey = Matrix.Credentials.getDatabaseValueConvertibleKey(key)
         try await store.remove(Matrix.Session.self, key: compositeKey)
     }
 }
