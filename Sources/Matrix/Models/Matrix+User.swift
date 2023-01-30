@@ -9,7 +9,6 @@ import Foundation
 
 extension Matrix {
     public class User: ObservableObject, Identifiable, Codable, Storable {
-        public typealias StorableObject = User
         public typealias StorableKey = UserId
         
         public let id: UserId // For Identifiable
@@ -18,10 +17,10 @@ extension Matrix {
         @Published public var avatarUrl: String?
         @Published public var avatar: NativeImage?
         @Published public var statusMessage: String?
-                
+        
         public enum CodingKeys: String, CodingKey {
             case id
-            // session not being encoded
+            case session
             case displayName
             case avatarUrl
             case avatar
@@ -37,23 +36,34 @@ extension Matrix {
             }
         }
         
+        // docs tbd: specify must have session populated in userinfo
         public required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
+            
+            if let sessionKey = CodingUserInfoKey(rawValue: CodingKeys.session.stringValue),
+               let unwrappedSession = decoder.userInfo[sessionKey] as? Session {
+                self.session = unwrappedSession
+            }
+            else {
+                throw Matrix.Error("Error initializing session field")
+            }
 
             self.id = try container.decode(UserId.self, forKey: .id)
-            self.displayName = try container.decode(String.self, forKey: .displayName)
-            self.avatarUrl = try container.decode(String.self, forKey: .avatarUrl)
-            self.avatar = try container.decode(NativeImage.self, forKey: .avatar)
-            self.statusMessage = try container.decode(String.self, forKey: .statusMessage)
-
-            // FIXME: do proper class initalization and decoding
-            self.session = try Matrix.Session(creds: Matrix.Credentials(userId: UserId("TODO")!, deviceId: "TODO", accessToken: "TODO"))
+            self.displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
+            self.avatarUrl = try container.decodeIfPresent(String.self, forKey: .avatarUrl)
+            self.avatar = try container.decodeIfPresent(NativeImage.self, forKey: .avatar)
+            self.statusMessage = try container.decodeIfPresent(String.self, forKey: .statusMessage)
+            
+            _ = Task {
+                try await self.refreshProfile()
+            }
         }
 
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
 
             try container.encode(id, forKey: .id)
+            // session not being encoded
             try container.encode(displayName, forKey: .displayName)
             try container.encode(avatarUrl, forKey: .avatarUrl)
             try container.encode(avatar, forKey: .avatar)

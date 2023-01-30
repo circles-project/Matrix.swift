@@ -43,11 +43,10 @@ public class GRDBDataStore {
             dbQueue = try DatabaseQueue(path: url.path)
             
             try await Matrix.Credentials.createTable(self)
-            try await Matrix.Room.createTable(self)
-            try await Matrix.InvitedRoom.createTable(self)
             try await ClientEvent.createTable(self)
-            try await Matrix.Session.createTable(self)
             try await Matrix.User.createTable(self)
+            try await Matrix.Room.createTable(self)
+            try await Matrix.Session.createTable(self)
         }
         else {
             dbQueue = try DatabaseQueue(path: url.path)
@@ -58,7 +57,6 @@ public class GRDBDataStore {
         try await dbQueue.write { db in
             try Matrix.Credentials.deleteAll(db)
             try Matrix.Room.deleteAll(db)
-            try Matrix.InvitedRoom.deleteAll(db)
             try ClientEvent.deleteAll(db)
             try Matrix.Session.deleteAll(db)
             try Matrix.User.deleteAll(db)
@@ -67,147 +65,248 @@ public class GRDBDataStore {
     
     // MARK: Non-async methods
     
-    internal func save(_ object: PersistableRecord) throws {
-        try dbQueue.unsafeReentrantWrite { db in
+    internal func save(_ object: PersistableRecord, database: Database? = nil) throws {
+        if let db = database {
             try object.upsert(db)
+        }
+        else {
+            try dbQueue.write { db in
+                try object.upsert(db)
+            }
         }
     }
     
-    internal func saveAll(_ objects: [PersistableRecord]) throws {
-        try dbQueue.unsafeReentrantWrite { db in
+    internal func saveAll(_ objects: [PersistableRecord], database: Database? = nil) throws {
+        if let db = database {
             for obj in objects {
                 try obj.upsert(db)
             }
         }
+        else {
+            try dbQueue.write { db in
+                for obj in objects {
+                    try obj.upsert(db)
+                }
+            }
+        }
     }
     
-    internal func load<T>(_ type: T.Type, key: DatabaseValueConvertible) throws -> T?
+    internal func load<T>(_ type: T.Type, key: DatabaseValueConvertible, database: Database? = nil) throws -> T?
     where T: FetchableRecord & TableRecord {
-        try dbQueue.unsafeReentrantRead { db in
+        if let db = database {
             if let obj = try T.fetchOne(db, key: key) {
                 return obj
             }
             return nil
         }
+        else {
+            return try dbQueue.read { db in
+                if let obj = try T.fetchOne(db, key: key) {
+                    return obj
+                }
+                return nil
+            }
+        }
     }
     
-    // docs TBD (composite primary key)
-    internal func load<T>(_ type: T.Type, key: [String: DatabaseValueConvertible]) throws -> T?
+    internal func load<T>(_ type: T.Type, key: [String: DatabaseValueConvertible], database: Database? = nil) throws -> T?
     where T: FetchableRecord & TableRecord {
-        try dbQueue.unsafeReentrantRead { db in
+        if let db = database {
             if let obj = try T.fetchOne(db, key: key) {
                 return obj
             }
             return nil
         }
+        else {
+            return try dbQueue.read { db in
+                if let obj = try T.fetchOne(db, key: key) {
+                    return obj
+                }
+                return nil
+            }
+        }
     }
     
-    internal func loadAll<T>(_ type: T.Type) throws -> [T] where T: FetchableRecord & TableRecord {
-        try dbQueue.unsafeReentrantRead { db in
+    internal func loadAll<T>(_ type: T.Type, database: Database? = nil) throws -> [T]?
+    where T: FetchableRecord & TableRecord {
+        if let db = database {
             return try T.fetchAll(db)
+        }
+        else {
+            return try dbQueue.read { db in
+                return try T.fetchAll(db)
+            }
         }
     }
         
-    internal func remove(_ object: PersistableRecord) throws {
-        try dbQueue.unsafeReentrantWrite { db in
+    internal func remove(_ object: PersistableRecord, database: Database? = nil) throws {
+        if let db = database {
             try object.delete(db)
         }
-    }
-    
-    internal func remove(_ type: PersistableRecord.Type, key: DatabaseValueConvertible) throws {
-        try dbQueue.unsafeReentrantWrite { db in
-            try type.deleteOne(db, key: key)
+        else {
+            let _ = try dbQueue.write { db in
+                try object.delete(db)
+            }
         }
     }
     
-    internal func removeAll(_ objects: [PersistableRecord]) throws {
-        try dbQueue.unsafeReentrantWrite { db in
+    internal func remove(_ type: PersistableRecord.Type, key: DatabaseValueConvertible, database: Database? = nil) throws {
+        if let db = database {
+            try type.deleteOne(db, key: key)
+        }
+        else {
+            let _ = try dbQueue.write { db in
+                try type.deleteOne(db, key: key)
+            }
+        }
+    }
+    
+    internal func remove(_ type: PersistableRecord.Type, key: [String: DatabaseValueConvertible], database: Database? = nil) throws {
+        if let db = database {
+            try type.deleteOne(db, key: key)
+        }
+        else {
+            let _ = try dbQueue.write { db in
+                try type.deleteOne(db, key: key)
+            }
+        }
+    }
+    
+    internal func removeAll(_ objects: [PersistableRecord], database: Database? = nil) throws {
+        if let db = database {
             for obj in objects {
                 try obj.delete(db)
+            }
+        }
+        else {
+            try dbQueue.write { db in
+                for obj in objects {
+                    try obj.delete(db)
+                }
             }
         }
     }
     
     // MARK: Async methods
     
-    internal func save(_ object: PersistableRecord) async throws {
-        try await dbQueue.write { db in
+    internal func save(_ object: PersistableRecord, database: Database? = nil) async throws {
+        if let db = database {
             try object.upsert(db)
+        }
+        else {
+            try await dbQueue.write { db in
+                try object.upsert(db)
+            }
         }
     }
     
-    internal func saveAll(_ objects: [PersistableRecord]) async throws {
-        try await dbQueue.write { db in
+    internal func saveAll(_ objects: [PersistableRecord], database: Database? = nil) async throws {
+        if let db = database {
             for obj in objects {
                 try obj.upsert(db)
             }
         }
+        else {
+            try await dbQueue.write { db in
+                for obj in objects {
+                    try obj.upsert(db)
+                }
+            }
+        }
     }
     
-    internal func load<T>(_ type: T.Type, key: DatabaseValueConvertible) async throws -> T?
+    internal func load<T>(_ type: T.Type, key: DatabaseValueConvertible, database: Database? = nil) async throws -> T?
     where T: FetchableRecord & TableRecord {
-        try await dbQueue.read { db in
+        if let db = database {
             if let obj = try T.fetchOne(db, key: key) {
                 return obj
             }
             return nil
         }
+        else {
+            return try await dbQueue.read { db in
+                if let obj = try T.fetchOne(db, key: key) {
+                    return obj
+                }
+                return nil
+            }
+        }
     }
     
-    // docs TBD (composite primary key)
-    internal func load<T>(_ type: T.Type, key: [String: DatabaseValueConvertible]) async throws -> T?
+    internal func load<T>(_ type: T.Type, key: [String: DatabaseValueConvertible], database: Database? = nil) async throws -> T?
     where T: FetchableRecord & TableRecord {
-        try await dbQueue.read { db in
+        if let db = database {
             if let obj = try T.fetchOne(db, key: key) {
                 return obj
             }
             return nil
         }
+        else {
+            return try await dbQueue.read { db in
+                if let obj = try T.fetchOne(db, key: key) {
+                    return obj
+                }
+                return nil
+            }
+        }
     }
     
-    internal func loadAll<T>(_ type: T.Type) async throws -> [T] where T: FetchableRecord & TableRecord {
-        try await dbQueue.read { db in
+    internal func loadAll<T>(_ type: T.Type, database: Database? = nil) async throws -> [T]?
+    where T: FetchableRecord & TableRecord {
+        if let db = database {
             return try T.fetchAll(db)
         }
+        else {
+            return try await dbQueue.read { db in
+                return try T.fetchAll(db)
+            }
+        }
     }
-    
-//    public func loadAll<T: Storable & FetchableRecord & TableRecord>(_ type: T.Type, columns: [String], values: Int) async throws -> [T] {
-//        try await dbQueue.read { db in
-//            /// ```swift
-//            /// let players = try dbQueue.read { db in
-//            ///     let lastName = "O'Reilly"
-//            ///     let sql = "SELECT * FROM player WHERE lastName = ?"
-//            ///     return try Player.fetchAll(db, sql: sql, arguments: [lastName])
-//            /// }
-//            /// ```
-//
-//            //T.fetchAll(<#T##db: Database##Database#>, sql: <#T##String#>)
-//            //return try T.fetchAll(db)
-//            // complex sql statements/fetching tbd
-//            //let sql = "SELECT * FROM \(T.databaseTableName) WHERE"
-//            //T.find
-//            //T.filter()
-//            return try T.filter(Column("") == 2).fetchAll(db)
-//            //return try T.fetchAll(db, sql: sql)
-//        }
-//    }
-    
-    internal func remove(_ object: PersistableRecord) async throws {
-        try await dbQueue.write { db in
+        
+    internal func remove(_ object: PersistableRecord, database: Database? = nil) async throws {
+        if let db = database {
             try object.delete(db)
         }
-    }
-    
-    internal func remove(_ type: PersistableRecord.Type, key: DatabaseValueConvertible) async throws {
-        try await dbQueue.write { db in
-            try type.deleteOne(db, key: key)
+        else {
+            let _ = try await dbQueue.write { db in
+                try object.delete(db)
+            }
         }
     }
     
-    internal func removeAll(_ objects: [PersistableRecord]) async throws {
-        try await dbQueue.write { db in
+    internal func remove(_ type: PersistableRecord.Type, key: DatabaseValueConvertible, database: Database? = nil) async throws {
+        if let db = database {
+            try type.deleteOne(db, key: key)
+        }
+        else {
+            let _ = try await dbQueue.write { db in
+                try type.deleteOne(db, key: key)
+            }
+        }
+    }
+    
+    internal func remove(_ type: PersistableRecord.Type, key: [String: DatabaseValueConvertible], database: Database? = nil) async throws {
+        if let db = database {
+            try type.deleteOne(db, key: key)
+        }
+        else {
+            let _ = try await dbQueue.write { db in
+                try type.deleteOne(db, key: key)
+            }
+        }
+    }
+    
+    internal func removeAll(_ objects: [PersistableRecord], database: Database? = nil) async throws {
+        if let db = database {
             for obj in objects {
                 try obj.delete(db)
+            }
+        }
+        else {
+            try await dbQueue.write { db in
+                for obj in objects {
+                    try obj.delete(db)
+                }
             }
         }
     }

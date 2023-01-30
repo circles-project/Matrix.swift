@@ -26,18 +26,11 @@ extension Matrix.Credentials: FetchableRecord, PersistableRecord {
             }
         }
     }
-    
     public static let databaseTableName = "credentials"
     
-    internal static func load(_ store: GRDBDataStore, key: StorableKey) throws -> Matrix.Credentials? {
+    internal static func getDatabaseValueConvertibleKey(_ key: StorableKey) -> [String: DatabaseValueConvertible] {
         let compositeKey: [String: DatabaseValueConvertible] = [Matrix.Credentials.CodingKeys.userId.stringValue: key.0,
                                                                 Matrix.Credentials.CodingKeys.deviceId.stringValue: key.1]
-        return try store.load(Matrix.Credentials.self, key: compositeKey)
-    }
-    
-    internal static func load(_ store: GRDBDataStore, key: StorableKey) async throws -> Matrix.Credentials? {
-        let compositeKey: [String: DatabaseValueConvertible] = [Matrix.Credentials.CodingKeys.userId.stringValue: key.0,
-                                                                Matrix.Credentials.CodingKeys.deviceId.stringValue: key.1]
-        return try await store.load(Matrix.Credentials.self, key: compositeKey)
+        return compositeKey
     }
 }

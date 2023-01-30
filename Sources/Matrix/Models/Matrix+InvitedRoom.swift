@@ -8,10 +8,7 @@
 import Foundation
 
 extension Matrix {
-    public class InvitedRoom: ObservableObject, Codable, Storable {
-        public typealias StorableObject = InvitedRoom
-        public typealias StorableKey = RoomId
-        
+    public class InvitedRoom: ObservableObject, Codable {
         public var session: Session
         
         public let roomId: RoomId
@@ -32,9 +29,9 @@ extension Matrix {
         public var members: [UserId]
         
         private var stateEventsCache: [EventType: [StrippedStateEvent]]  // From /sync
-        
+                
         public enum CodingKeys: String, CodingKey {
-            // session not being encoded
+            case session
             case roomId
             case type
             case version
@@ -47,7 +44,7 @@ extension Matrix {
             case avatarUrl
             case avatar
             case members
-            // stateEventsCache not being encoded
+            case stateEventsCache
         }
         
         public init(session: Session, roomId: RoomId, stateEvents: [StrippedStateEvent]) throws {
@@ -146,30 +143,37 @@ extension Matrix {
             
         }
         
+        // docs tbd: specify must have session populated in userinfo
         public required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
+            if let sessionKey = CodingUserInfoKey(rawValue: CodingKeys.session.stringValue),
+               let unwrappedSession = decoder.userInfo[sessionKey] as? Session {
+                self.session = unwrappedSession
+            }
+            else {
+                throw Matrix.Error("Error initializing session field")
+            }
+            self.stateEventsCache = [:]
+            
             self.roomId = try container.decode(RoomId.self, forKey: .roomId)
-            self.type = try container.decode(String.self, forKey: .type)
+            self.type = try container.decodeIfPresent(String.self, forKey: .type)
             self.version = try container.decode(String.self, forKey: .version)
-            self.predecessorRoomId = try container.decode(RoomId.self, forKey: .predecessorRoomId)
+            self.predecessorRoomId = try container.decodeIfPresent(RoomId.self, forKey: .predecessorRoomId)
             self.encrypted = try container.decode(Bool.self, forKey: .encrypted)
             self.creator = try container.decode(UserId.self, forKey: .creator)
             self.sender = try container.decode(UserId.self, forKey: .sender)
-            self.name = try container.decode(String.self, forKey: .name)
-            self.topic = try container.decode(String.self, forKey: .topic)
-            self.avatarUrl = try container.decode(MXC.self, forKey: .avatarUrl)
-            self.avatar = try container.decode(NativeImage.self, forKey: .avatar)
+            self.name = try container.decodeIfPresent(String.self, forKey: .name)
+            self.topic = try container.decodeIfPresent(String.self, forKey: .topic)
+            self.avatarUrl = try container.decodeIfPresent(MXC.self, forKey: .avatarUrl)
+            self.avatar = try container.decodeIfPresent(NativeImage.self, forKey: .avatar)
             self.members = try container.decode([UserId].self, forKey: .members)
-            
-            // FIXME: do proper class initalization and decoding
-            self.session = try Matrix.Session(creds: Matrix.Credentials(userId: UserId("TODO")!, deviceId: "TODO", accessToken: "TODO"))
-            self.stateEventsCache = [:]
         }
         
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             
+            // session not being encoded
             try container.encode(roomId, forKey: .roomId)
             try container.encode(type, forKey: .type)
             try container.encode(version, forKey: .version)
@@ -182,6 +186,7 @@ extension Matrix {
             try container.encode(avatarUrl, forKey: .avatarUrl)
             try container.encode(avatar, forKey: .avatar)
             try container.encode(members, forKey: .members)
+            // stateEventsCache not being encoded
         }
         
         public func join(reason: String? = nil) async throws {

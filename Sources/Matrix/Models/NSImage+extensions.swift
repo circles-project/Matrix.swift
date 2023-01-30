@@ -46,9 +46,10 @@ extension NSImage {
 // make note regarding why cannot implement codable (requires subclassing, which subclessing NSImage also has its issues) (also for uiimage?) also consider using the jpeg data representation for data store?
 extension NSImage: Encodable {
     public func encode(to encoder: Encoder) throws {
-        if let data = self.tiffRepresentation {
-            try data.encode(to: encoder)
-        }
+        var container = encoder.singleValueContainer()
+        
+        let encodedData = try NSKeyedArchiver.archivedData(withRootObject: self, requiringSecureCoding: true)
+        try container.encode(encodedData)
     }
 }
 

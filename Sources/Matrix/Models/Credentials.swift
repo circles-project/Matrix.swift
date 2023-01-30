@@ -9,8 +9,7 @@ import Foundation
 
 /// Login 200 response: https://spec.matrix.org/v1.5/client-server-api/#post_matrixclientv3login
 extension Matrix {
-    public struct Credentials: Codable, Storable {
-        public typealias StorableObject = Credentials
+    public struct Credentials: Codable, Equatable, Storable {
         public typealias StorableKey = (UserId, DeviceId)
         
         public let userId: UserId
@@ -32,6 +31,16 @@ extension Matrix {
             self.homeServer = homeServer
             self.refreshToken = refreshToken
             self.wellKnown = wellKnown
+        }
+        
+        public static func == (lhs: Matrix.Credentials, rhs: Matrix.Credentials) -> Bool {
+            return lhs.userId == rhs.userId &&
+            lhs.deviceId == rhs.deviceId &&
+            lhs.accessToken == rhs.accessToken &&
+            lhs.expiresInMs == rhs.expiresInMs &&
+            lhs.homeServer == rhs.homeServer &&
+            lhs.refreshToken == rhs.refreshToken &&
+            lhs.wellKnown == rhs.wellKnown
         }
         
         public enum CodingKeys: String, CodingKey {

@@ -9,6 +9,8 @@ import Foundation
 import Matrix
 import GRDB
 
+extension UserId: DatabaseValueConvertible {}
+
 extension Matrix.User: FetchableRecord, PersistableRecord {
     internal static func createTable(_ store: GRDBDataStore) async throws {
         try await store.dbQueue.write { db in
@@ -30,12 +32,22 @@ extension Matrix.User: FetchableRecord, PersistableRecord {
     private static let userInfoSessionKey = CodingUserInfoKey(rawValue: Matrix.User.CodingKeys.session.stringValue)!
     
     internal static func load(_ store: GRDBDataStore, key: StorableKey, session: Matrix.Session) throws -> Matrix.User? {
-        Matrix.User.databaseDecodingUserInfo = [Matrix.User.userInfoSessionKey: session]
+        Matrix.User.databaseDecodingUserInfo[Matrix.User.userInfoSessionKey] = session
         return try store.load(Matrix.User.self, key: key)
     }
     
+    internal static func loadAll(_ store: GRDBDataStore, session: Matrix.Session) throws -> [Matrix.User]? {
+        Matrix.User.databaseDecodingUserInfo[Matrix.User.userInfoSessionKey] = session
+        return try store.loadAll(Matrix.User.self)
+    }
+    
     internal static func load(_ store: GRDBDataStore, key: StorableKey, session: Matrix.Session) async throws -> Matrix.User? {
-        Matrix.User.databaseDecodingUserInfo = [Matrix.User.userInfoSessionKey: session]
+        Matrix.User.databaseDecodingUserInfo[Matrix.User.userInfoSessionKey] = session
         return try await store.load(Matrix.User.self, key: key)
+    }
+    
+    internal static func loadAll(_ store: GRDBDataStore, session: Matrix.Session) async throws -> [Matrix.User]? {
+        Matrix.User.databaseDecodingUserInfo[Matrix.User.userInfoSessionKey] = session
+        return try await store.loadAll(Matrix.User.self)
     }
 }

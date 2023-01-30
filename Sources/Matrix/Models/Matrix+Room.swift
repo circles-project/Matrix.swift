@@ -9,7 +9,6 @@ import Foundation
 
 extension Matrix {
     public class Room: ObservableObject, Codable, Storable {
-        public typealias StorableObject = Room
         public typealias StorableKey = RoomId
         
         public let roomId: RoomId
@@ -46,7 +45,7 @@ extension Matrix {
         
         public enum CodingKeys: String, CodingKey {
             case roomId
-            // session not being encoded
+            case session
             case type
             case version
             case name
@@ -58,7 +57,7 @@ extension Matrix {
             case tombstoneEventId
             case messages
             case localEchoEvent
-            // stateEventsCache not being encoded
+            case stateEventsCache
             case highlightCount
             case notificationCount
             case joinedMembers
@@ -157,9 +156,19 @@ extension Matrix {
             }
             
         }
-                
+        
+        // docs tbd: specify must have session populated in userinfo
         public required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
+            
+            if let sessionKey = CodingUserInfoKey(rawValue: CodingKeys.session.stringValue),
+               let unwrappedSession = decoder.userInfo[sessionKey] as? Session {
+                self.session = unwrappedSession
+            }
+            else {
+                throw Matrix.Error("Error initializing session field")
+            }
+            self.stateEventsCache = [:]
             
             self.roomId = try container.decode(RoomId.self, forKey: .roomId)
             self.type = try container.decodeIfPresent(String.self, forKey: .type)
@@ -171,7 +180,15 @@ extension Matrix {
             self.predecessorRoomId = try container.decodeIfPresent(RoomId.self, forKey: .predecessorRoomId)
             self.successorRoomId = try container.decodeIfPresent(RoomId.self, forKey: .successorRoomId)
             self.tombstoneEventId = try container.decodeIfPresent(EventId.self, forKey: .tombstoneEventId)
-            self.messages = try container.decode(Set<ClientEventWithoutRoomId>.self, forKey: .messages)
+            
+            // Messages are encoded as references to ClientEvent objects in a DataStore
+            if let messagesKey = CodingUserInfoKey(rawValue: CodingKeys.messages.stringValue),
+               let unwrappedMessages = decoder.userInfo[messagesKey] as? Set<ClientEventWithoutRoomId> {
+                self.messages = unwrappedMessages
+            }
+            else {
+                throw Matrix.Error("Error initializing messages field")
+            }
             
             if let clientEvent = try container.decodeIfPresent(ClientEvent.self, forKey: .localEchoEvent) {
                 self.localEchoEvent = clientEvent
@@ -200,18 +217,13 @@ extension Matrix {
             self.bannedMembers = try container.decode(Set<UserId>.self, forKey: .bannedMembers)
             self.knockingMembers = try container.decode(Set<UserId>.self, forKey: .knockingMembers)
             self.encryptionParams = try container.decodeIfPresent(RoomEncryptionContent.self, forKey: .encryptionParams)
-            
-            // FIXME: do proper class initalization and encoding/decoding
-            var creds = Matrix.Credentials(userId: UserId("@TODO:TODO.com")!, deviceId: "TODO", accessToken: "TODO")
-            creds.wellKnown = WellKnown(homeserver: Matrix.WellKnown.ServerConfig(baseUrl: "http://todo.todo"))
-            self.session = try Matrix.Session(creds: creds)
-            self.stateEventsCache = [:]
         }
         
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             
             try container.encode(roomId, forKey: .roomId)
+            // session not being encoded
             try container.encode(type, forKey: .type)
             try container.encode(version, forKey: .version)
             try container.encode(name, forKey: .name)
@@ -221,10 +233,18 @@ extension Matrix {
             try container.encode(predecessorRoomId, forKey: .predecessorRoomId)
             try container.encode(successorRoomId, forKey: .successorRoomId)
             try container.encode(tombstoneEventId, forKey: .tombstoneEventId)
-            try container.encode(messages, forKey: .messages)
+            
+            // Messages are encoded as references to ClientEvent objects in a DataStore
+            var eventIds: [EventId] = []
+            for msg in self.messages {
+                eventIds.append(msg.eventId)
+            }
+            try container.encode(eventIds, forKey: .messages)
+            
             if let unwrapedLocalEchoEvent = localEchoEvent {
                 try container.encode(unwrapedLocalEchoEvent, forKey: .localEchoEvent)
             }
+            // stateEventsCache not being encoded
             try container.encode(highlightCount, forKey: .highlightCount)
             try container.encode(notificationCount, forKey: .notificationCount)
             try container.encode(joinedMembers, forKey: .joinedMembers)

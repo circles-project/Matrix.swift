@@ -11,8 +11,19 @@ import GRDB
 
 /// docs tbd: converts generic types to specialzed or default method calls
 extension GRDBDataStore: DataStore {
+    // MARK: Non-async methods
+    
+    @_disfavoredOverload
     public func save<T>(_ object: T) throws {
-        switch T.self {
+        switch object {
+        case let obj as Matrix.Room :
+            try Matrix.Room.save(self, object: obj)
+            break
+
+        case let obj as Matrix.Session :
+            try Matrix.Session.save(self, object: obj)
+            break
+            
         default:
             if let obj = object as? PersistableRecord {
                 try self.save(obj)
@@ -21,8 +32,21 @@ extension GRDBDataStore: DataStore {
         }
     }
     
+    @_disfavoredOverload
     public func saveAll<T>(_ objects: [T]) throws {
         switch T.self {
+        case is Matrix.Room.Type:
+            if let objs = objects as? [Matrix.Room] {
+                try Matrix.Room.saveAll(self, objects: objs)
+            }
+            break
+            
+        case is Matrix.Session.Type:
+            if let objs = objects as? [Matrix.Session] {
+                try Matrix.Session.saveAll(self, objects: objs)
+            }
+            break
+            
         default:
             if let objs = objects as? [PersistableRecord] {
                 try self.saveAll(objs)
@@ -31,19 +55,14 @@ extension GRDBDataStore: DataStore {
         }
     }
     
+    @_disfavoredOverload
     public func load<T,K>(_ type: T.Type, key: K) throws -> T? {
-        switch T.self {
-        case is Matrix.Credentials.Type:
-            if let keyValue = key as? Matrix.Credentials.StorableKey {
-                return try Matrix.Credentials.load(self, key: keyValue) as? T
-            }
-            return nil
+        switch (type, key) {
+        case let (typeObj, keyValue) as (Matrix.Credentials.Type, Matrix.Credentials.StorableKey):
+            return try self.load(typeObj, key: Matrix.Credentials.getDatabaseValueConvertibleKey(keyValue)) as? T
             
-        case is Matrix.Session.Type:
-            if let keyValue = key as? Matrix.Session.StorableKey {
-                return try Matrix.Session.load(self, key: keyValue) as? T
-            }
-            return nil
+        case let (_, keyValue) as (Matrix.Session.Type, Matrix.Session.StorableKey):
+            return try Matrix.Session.load(self, key: keyValue) as? T
             
         default:
             if let typeObj = type as? (FetchableRecord & TableRecord).Type,
@@ -54,8 +73,12 @@ extension GRDBDataStore: DataStore {
         }
     }
     
+    @_disfavoredOverload
     public func loadAll<T>(_ type: T.Type) throws -> [T]? {
         switch T.self {
+        case is Matrix.Session.Type:
+            return try Matrix.Session.loadAll(self) as? [T]
+            
         default:
             if let typeObj = type as? (FetchableRecord & TableRecord).Type {
                 return try self.loadAll(typeObj) as? [T]
@@ -65,24 +88,12 @@ extension GRDBDataStore: DataStore {
     }
     
     public func load<T,K>(_ type: T.Type, key: K, session: Matrix.Session) throws -> T? {
-        switch T.self {
-        case is Matrix.InvitedRoom.Type:
-            if let keyValue = key as? Matrix.InvitedRoom.StorableKey {
-                return try Matrix.InvitedRoom.load(self, key: keyValue, session: session) as? T
-            }
-            return nil
+        switch (type, key) {
+        case let (_, keyValue) as (Matrix.Room.Type, Matrix.Room.StorableKey):
+            return try Matrix.Room.load(self, key: keyValue, session: session) as? T
             
-        case is Matrix.Room.Type:
-            if let keyValue = key as? Matrix.Room.StorableKey {
-                return try Matrix.Room.load(self, key: keyValue, session: session) as? T
-            }
-            return nil
-            
-        case is Matrix.User.Type:
-            if let keyValue = key as? Matrix.User.StorableKey {
-                return try Matrix.User.load(self, key: keyValue, session: session) as? T
-            }
-            return nil
+        case let (_, keyValue) as (Matrix.User.Type, Matrix.User.StorableKey):
+            return try Matrix.User.load(self, key: keyValue, session: session) as? T
             
         default:
             return try self.load(type, key: key)
@@ -91,11 +102,18 @@ extension GRDBDataStore: DataStore {
     
     public func loadAll<T>(_ type: T.Type, session: Matrix.Session) throws -> [T]? {
         switch T.self {
+        case is Matrix.Room.Type:
+            return try Matrix.Room.loadAll(self, session: session) as? [T]
+            
+        case is Matrix.User.Type:
+            return try Matrix.User.loadAll(self, session: session) as? [T]
+            
         default:
             return try self.loadAll(type)
         }
     }
     
+    @_disfavoredOverload
     public func remove<T>(_ object: T) throws {
         switch T.self {
         default:
@@ -106,8 +124,17 @@ extension GRDBDataStore: DataStore {
         }
     }
     
+    @_disfavoredOverload
     public func remove<T,K>(_ type: T.Type, key: K) throws {
-        switch T.self {
+        switch (type, key) {
+        case let (typeObj, keyValue) as (Matrix.Credentials.Type, Matrix.Credentials.StorableKey):
+            try self.remove(typeObj, key: Matrix.Credentials.getDatabaseValueConvertibleKey(keyValue))
+            break
+            
+        case let (_, keyValue) as (Matrix.Session.Type, Matrix.Session.StorableKey):
+            try Matrix.Session.remove(self, key: keyValue)
+            break
+            
         default:
             if let typeObj = type as? PersistableRecord.Type,
                 let keyValue = key as? DatabaseValueConvertible {
@@ -117,6 +144,7 @@ extension GRDBDataStore: DataStore {
         }
     }
     
+    @_disfavoredOverload
     public func removeAll<T>(_ objects: [T]) throws {
         switch T.self {
         default:
@@ -128,8 +156,17 @@ extension GRDBDataStore: DataStore {
     }
 
     // MARK: Async methods
+    @_disfavoredOverload
     public func save<T>(_ object: T) async throws {
-        switch T.self {
+        switch object {
+        case let obj as Matrix.Room :
+            try await Matrix.Room.save(self, object: obj)
+            break
+
+        case let obj as Matrix.Session :
+            try await Matrix.Session.save(self, object: obj)
+            break
+            
         default:
             if let obj = object as? PersistableRecord {
                 try await self.save(obj)
@@ -138,8 +175,21 @@ extension GRDBDataStore: DataStore {
         }
     }
     
+    @_disfavoredOverload
     public func saveAll<T>(_ objects: [T]) async throws {
         switch T.self {
+        case is Matrix.Room.Type:
+            if let objs = objects as? [Matrix.Room] {
+                try await Matrix.Room.saveAll(self, objects: objs)
+            }
+            break
+            
+        case is Matrix.Session.Type:
+            if let objs = objects as? [Matrix.Session] {
+                try await Matrix.Session.saveAll(self, objects: objs)
+            }
+            break
+            
         default:
             if let objs = objects as? [PersistableRecord] {
                 try await self.saveAll(objs)
@@ -148,19 +198,14 @@ extension GRDBDataStore: DataStore {
         }
     }
     
+    @_disfavoredOverload
     public func load<T,K>(_ type: T.Type, key: K) async throws -> T? {
-        switch T.self {
-        case is Matrix.Credentials.Type:
-            if let keyValue = key as? Matrix.Credentials.StorableKey {
-                return try await Matrix.Credentials.load(self, key: keyValue) as? T
-            }
-            return nil
+        switch (type, key) {
+        case let (typeObj, keyValue) as (Matrix.Credentials.Type, Matrix.Credentials.StorableKey):
+            return try await self.load(typeObj, key: Matrix.Credentials.getDatabaseValueConvertibleKey(keyValue)) as? T
             
-        case is Matrix.Session.Type:
-            if let keyValue = key as? Matrix.Session.StorableKey {
-                return try await Matrix.Session.load(self, key: keyValue) as? T
-            }
-            return nil
+        case let (_, keyValue) as (Matrix.Session.Type, Matrix.Session.StorableKey):
+            return try await Matrix.Session.load(self, key: keyValue) as? T
             
         default:
             if let typeObj = type as? (FetchableRecord & TableRecord).Type,
@@ -171,8 +216,12 @@ extension GRDBDataStore: DataStore {
         }
     }
     
+    @_disfavoredOverload
     public func loadAll<T>(_ type: T.Type) async throws -> [T]? {
         switch T.self {
+        case is Matrix.Session.Type:
+            return try await Matrix.Session.loadAll(self) as? [T]
+            
         default:
             if let typeObj = type as? (FetchableRecord & TableRecord).Type {
                 return try await self.loadAll(typeObj) as? [T]
@@ -182,25 +231,13 @@ extension GRDBDataStore: DataStore {
     }
     
     public func load<T,K>(_ type: T.Type, key: K, session: Matrix.Session) async throws -> T? {
-        switch T.self {
-        case is Matrix.InvitedRoom.Type:
-            if let keyValue = key as? Matrix.InvitedRoom.StorableKey {
-                return try await Matrix.InvitedRoom.load(self, key: keyValue, session: session) as? T
-            }
-            return nil
+        switch (type, key) {
+        case let (_, keyValue) as (Matrix.Room.Type, Matrix.Room.StorableKey):
+            return try await Matrix.Room.load(self, key: keyValue, session: session) as? T
             
-        case is Matrix.Room.Type:
-            if let keyValue = key as? Matrix.Room.StorableKey {
-                return try await Matrix.Room.load(self, key: keyValue, session: session) as? T
-            }
-            return nil
-            
-        case is Matrix.User.Type:
-            if let keyValue = key as? Matrix.User.StorableKey {
-                return try await Matrix.User.load(self, key: keyValue, session: session) as? T
-            }
-            return nil
-            
+        case let (_, keyValue) as (Matrix.User.Type, Matrix.User.StorableKey):
+            return try await Matrix.User.load(self, key: keyValue, session: session) as? T
+                        
         default:
             return try await self.load(type, key: key)
         }
@@ -208,11 +245,18 @@ extension GRDBDataStore: DataStore {
     
     public func loadAll<T>(_ type: T.Type, session: Matrix.Session) async throws -> [T]? {
         switch T.self {
+        case is Matrix.Room.Type:
+            return try await Matrix.Room.loadAll(self, session: session) as? [T]
+            
+        case is Matrix.User.Type:
+            return try await Matrix.User.loadAll(self, session: session) as? [T]
+            
         default:
             return try await self.loadAll(type)
         }
     }
     
+    @_disfavoredOverload
     public func remove<T>(_ object: T) async throws {
         switch T.self {
         default:
@@ -223,8 +267,17 @@ extension GRDBDataStore: DataStore {
         }
     }
     
+    @_disfavoredOverload
     public func remove<T,K>(_ type: T.Type, key: K) async throws {
-        switch T.self {
+        switch (type, key) {
+        case let (typeObj, keyValue) as (Matrix.Credentials.Type, Matrix.Credentials.StorableKey):
+            try await self.remove(typeObj, key: Matrix.Credentials.getDatabaseValueConvertibleKey(keyValue))
+            break
+            
+        case let (_, keyValue) as (Matrix.Session.Type, Matrix.Session.StorableKey):
+            try await Matrix.Session.remove(self, key: keyValue)
+            break
+            
         default:
             if let typeObj = type as? PersistableRecord.Type,
                 let keyValue = key as? DatabaseValueConvertible {
@@ -234,6 +287,7 @@ extension GRDBDataStore: DataStore {
         }
     }
     
+    @_disfavoredOverload
     public func removeAll<T>(_ objects: [T]) async throws {
         switch T.self {
         default:

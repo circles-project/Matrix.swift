@@ -40,7 +40,7 @@ public enum Matrix {
     
     // MARK: Well-Known
     
-    public struct WellKnown: Codable {
+    public struct WellKnown: Codable, Equatable {
         public struct ServerConfig: Codable {
             public var baseUrl: String
             
@@ -51,6 +51,11 @@ public enum Matrix {
         public var homeserver: ServerConfig
         public var identityserver: ServerConfig?
 
+        public static func == (lhs: Matrix.WellKnown, rhs: Matrix.WellKnown) -> Bool {
+            return lhs.homeserver.baseUrl == rhs.homeserver.baseUrl &&
+            lhs.identityserver?.baseUrl == rhs.identityserver?.baseUrl
+        }
+        
         public enum CodingKeys: String, CodingKey {
             case homeserver = "m.homeserver"
             case identityserver = "m.identity_server"
@@ -248,19 +253,11 @@ extension KeyedDecodingContainer {
         guard self.contains(key) else {
             return nil
         }
-
-        // FIXME: Implement
         
-        return nil
-    }
-
-    public func decode(_ type: Matrix.NativeImage.Type, forKey key: K) throws -> Matrix.NativeImage? {
-        guard self.contains(key) else {
-            return nil
+        if let archivedData = try self.decodeIfPresent(Data.self, forKey: key) {
+            return try NSKeyedUnarchiver.unarchivedObject(ofClass: Matrix.NativeImage.self, from: archivedData)
         }
-
-        // FIXME: Implement or remove?
-        
+                
         return nil
     }
 }

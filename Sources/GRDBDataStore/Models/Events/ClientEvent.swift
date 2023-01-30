@@ -17,12 +17,12 @@ extension ClientEvent: FetchableRecord, PersistableRecord {
                     t.column(ClientEvent.CodingKeys.eventId.stringValue, .text).notNull()
                 }
 
-                t.column(ClientEvent.CodingKeys.content.stringValue, .blob)
-                t.column(ClientEvent.CodingKeys.originServerTS.stringValue, .integer)
+                t.column(ClientEvent.CodingKeys.content.stringValue, .blob).notNull()
+                t.column(ClientEvent.CodingKeys.originServerTS.stringValue, .integer).notNull()
                 t.column(ClientEvent.CodingKeys.roomId.stringValue, .text)
-                t.column(ClientEvent.CodingKeys.sender.stringValue, .text)
+                t.column(ClientEvent.CodingKeys.sender.stringValue, .text).notNull()
                 t.column(ClientEvent.CodingKeys.stateKey.stringValue, .text)
-                t.column(ClientEvent.CodingKeys.type.stringValue, .text)
+                t.column(ClientEvent.CodingKeys.type.stringValue, .text).notNull()
                 t.column(ClientEvent.CodingKeys.unsigned.stringValue, .blob)
             }
         }

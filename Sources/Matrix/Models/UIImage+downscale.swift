@@ -38,9 +38,10 @@ extension UIImage {
 
 extension UIImage: Encodable {
     public func encode(to encoder: Encoder) throws {
-        if let data = self.tiffRepresentation {
-            try data.encode(to: encoder)
-        }
+        var container = encoder.singleValueContainer()
+        
+        let encodedData = try NSKeyedArchiver.archivedData(withRootObject: self, requiringSecureCoding: true)
+        try container.encode(encodedData)
     }
 }
 

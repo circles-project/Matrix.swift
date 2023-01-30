@@ -8,7 +8,6 @@
 import Foundation
 
 public struct ClientEvent: Matrix.Event, Codable, Storable {
-    public typealias StorableObject = ClientEvent
     public typealias StorableKey = EventId
     
     public let content: Codable

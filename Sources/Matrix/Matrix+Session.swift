@@ -15,8 +15,8 @@ import AppKit
 
 extension Matrix {
     public class Session: Matrix.Client, ObservableObject, Codable, Storable {
-        public typealias StorableObject = Session
         public typealias StorableKey = Credentials.StorableKey
+        public let dataStore: (any DataStore)?
         
         @Published public var displayName: String?
         @Published public var avatarUrl: URL?
@@ -45,25 +45,31 @@ extension Matrix {
         private var recoveryTimestamp: Date?
         
         public enum CodingKeys: String, CodingKey {
+            // note regarding encoding rules?
             case credentials
+            case credentialsUserId
+            case credentialsDeviceId
+            
+            case dataStore
             case displayName
             case avatarUrl
             case avatar
             case statusMessage
-            // rooms not being encoded in session object
-            // invitations not being encoded in session object
-            // syncRequestTask not being encoded
+            case rooms
+            case invitations
+            case syncRequestTask
             case syncToken
             case syncRequestTimeout
             case keepSyncing
             case syncDelayNs
-            // backgroundSyncTask not being encoded
+            case backgroundSyncTask
             case ignoreUserIds
             case recoverySecretKey
             case recoveryTimestamp
         }
         
-        public init(creds: Credentials, startSyncing: Bool = true) throws {
+        public init(creds: Credentials, startSyncing: Bool = true, dataStore: (any DataStore)? = nil) throws {
+            self.dataStore = dataStore
             self.rooms = [:]
             self.invitations = [:]
             
@@ -93,34 +99,93 @@ extension Matrix {
             
         public required convenience init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            let creds = try container.decode(Credentials.self, forKey: .credentials)
-            let startSyncing = try container.decode(Bool.self, forKey: .keepSyncing)
-            // FIXME: do proper class initalization and decoding
-            try self.init(creds: creds, startSyncing: startSyncing)
-            
-            self.displayName = try container.decode(String.self, forKey: .displayName)
-            self.avatarUrl = try container.decode(URL.self, forKey: .avatarUrl)
-            self.avatar = try container.decode(NativeImage.self, forKey: .avatar)
-            self.statusMessage = try container.decode(String.self, forKey: .statusMessage)
-            self.syncToken = try container.decode(String.self, forKey: .syncToken)
-            self.syncRequestTimeout = try container.decode(Int.self, forKey: .syncRequestTimeout)
-            self.ignoreUserIds = try container.decode(Set<UserId>.self, forKey: .ignoreUserIds)
-            self.recoverySecretKey = try container.decode(Data.self, forKey: .recoverySecretKey)
-            self.recoveryTimestamp = try container.decode(Date.self, forKey: .recoveryTimestamp)
-        }
 
+            var creds: Matrix.Credentials
+            if let credsKey = CodingUserInfoKey(rawValue: CodingKeys.credentials.stringValue),
+               let unwrappedCreds = decoder.userInfo[credsKey] as? Matrix.Credentials  {
+                creds = unwrappedCreds
+            }
+            else {
+                throw Matrix.Error("Error initializing messages field")
+            }
+            
+            var dataStore: any DataStore
+            if let dataStoreKey = CodingUserInfoKey(rawValue: CodingKeys.dataStore.stringValue),
+               let unwrappedDataStore = decoder.userInfo[dataStoreKey] as? any DataStore {
+                dataStore = unwrappedDataStore
+            }
+            else {
+                throw Matrix.Error("Error initializing session field")
+            }
+            
+            try self.init(creds: creds, startSyncing: false, dataStore: dataStore)
+            
+            self.displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
+            self.avatarUrl = try container.decodeIfPresent(URL.self, forKey: .avatarUrl)
+            self.avatar = try container.decodeIfPresent(NativeImage.self, forKey: .avatar)
+            self.statusMessage = try container.decodeIfPresent(String.self, forKey: .statusMessage)
+            
+            // Rooms are encoded as references to Room objects in a DataStore
+            if let roomsKey = CodingUserInfoKey(rawValue: CodingKeys.rooms.stringValue),
+               let unwrappedRooms = decoder.userInfo[roomsKey] as? [RoomId: Matrix.Room]  {
+                self.rooms = unwrappedRooms
+            }
+            else {
+                throw Matrix.Error("Error initializing messages field")
+            }
+            
+            self.invitations = try container.decode([RoomId: Matrix.InvitedRoom].self, forKey: .invitations)
+            // syncRequestTask not being encoded
+            self.syncToken = try container.decodeIfPresent(String.self, forKey: .syncToken)
+            self.syncRequestTimeout = try container.decode(Int.self, forKey: .syncRequestTimeout)
+            self.keepSyncing = try container.decode(Bool.self, forKey: .keepSyncing)
+            self.syncDelayNs = try container.decode(UInt64.self, forKey: .syncDelayNs)
+            // backgroundSyncTask not being encoded
+            self.ignoreUserIds = try container.decode(Set<UserId>.self, forKey: .ignoreUserIds)
+            self.recoverySecretKey = try container.decodeIfPresent(Data.self, forKey: .recoverySecretKey)
+            self.recoveryTimestamp = try container.decodeIfPresent(Date.self, forKey: .recoveryTimestamp)
+            
+            // Ok now we're initialized as a valid Matrix.Client (super class)
+            // Are we supposed to start syncing?
+            if self.keepSyncing {
+                backgroundSyncTask = .init(priority: .background) {
+                    var count: UInt = 0
+                    while keepSyncing {
+                        let token = try await sync()
+                        count += 1
+                    }
+                    return count
+                }
+            }
+        }
+        
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             
-            try container.encode(self.creds, forKey: .credentials)
+            try container.encode(self.creds.userId, forKey: .credentialsUserId)
+            try container.encode(self.creds.deviceId, forKey: .credentialsDeviceId)
+            
+            // dataStore not being encoded
             try container.encode(displayName, forKey: .displayName)
             try container.encode(avatarUrl, forKey: .avatarUrl)
             try container.encode(avatar, forKey: .avatar)
             try container.encode(statusMessage, forKey: .statusMessage)
+            
+            // Rooms are encoded as references to Room objects in a DataStore
+            var roomIds: [RoomId] = []
+            for roomId in self.rooms.keys {
+                roomIds.append(roomId)
+            }
+            try container.encode(roomIds, forKey: .rooms)
+            
+            try container.encode(invitations, forKey: .invitations)
+            // syncRequestTask not being encoded
             try container.encode(syncToken, forKey: .syncToken)
             try container.encode(syncRequestTimeout, forKey: .syncRequestTimeout)
             try container.encode(keepSyncing, forKey: .keepSyncing)
             try container.encode(syncDelayNs, forKey: .syncDelayNs)
+            // backgroundSyncTask not being encoded
+            try container.encode(ignoreUserIds, forKey: .ignoreUserIds)
             try container.encode(recoverySecretKey, forKey: .recoverySecretKey)
             try container.encode(recoveryTimestamp, forKey: .recoveryTimestamp)
         }
@@ -264,6 +329,9 @@ extension Matrix {
                 }
 
                 print("/sync:\tDone!")
+                // Don't block while state is being saved to data store
+                async let _result: ()? = try self.dataStore?.save(self)
+                
                 return responseBody.nextBatch
             
             }

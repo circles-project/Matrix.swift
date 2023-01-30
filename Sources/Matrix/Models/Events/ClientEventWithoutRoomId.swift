@@ -12,7 +12,6 @@ import Foundation
 // but since it's much bigger than most random data-transfer object types,
 // this one gets its own file.
 public struct ClientEventWithoutRoomId: Matrix.Event, Codable, Storable {
-    public typealias StorableObject = ClientEventWithoutRoomId
     public typealias StorableKey = EventId
     
     public let eventId: String
