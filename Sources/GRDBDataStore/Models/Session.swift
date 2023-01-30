@@ -9,9 +9,7 @@ import Foundation
 import Matrix
 import GRDB
 
-// make note regarding singleton behavior? determine how sync data will be stored
-
-extension Matrix.Session: FetchableRecord, PersistableRecord { //}, EncodableRecord {
+extension Matrix.Session: FetchableRecord, PersistableRecord {
     internal static func createTable(_ store: GRDBDataStore) async throws {
         try await store.dbQueue.write { db in
             try db.create(table: databaseTableName) { t in
@@ -47,9 +45,12 @@ extension Matrix.Session: FetchableRecord, PersistableRecord { //}, EncodableRec
     private static let userInfoDataStoreKey = CodingUserInfoKey(rawValue: Matrix.Session.CodingKeys.dataStore.stringValue)!
     private static let userInfoCredentialsKey = CodingUserInfoKey(rawValue: Matrix.Session.CodingKeys.credentials.stringValue)!
     private static let userInfoRoomsKey = CodingUserInfoKey(rawValue: Matrix.Session.CodingKeys.rooms.stringValue)!
+    private static let userInfoSessionKey = CodingUserInfoKey(rawValue: "session")!
     
-    // required to prevent reentrant db querying, which can be unsafe an concurrent context (also save functions)
-    // also specify raw decoding causing reentrant invocation
+    // We cannot transact with the DB with re-entrant read/write operations in a safe maner for async code,
+    // so we must manually persist any sub-objects (e.g. messages) using the same database context. Results
+    // from decoding will be stored in the userInfo dictionary, and accessed when the root-type is being decoded.
+    
     private static func decodeRooms(_ store: GRDBDataStore, _ db: Database, _ key: StorableKey) throws {
         // For some reason SQL interpolation only works for the WHERE condition value...
         let sqlRequest: SQLRequest<EventId> = "SELECT rooms FROM sessions WHERE user_id = \(key.0) AND device_id = \(key.1)"
@@ -61,9 +62,12 @@ extension Matrix.Session: FetchableRecord, PersistableRecord { //}, EncodableRec
 
             let roomIds = try decoder.decode([RoomId].self, from: roomIdsJSONData)
             for roomId in roomIds {
-                // note dummy session / circular dependency
+                // Unfortunately Session is more complex in that we have not initialized this session object at this point in time,
+                // but its fields require that a session object be provided (at least since the session field is not a nullable type at
+                // this moment). To work around this issue we createa dummy session object that will be used to temporarily initialize the
+                // rooms until the root-level decoder is invoked and can re-assign the the session fields to itself
                 if let creds: Matrix.Credentials = Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoCredentialsKey] as? Matrix.Credentials {
-                    let dummySesssion = try Matrix.Session(creds: creds)
+                    let dummySesssion = try Matrix.Session(creds: creds, startSyncing: false)
                     if let room = try Matrix.Room.load(store, key: roomId, session: dummySesssion, database: db) {
                         rooms[roomId] = room
                     }
@@ -122,9 +126,9 @@ extension Matrix.Session: FetchableRecord, PersistableRecord { //}, EncodableRec
         Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoRoomsKey] = [:]
         let compositeKey = Matrix.Credentials.getDatabaseValueConvertibleKey(key)
         
-        // note circular dependency for initialization, and reference semantics workaround...
-        let userInfoSessionKey = CodingUserInfoKey(rawValue: "session")!
-        Matrix.Session.databaseDecodingUserInfo[userInfoSessionKey] = NSMutableArray()
+        // See note in decodeRooms regarding circular initialization dependency and Session decoder
+        // for mutating the userInfo dict...
+        Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoSessionKey] = NSMutableArray()
         
         if let db = database {
             Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoCredentialsKey] = try store.load(Matrix.Credentials.self, key: compositeKey, database: db)
@@ -181,9 +185,9 @@ extension Matrix.Session: FetchableRecord, PersistableRecord { //}, EncodableRec
         Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoRoomsKey] = [:]
         let compositeKey = Matrix.Credentials.getDatabaseValueConvertibleKey(key)
         
-        // note circular dependency for initialization, and reference semantics workaround...
-        let userInfoSessionKey = CodingUserInfoKey(rawValue: "session")!
-        Matrix.Session.databaseDecodingUserInfo[userInfoSessionKey] = NSMutableArray()
+        // See note in decodeRooms regarding circular initialization dependency and Session decoder
+        // for mutating the userInfo dict...
+        Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoSessionKey] = NSMutableArray()
         
         return try await store.dbQueue.read { db in
             Matrix.Session.databaseDecodingUserInfo[Matrix.Session.userInfoCredentialsKey] = try store.load(Matrix.Credentials.self, key: compositeKey, database: db)

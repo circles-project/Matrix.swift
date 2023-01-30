@@ -23,7 +23,9 @@ extension Matrix {
         public var refreshToken: String? = nil
         public var wellKnown: Matrix.WellKnown? = nil
         
-        public init(userId: UserId, deviceId: DeviceId, accessToken: String, expiresInMs: Int? = nil, homeServer: String? = nil, refreshToken: String? = nil, wellKnown: Matrix.WellKnown? = nil) {
+        public init(userId: UserId, deviceId: DeviceId, accessToken: String,
+                    expiresInMs: Int? = nil, homeServer: String? = nil,
+                    refreshToken: String? = nil, wellKnown: Matrix.WellKnown? = nil) {
             self.userId = userId
             self.deviceId = deviceId
             self.accessToken = accessToken

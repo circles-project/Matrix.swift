@@ -143,11 +143,13 @@ extension Matrix {
             
         }
         
-        // docs tbd: specify must have session populated in userinfo
+        // Successfuly decoding of the object requires that a session instance is
+        // stored in the decoder's `userInfo` dictionary
         public required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
-            // note issue with reference type / get only issue with userinfo for blob encoding
+            // .userInfo is a get-only property, so having to workaround by using an NSArray
+            // type with reference semantics instead of directly storing the object...
             if let sessionKey = CodingUserInfoKey(rawValue: CodingKeys.session.stringValue),
                let unwrappedSessions = decoder.userInfo[sessionKey] as? [Session],
                let unwrappedSession = unwrappedSessions.first {
@@ -161,7 +163,8 @@ extension Matrix {
             self.roomId = try container.decode(RoomId.self, forKey: .roomId)
             self.type = try container.decodeIfPresent(String.self, forKey: .type)
             self.version = try container.decode(String.self, forKey: .version)
-            self.predecessorRoomId = try container.decodeIfPresent(RoomId.self, forKey: .predecessorRoomId)
+            self.predecessorRoomId = try container.decodeIfPresent(RoomId.self,
+                                                                   forKey: .predecessorRoomId)
             self.encrypted = try container.decode(Bool.self, forKey: .encrypted)
             self.creator = try container.decode(UserId.self, forKey: .creator)
             self.sender = try container.decode(UserId.self, forKey: .sender)

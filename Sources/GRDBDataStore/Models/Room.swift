@@ -50,8 +50,10 @@ extension Matrix.Room: FetchableRecord, PersistableRecord {
     private static let userInfoSessionKey = CodingUserInfoKey(rawValue: Matrix.Room.CodingKeys.session.stringValue)!
     private static let userInfoMessagesKey = CodingUserInfoKey(rawValue: Matrix.Room.CodingKeys.messages.stringValue)!
     
-    // required to prevent reentrant db querying, which can be unsafe an concurrent context (also save functions)
-    // also specify raw decoding causing reentrant invocation
+    // We cannot transact with the DB with re-entrant read/write operations in a safe maner for async code,
+    // so we must manually persist any sub-objects (e.g. messages) using the same database context. Results
+    // from decoding will be stored in the userInfo dictionary, and accessed when the root-type is being decoded.
+    
     private static func decodeMessages(_ db: Database, _ key: StorableKey) throws {
         // For some reason SQL interpolation only works for the WHERE condition value...
         let sqlRequest: SQLRequest<EventId> = "SELECT messages FROM rooms WHERE roomId = \(key)"

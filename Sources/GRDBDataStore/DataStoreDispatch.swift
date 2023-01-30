@@ -9,7 +9,8 @@ import Foundation
 import Matrix
 import GRDB
 
-/// docs tbd: converts generic types to specialzed or default method calls
+// Internal dispatcher that converts the generic types to call specialized
+// implementations if required
 extension GRDBDataStore: DataStore {
     // MARK: Non-async methods
     

@@ -45,8 +45,9 @@ extension Matrix {
         private var recoveryTimestamp: Date?
         
         public enum CodingKeys: String, CodingKey {
-            // note regarding encoding rules?
+            // credentials is used for decoding, taken from the userInfo dictionary
             case credentials
+            // the creds field is encoded only by its StorableKey, which it can be retrieved later from the dataStore
             case credentialsUserId = "user_id"
             case credentialsDeviceId = "device_id"
             
@@ -135,9 +136,9 @@ extension Matrix {
                 throw Matrix.Error("Error initializing rooms field")
             }
             
-            // note circular dependency for initialization, and reference semantics workaround...
+            // .userInfo is a get-only property, so having to workaround by using a type with reference semantics...
             let userInfoSessionKey = CodingUserInfoKey(rawValue: "session")!
-            if var userInfoSessionArraySingleton = decoder.userInfo[userInfoSessionKey] as? NSMutableArray {
+            if let userInfoSessionArraySingleton = decoder.userInfo[userInfoSessionKey] as? NSMutableArray {
                 userInfoSessionArraySingleton.add(self)
             }
 

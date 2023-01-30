@@ -12,7 +12,7 @@ import GRDB
 public class GRDBDataStore {
     public var url: URL
     
-    // docs tbd: exposing if user requires lower-level sql access instead of developing wrapper functions
+    // Publicly exposing the DB in case the user application requires advanced SQL functionality
     public let dbQueue: DatabaseQueue
     
     public required convenience init(userId: UserId, deviceId: String) async throws {

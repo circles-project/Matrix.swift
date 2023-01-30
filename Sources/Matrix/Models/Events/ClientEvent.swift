@@ -30,7 +30,9 @@ public struct ClientEvent: Matrix.Event, Codable, Storable {
         case unsigned
     }
     
-    public init(content: Codable, eventId: String, originServerTS: UInt64, roomId: RoomId, sender: UserId, stateKey: String? = nil, type: Matrix.EventType, unsigned: UnsignedData? = nil) throws {
+    public init(content: Codable, eventId: String, originServerTS: UInt64, roomId: RoomId,
+                sender: UserId, stateKey: String? = nil, type: Matrix.EventType,
+                unsigned: UnsignedData? = nil) throws {
         self.content = content
         self.eventId = eventId
         self.originServerTS = originServerTS

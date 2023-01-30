@@ -7,8 +7,14 @@
 
 import Foundation
 
-/// docs TBD
+/// DataStore protocol for defining interface on presisting Matrix objects to storage
+/// with async or non-async invocation.
+///
+/// Note that methods are provided to load objects from store with passing in a
+/// Matrix Session, as certain types of objects require an existing session be
+/// provided before the object can be instantiated.
 public protocol DataStore {
+    /// Path to the DataStore
     var url: URL { get }
     
     init(userId: UserId, deviceId: String) async throws

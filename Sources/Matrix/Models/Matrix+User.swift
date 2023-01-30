@@ -36,7 +36,8 @@ extension Matrix {
             }
         }
         
-        // docs tbd: specify must have session populated in userinfo
+        // Successfuly decoding of the object requires that a session instance is stored
+        // in the decoder's `userInfo` dictionary
         public required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             

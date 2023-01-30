@@ -157,7 +157,8 @@ extension Matrix {
             
         }
         
-        // docs tbd: specify must have session populated in userinfo
+        // Successfuly decoding of the object requires that a session instance and messages
+        // are stored in the decoder's `userInfo` dictionary
         public required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
@@ -193,16 +194,20 @@ extension Matrix {
             if let clientEvent = try container.decodeIfPresent(ClientEvent.self, forKey: .localEchoEvent) {
                 self.localEchoEvent = clientEvent
             }
-            else if let clientEventWithoutRoomId = try container.decodeIfPresent(ClientEventWithoutRoomId.self, forKey: .localEchoEvent) {
+            else if let clientEventWithoutRoomId = try container.decodeIfPresent(ClientEventWithoutRoomId.self,
+                                                                                 forKey: .localEchoEvent) {
                 self.localEchoEvent = clientEventWithoutRoomId
             }
-            else if let minimalEvent = try container.decodeIfPresent(MinimalEvent.self, forKey: .localEchoEvent) {
+            else if let minimalEvent = try container.decodeIfPresent(MinimalEvent.self,
+                                                                     forKey: .localEchoEvent) {
                 self.localEchoEvent = minimalEvent
             }
-            else if let strippedStateEvent = try container.decodeIfPresent(StrippedStateEvent.self, forKey: .localEchoEvent) {
+            else if let strippedStateEvent = try container.decodeIfPresent(StrippedStateEvent.self,
+                                                                           forKey: .localEchoEvent) {
                 self.localEchoEvent = strippedStateEvent
             }
-            else if let toDeviceEvent = try container.decodeIfPresent(ToDeviceEvent.self, forKey: .localEchoEvent) {
+            else if let toDeviceEvent = try container.decodeIfPresent(ToDeviceEvent.self,
+                                                                      forKey: .localEchoEvent) {
                 self.localEchoEvent = toDeviceEvent
             }
             else {
@@ -216,7 +221,8 @@ extension Matrix {
             self.leftMembers = try container.decode(Set<UserId>.self, forKey: .leftMembers)
             self.bannedMembers = try container.decode(Set<UserId>.self, forKey: .bannedMembers)
             self.knockingMembers = try container.decode(Set<UserId>.self, forKey: .knockingMembers)
-            self.encryptionParams = try container.decodeIfPresent(RoomEncryptionContent.self, forKey: .encryptionParams)
+            self.encryptionParams = try container.decodeIfPresent(RoomEncryptionContent.self,
+                                                                  forKey: .encryptionParams)
         }
         
         public func encode(to encoder: Encoder) throws {

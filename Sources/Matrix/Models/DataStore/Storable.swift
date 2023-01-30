@@ -7,7 +7,8 @@
 
 import Foundation
 
-/// docs TBD (documentation tag for indicating the key schema used for the datastore)
+/// Storable protocol provides a field that indicates the type structure used
+/// for an object's key/identifier used for storage
 public protocol Storable {
     associatedtype StorableKey
 }

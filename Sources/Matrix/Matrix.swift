@@ -262,7 +262,8 @@ extension KeyedDecodingContainer {
         }
         
         if let archivedData = try self.decodeIfPresent(Data.self, forKey: key) {
-            return try NSKeyedUnarchiver.unarchivedObject(ofClass: Matrix.NativeImage.self, from: archivedData)
+            return try NSKeyedUnarchiver.unarchivedObject(ofClass: Matrix.NativeImage.self,
+                                                          from: archivedData)
         }
                 
         return nil

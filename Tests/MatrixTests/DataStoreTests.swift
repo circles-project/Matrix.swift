@@ -5,6 +5,7 @@ import Matrix
 // Not using @testable since we are validating public-facing API
 import GRDBDataStore
 
+// Sanity tests for GRDB implementation of the DataStore protocol
 final class DataStoreTests: XCTestCase {
     func testDataStoreInitialization() async throws {
         let decoder = JSONDecoder()
@@ -47,15 +48,20 @@ final class DataStoreTests: XCTestCase {
         let roomName = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.name)
         
         // Verify proper key retrevial for later validation
-        let test1 = try ClientEvent(content: RoomNameContent(name: "foo"), eventId: "$foo:bar.com", originServerTS: 1234, roomId: RoomId("!foo:bar.com")!, sender: UserId("@foo:bar.com")!, type: Matrix.EventType.mRoomName)
+        let test1 = try ClientEvent(content: RoomNameContent(name: "foo"), eventId: "$foo:bar.com",
+                                    originServerTS: 1234, roomId: RoomId("!foo:bar.com")!,
+                                    sender: UserId("@foo:bar.com")!, type: Matrix.EventType.mRoomName)
         try await store.save(test1)
 
-        let test2 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "bar"), eventId: "$bar:foo.com", originServerTS: 1234, sender: UserId("@bar:foo.com")!, type: Matrix.EventType.mRoomName)
+        let test2 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "bar"),
+                                                 eventId: "$bar:foo.com", originServerTS: 1234,
+                                                 sender: UserId("@bar:foo.com")!, type: Matrix.EventType.mRoomName)
         try await store.save(test2)
 
         // Save/load validation
         try await store.save(roomName)
-        var newRoomName: ClientEventWithoutRoomId? = try await store.load(ClientEventWithoutRoomId.self, key: roomName.eventId)!
+        var newRoomName: ClientEventWithoutRoomId? = try await store.load(ClientEventWithoutRoomId.self,
+                                                                          key: roomName.eventId)!
         XCTAssertEqual(roomName, newRoomName)
 
         // Remove
@@ -115,7 +121,8 @@ final class DataStoreTests: XCTestCase {
         creds = try await store.load(Matrix.Credentials.self, key: (creds.userId, creds.deviceId))!
         let originalCreds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
 
-        let initCreds = try await store.load(Matrix.Credentials.self, key: (originalCreds.userId, originalCreds.deviceId))!
+        let initCreds = try await store.load(Matrix.Credentials.self, key: (originalCreds.userId,
+                                                                            originalCreds.deviceId))!
         XCTAssertEqual(initCreds, originalCreds)
 
         // Remove
@@ -146,7 +153,7 @@ final class DataStoreTests: XCTestCase {
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
         let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
 
-        let session = try Matrix.Session(creds: creds, dataStore: store)
+        let session = try Matrix.Session(creds: creds, startSyncing: false, dataStore: store)
         var initialState: [ClientEventWithoutRoomId] = []
         var messages: [ClientEventWithoutRoomId] = []
 
@@ -158,22 +165,40 @@ final class DataStoreTests: XCTestCase {
         let roomEncryption = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.encryption)
         initialState.append(contentsOf: [roomCreate, roomName, roomTopic, roomAvatarUrl, roomTombstone, roomEncryption])
 
-        let roomName1 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "foo"), eventId: "$foo:bar.com", originServerTS: 1234, sender: UserId("@foo:bar.com")!, type: Matrix.EventType.mRoomName)
-        let roomName2 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "bar"), eventId: "$bar:foo.com", originServerTS: 4321, sender: UserId("@bar:foo.com")!, type: Matrix.EventType.mRoomName)
+        let roomName1 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "foo"), eventId: "$foo:bar.com",
+                                                     originServerTS: 1234, sender: UserId("@foo:bar.com")!,
+                                                     type: Matrix.EventType.mRoomName)
+        let roomName2 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "bar"), eventId: "$bar:foo.com",
+                                                     originServerTS: 4321, sender: UserId("@bar:foo.com")!,
+                                                     type: Matrix.EventType.mRoomName)
         let roomMessage1 = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.message)
-        let roomMessage2 = try ClientEventWithoutRoomId(content: Matrix.mTextContent(msgtype: Matrix.MessageType.text, body: "bar message"), eventId: "$bar123:foo.com", originServerTS: 4321, sender: UserId("@bar:foo.com")!, type: Matrix.EventType.mRoomMessage)
-        let roomMessage3 = try ClientEventWithoutRoomId(content: Matrix.mTextContent(msgtype: Matrix.MessageType.text, body: "foo message"), eventId: "$foo123:bar.com", originServerTS: 1234, sender: UserId("@foo:bar.com")!, type: Matrix.EventType.mRoomMessage)
+        let roomMessage2 = try ClientEventWithoutRoomId(content: Matrix.mTextContent(msgtype: Matrix.MessageType.text,
+                                                                                     body: "bar message"),
+                                                        eventId: "$bar123:foo.com",
+                                                        originServerTS: 4321,
+                                                        sender: UserId("@bar:foo.com")!,
+                                                        type: Matrix.EventType.mRoomMessage)
+        let roomMessage3 = try ClientEventWithoutRoomId(content: Matrix.mTextContent(msgtype: Matrix.MessageType.text,
+                                                                                     body: "foo message"),
+                                                        eventId: "$foo123:bar.com",
+                                                        originServerTS: 1234,
+                                                        sender: UserId("@foo:bar.com")!,
+                                                        type: Matrix.EventType.mRoomMessage)
 
         messages.append(contentsOf: [roomName1, roomName2, roomMessage1, roomMessage2])
 
-        var room = try Matrix.Room(roomId: RoomId("!foo:bar.com")!, session: session, initialState: initialState, initialMessages: messages)
-        let originalRoom = try Matrix.Room(roomId: RoomId("!foo:bar.com")!, session: session, initialState: initialState, initialMessages: messages)
+        var room = try Matrix.Room(roomId: RoomId("!foo:bar.com")!, session: session,
+                                   initialState: initialState, initialMessages: messages)
+        let originalRoom = try Matrix.Room(roomId: RoomId("!foo:bar.com")!, session: session,
+                                           initialState: initialState, initialMessages: messages)
 
         // Verify proper key retrevial for later validation
-        var test1: Matrix.Room? = try Matrix.Room(roomId: RoomId("!bar:foo.com")!, session: session, initialState: initialState)
+        let test1: Matrix.Room? = try Matrix.Room(roomId: RoomId("!bar:foo.com")!,
+                                                  session: session, initialState: initialState)
         try await store.save(test1)
 
-        var test2: Matrix.Room? = try Matrix.Room(roomId: RoomId("!baz:oof.com")!, session: session, initialState: initialState)
+        let test2: Matrix.Room? = try Matrix.Room(roomId: RoomId("!baz:oof.com")!,
+                                                  session: session, initialState: initialState)
         try await store.save(test2)
 
         // Save/load validation
@@ -219,7 +244,7 @@ final class DataStoreTests: XCTestCase {
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
         let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
 
-        let session = try Matrix.Session(creds: creds, dataStore: store)
+        let session = try Matrix.Session(creds: creds, startSyncing: false, dataStore: store)
         var initialState: [ClientEventWithoutRoomId] = []
         var messages: [ClientEventWithoutRoomId] = []
         var stateEvents: [StrippedStateEvent] = []
@@ -239,52 +264,75 @@ final class DataStoreTests: XCTestCase {
         let roomTombstone2 = try decoder.decode(StrippedStateEvent.self, from: JSONResponses.RoomEvent.tombstone)
         let roomEncryption2 = try decoder.decode(StrippedStateEvent.self, from: JSONResponses.RoomEvent.encryption)
         let roomMember1_temp = try decoder.decode(StrippedStateEvent.self, from: JSONResponses.RoomEvent.member1)
-        let roomMember1 = StrippedStateEvent(sender: roomMember1_temp.sender, stateKey: creds.userId.description, type: roomMember1_temp.type, content: roomMember1_temp.content)
-        var roomMember2_temp = try decoder.decode(StrippedStateEvent.self, from: JSONResponses.RoomEvent.member2)
-        let roomMember2 = StrippedStateEvent(sender: roomMember2_temp.sender, stateKey: creds.userId.description, type: roomMember2_temp.type, content: roomMember2_temp.content)
-        stateEvents.append(contentsOf: [roomCreate2, roomName2, roomTopic2, roomAvatarUrl2, roomTombstone2, roomEncryption2, roomMember1, roomMember2])
+        let roomMember1 = StrippedStateEvent(sender: roomMember1_temp.sender, stateKey: creds.userId.description,
+                                             type: roomMember1_temp.type, content: roomMember1_temp.content)
+        let roomMember2_temp = try decoder.decode(StrippedStateEvent.self, from: JSONResponses.RoomEvent.member2)
+        let roomMember2 = StrippedStateEvent(sender: roomMember2_temp.sender, stateKey: creds.userId.description,
+                                             type: roomMember2_temp.type, content: roomMember2_temp.content)
+        stateEvents.append(contentsOf: [roomCreate2, roomName2, roomTopic2, roomAvatarUrl2, roomTombstone2,
+                                        roomEncryption2, roomMember1, roomMember2])
 
-        let roomName3 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "foo"), eventId: "$foo:bar.com", originServerTS: 1234, sender: UserId("@foo:bar.com")!, type: Matrix.EventType.mRoomName)
-        let roomName4 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "bar"), eventId: "$bar:foo.com", originServerTS: 4321, sender: UserId("@bar:foo.com")!, type: Matrix.EventType.mRoomName)
+        let roomName3 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "foo"), eventId: "$foo:bar.com",
+                                                     originServerTS: 1234, sender: UserId("@foo:bar.com")!,
+                                                     type: Matrix.EventType.mRoomName)
+        let roomName4 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "bar"), eventId: "$bar:foo.com",
+                                                     originServerTS: 4321, sender: UserId("@bar:foo.com")!,
+                                                     type: Matrix.EventType.mRoomName)
         let roomMessage1 = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.message)
-        let roomMessage2 = try ClientEventWithoutRoomId(content: Matrix.mTextContent(msgtype: Matrix.MessageType.text, body: "bar message"), eventId: "$bar123:foo.com", originServerTS: 4321, sender: UserId("@bar:foo.com")!, type: Matrix.EventType.mRoomMessage)
-        let roomMessage3 = try ClientEventWithoutRoomId(content: Matrix.mTextContent(msgtype: Matrix.MessageType.text, body: "foo message"), eventId: "$foo123:bar.com", originServerTS: 1234, sender: UserId("@foo:bar.com")!, type: Matrix.EventType.mRoomMessage)
+        let roomMessage2 = try ClientEventWithoutRoomId(content: Matrix.mTextContent(msgtype: Matrix.MessageType.text,
+                                                                                     body: "bar message"),
+                                                        eventId: "$bar123:foo.com",
+                                                        originServerTS: 4321,
+                                                        sender: UserId("@bar:foo.com")!,
+                                                        type: Matrix.EventType.mRoomMessage)
+        let roomMessage3 = try ClientEventWithoutRoomId(content: Matrix.mTextContent(msgtype: Matrix.MessageType.text,
+                                                                                     body: "foo message"),
+                                                        eventId: "$foo123:bar.com",
+                                                        originServerTS: 1234,
+                                                        sender: UserId("@foo:bar.com")!,
+                                                        type: Matrix.EventType.mRoomMessage)
 
-        messages.append(contentsOf: [roomName3, roomName4, roomMessage1, roomMessage2])
-
-        var room = try Matrix.Room(roomId: RoomId("!foo:bar.com")!, session: session, initialState: initialState, initialMessages: messages)
-        let originalRoom = try Matrix.Room(roomId: RoomId("!foo:bar.com")!, session: session, initialState: initialState, initialMessages: messages)
+        messages.append(contentsOf: [roomName3, roomName4, roomMessage1, roomMessage2, roomMessage3])
 
         // Verify proper key retrevial for later validation
-        var test1: Matrix.Room = try Matrix.Room(roomId: RoomId("!bar:foo.com")!, session: session, initialState: initialState)
-        var test2: Matrix.Room = try Matrix.Room(roomId: RoomId("!baz:oof.com")!, session: session, initialState: initialState)
-        var test3: Matrix.InvitedRoom = try Matrix.InvitedRoom(session: session, roomId: RoomId("!rab:oof.com")!, stateEvents: stateEvents)
-        var test4: Matrix.InvitedRoom = try Matrix.InvitedRoom(session: session, roomId: RoomId("!oof:rab.com")!, stateEvents: stateEvents)
-        
+        let test1: Matrix.Room = try Matrix.Room(roomId: RoomId("!bar:foo.com")!,
+                                                 session: session, initialState: initialState,
+                                                 initialMessages: messages)
+        let test2: Matrix.Room = try Matrix.Room(roomId: RoomId("!baz:oof.com")!,
+                                                 session: session, initialState: initialState,
+                                                 initialMessages: messages)
+        let test3: Matrix.InvitedRoom = try Matrix.InvitedRoom(session: session,
+                                                               roomId: RoomId("!rab:oof.com")!,
+                                                               stateEvents: stateEvents)
+        let test4: Matrix.InvitedRoom = try Matrix.InvitedRoom(session: session,
+                                                               roomId: RoomId("!oof:rab.com")!,
+                                                               stateEvents: stateEvents)
+
         session.displayName = "foo"
         session.rooms = [test1.roomId: test1, test2.roomId: test2]
         session.invitations = [test3.roomId: test3, test4.roomId: test4]
-        let originalSession = try Matrix.Session(creds: creds, dataStore: store)
+        let originalSession = try Matrix.Session(creds: creds, startSyncing: false, dataStore: store)
         originalSession.displayName = session.displayName
         originalSession.rooms = session.rooms
         originalSession.invitations = session.invitations
-        
+
         // Save/load validation
         try await store.save(session)
         session.displayName = "bar"
         session.rooms = [:]
         session.invitations = [:]
 
-        var newSession = try await store.load(Matrix.Session.self, key: (session.creds.userId, session.creds.deviceId))!
+        let newSession = try await store.load(Matrix.Session.self, key: (session.creds.userId, session.creds.deviceId))!
         XCTAssertEqual(newSession.displayName, originalSession.displayName)
         XCTAssertEqual(newSession.rooms.isEmpty, false)
         XCTAssertEqual(newSession.invitations.isEmpty, false)
-        
+
         // Remove
         try await store.remove(session)
-        var newSession2: Matrix.Session? = try await store.load(Matrix.Session.self, key: (session.creds.userId, session.creds.deviceId))
+        var newSession2: Matrix.Session? = try await store.load(Matrix.Session.self,
+                                                                key: (session.creds.userId, session.creds.deviceId))
         XCTAssertNil(newSession2)
-        
+
         // Remove by key
         try await store.save(session)
         try await store.remove(Matrix.Session.self, key: (session.creds.userId, session.creds.deviceId))
@@ -295,7 +343,7 @@ final class DataStoreTests: XCTestCase {
         try await store.clearStore()
         var creds2 = Matrix.Credentials(userId: UserId("@foo:bar.com")!, deviceId: "abc123", accessToken: "def456")
         creds2.wellKnown = Matrix.WellKnown(homeserverUrl: "https://foo.bar")
-        let session2 = try Matrix.Session(creds: creds2)
+        let session2 = try Matrix.Session(creds: creds2, startSyncing: false)
         try await store.saveAll([session, session2])
 
         var sessionList = try await store.loadAll(Matrix.Session.self)!
@@ -311,7 +359,7 @@ final class DataStoreTests: XCTestCase {
         let decoder = JSONDecoder()
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
         let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
-        let session = try Matrix.Session(creds: creds, dataStore: store)
+        let session = try Matrix.Session(creds: creds, startSyncing: false, dataStore: store)
 
         // Verify proper key retrevial for later validation
         let test1 = Matrix.User(userId: UserId("@foo:bar.com")!, session: session)

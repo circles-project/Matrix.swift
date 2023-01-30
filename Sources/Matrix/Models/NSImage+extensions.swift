@@ -43,12 +43,15 @@ extension NSImage {
     }
 }
 
-// make note regarding why cannot implement codable (requires subclassing, which subclessing NSImage also has its issues) (also for uiimage?) also consider using the jpeg data representation for data store?
+// Extension/subclassing not really possible for implementing full `Codable` protocol due to
+// initializer issues, so only adding conformance to `Encodable` and a utility method for
+// decoding from a `Decoder`
 extension NSImage: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         
-        let encodedData = try NSKeyedArchiver.archivedData(withRootObject: self, requiringSecureCoding: true)
+        let encodedData = try NSKeyedArchiver.archivedData(withRootObject: self,
+                                                           requiringSecureCoding: true)
         try container.encode(encodedData)
     }
 }
