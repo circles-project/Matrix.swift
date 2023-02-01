@@ -21,7 +21,6 @@ extension Matrix.User: FetchableRecord, PersistableRecord {
 
                 t.column(Matrix.User.CodingKeys.displayName.stringValue, .text)
                 t.column(Matrix.User.CodingKeys.avatarUrl.stringValue, .text)
-                t.column(Matrix.User.CodingKeys.avatar.stringValue, .blob)
                 t.column(Matrix.User.CodingKeys.statusMessage.stringValue, .text)
             }
         }

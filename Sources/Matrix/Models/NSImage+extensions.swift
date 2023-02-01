@@ -43,17 +43,4 @@ extension NSImage {
     }
 }
 
-// Extension/subclassing not really possible for implementing full `Codable` protocol due to
-// initializer issues, so only adding conformance to `Encodable` and a utility method for
-// decoding from a `Decoder`
-extension NSImage: Encodable {
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        
-        let encodedData = try NSKeyedArchiver.archivedData(withRootObject: self,
-                                                           requiringSecureCoding: true)
-        try container.encode(encodedData)
-    }
-}
-
 #endif

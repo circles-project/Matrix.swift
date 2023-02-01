@@ -24,7 +24,6 @@ extension Matrix.Room: FetchableRecord, PersistableRecord {
                 t.column(Matrix.Room.CodingKeys.name.stringValue, .text)
                 t.column(Matrix.Room.CodingKeys.topic.stringValue, .text)
                 t.column(Matrix.Room.CodingKeys.avatarUrl.stringValue, .text)
-                t.column(Matrix.Room.CodingKeys.avatar.stringValue, .blob)
                 t.column(Matrix.Room.CodingKeys.predecessorRoomId.stringValue, .text)
                 t.column(Matrix.Room.CodingKeys.successorRoomId.stringValue, .text)
                 t.column(Matrix.Room.CodingKeys.tombstoneEventId.stringValue, .text)

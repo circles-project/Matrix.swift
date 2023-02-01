@@ -253,19 +253,3 @@ public protocol _MatrixMessageContent: Codable {
     var body: String {get}
     var msgtype: Matrix.MessageType {get}
 }
-
-extension KeyedDecodingContainer {
-    public func decodeIfPresent(_ type: Matrix.NativeImage.Type, forKey key: K)
-    throws -> Matrix.NativeImage? {
-        guard self.contains(key) else {
-            return nil
-        }
-        
-        if let archivedData = try self.decodeIfPresent(Data.self, forKey: key) {
-            return try NSKeyedUnarchiver.unarchivedObject(ofClass: Matrix.NativeImage.self,
-                                                          from: archivedData)
-        }
-                
-        return nil
-    }
-}

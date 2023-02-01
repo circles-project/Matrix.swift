@@ -368,23 +368,15 @@ final class DataStoreTests: XCTestCase {
         let test2 = Matrix.User(userId: UserId("@bar:foo.com")!, session: session)
         let originalTest2 = Matrix.User(userId: UserId("@bar:foo.com")!, session: session)
         
-        let url = NSURL(string: "https://www.wikipedia.org/portal/wikipedia.org/assets/img/Wikipedia-logo-v2@2x.png")!
-        let imageSource = CGImageSourceCreateWithURL(url, nil)!
-        let image = CGImageSourceCreateImageAtIndex(imageSource, 0, nil)!
-        let nsImage = NSImage(cgImage: image, size: NSSize(width: 256, height: 256))
-        
-        test2.avatar = nsImage
         test2.avatarUrl = "https://bar.foo"
         test2.displayName = "BarFoo"
         test2.statusMessage = "status"
-        originalTest2.avatar = nsImage
         originalTest2.avatarUrl = "https://bar.foo"
         originalTest2.displayName = "BarFoo"
         originalTest2.statusMessage = "status"
         try await store.save(test2)
         
         // Save/load validation
-        test2.avatar = nil
         test2.displayName = "Raboof"
         test2.statusMessage = "sutats"
 
@@ -393,7 +385,6 @@ final class DataStoreTests: XCTestCase {
 //        XCTAssertEqual(test2.session, newTest2.session)
         XCTAssertEqual(originalTest2.displayName, newTest2.displayName)
         XCTAssertEqual(originalTest2.avatarUrl, newTest2.avatarUrl)
-        XCTAssertEqual(originalTest2.avatar?.tiffRepresentation, newTest2.avatar?.tiffRepresentation)
         XCTAssertEqual(originalTest2.statusMessage, newTest2.statusMessage)
 
         // Remove

@@ -119,7 +119,7 @@ extension Matrix {
             
             self.displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
             self.avatarUrl = try container.decodeIfPresent(URL.self, forKey: .avatarUrl)
-            self.avatar = try container.decodeIfPresent(NativeImage.self, forKey: .avatar)
+            self.avatar = nil // Avatar will be fetched from URLSession cache
             self.statusMessage = try container.decodeIfPresent(String.self, forKey: .statusMessage)
             
             // Rooms are encoded as references to Room objects in a DataStore
@@ -170,7 +170,7 @@ extension Matrix {
             // dataStore not being encoded
             try container.encode(displayName, forKey: .displayName)
             try container.encode(avatarUrl, forKey: .avatarUrl)
-            try container.encode(avatar, forKey: .avatar)
+            // avatar not being encoded
             try container.encode(statusMessage, forKey: .statusMessage)
             
             // Rooms are encoded as references to Room objects in a DataStore

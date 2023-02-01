@@ -22,7 +22,6 @@ extension Matrix.Session: FetchableRecord, PersistableRecord {
 
                 t.column(Matrix.Session.CodingKeys.displayName.stringValue, .text)
                 t.column(Matrix.Session.CodingKeys.avatarUrl.stringValue, .text)
-                t.column(Matrix.Session.CodingKeys.avatar.stringValue, .blob)
                 t.column(Matrix.Session.CodingKeys.statusMessage.stringValue, .text)
                 
                 // List of foreign keys to rooms in 'rooms'

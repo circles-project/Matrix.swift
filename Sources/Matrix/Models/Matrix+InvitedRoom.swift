@@ -171,7 +171,7 @@ extension Matrix {
             self.name = try container.decodeIfPresent(String.self, forKey: .name)
             self.topic = try container.decodeIfPresent(String.self, forKey: .topic)
             self.avatarUrl = try container.decodeIfPresent(MXC.self, forKey: .avatarUrl)
-            self.avatar = try container.decodeIfPresent(NativeImage.self, forKey: .avatar)
+            self.avatar = nil // Avatar will be fetched from URLSession cache
             self.members = try container.decode([UserId].self, forKey: .members)
         }
         
@@ -189,7 +189,7 @@ extension Matrix {
             try container.encode(name, forKey: .name)
             try container.encode(topic, forKey: .topic)
             try container.encode(avatarUrl, forKey: .avatarUrl)
-            try container.encode(avatar, forKey: .avatar)
+            // avatar not being encoded
             try container.encode(members, forKey: .members)
             // stateEventsCache not being encoded
         }
