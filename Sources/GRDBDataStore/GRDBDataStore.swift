@@ -22,17 +22,16 @@ public class GRDBDataStore {
         dbDirectory?.appendPathComponent(userId.description.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? userId.description)
         dbDirectory?.appendPathComponent(deviceId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? deviceId)
         
-        if var dbUrl = dbDirectory {
-            if !FileManager.default.fileExists(atPath: dbUrl.path) {
-                try FileManager.default.createDirectory(atPath: dbUrl.path, withIntermediateDirectories: true)
-            }
-            
-            dbUrl.appendPathComponent("matrix.sqlite3")
-            try await self.init(path: dbUrl)
-        }
-        else {
+        guard var dbUrl = dbDirectory else {
             throw Matrix.Error("Error creating path for user data store: \(dbDirectory?.path ?? "nil")")
         }
+        
+        if !FileManager.default.fileExists(atPath: dbUrl.path) {
+            try FileManager.default.createDirectory(atPath: dbUrl.path, withIntermediateDirectories: true)
+        }
+        
+        dbUrl.appendPathComponent("matrix.sqlite3")
+        try await self.init(path: dbUrl)
     }
     
     public required init(path: URL) async throws {

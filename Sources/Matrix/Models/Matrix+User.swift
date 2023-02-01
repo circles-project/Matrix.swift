@@ -41,13 +41,13 @@ extension Matrix {
         public required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
-            if let sessionKey = CodingUserInfoKey(rawValue: CodingKeys.session.stringValue),
-               let unwrappedSession = decoder.userInfo[sessionKey] as? Session {
-                self.session = unwrappedSession
-            }
+            guard let sessionKey = CodingUserInfoKey(rawValue: CodingKeys.session.stringValue),
+                  let unwrappedSession = decoder.userInfo[sessionKey] as? Session
             else {
                 throw Matrix.Error("Error initializing session field")
             }
+            
+            self.session = unwrappedSession
 
             self.id = try container.decode(UserId.self, forKey: .id)
             self.displayName = try container.decodeIfPresent(String.self, forKey: .displayName)

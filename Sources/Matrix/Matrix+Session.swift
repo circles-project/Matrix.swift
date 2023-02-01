@@ -101,24 +101,19 @@ extension Matrix {
         public required convenience init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
 
-            var creds: Matrix.Credentials
-            if let credsKey = CodingUserInfoKey(rawValue: CodingKeys.credentials.stringValue),
-               let unwrappedCreds = decoder.userInfo[credsKey] as? Matrix.Credentials  {
-                creds = unwrappedCreds
-                
-            }
+            guard let credsKey = CodingUserInfoKey(rawValue: CodingKeys.credentials.stringValue),
+                  let unwrappedCreds = decoder.userInfo[credsKey] as? Matrix.Credentials
             else {
                 throw Matrix.Error("Error initializing creds field")
             }
+            let creds = unwrappedCreds
             
-            var dataStore: any DataStore
-            if let dataStoreKey = CodingUserInfoKey(rawValue: CodingKeys.dataStore.stringValue),
-               let unwrappedDataStore = decoder.userInfo[dataStoreKey] as? any DataStore {
-                dataStore = unwrappedDataStore
-            }
+            guard let dataStoreKey = CodingUserInfoKey(rawValue: CodingKeys.dataStore.stringValue),
+                  let unwrappedDataStore = decoder.userInfo[dataStoreKey] as? any DataStore
             else {
                 throw Matrix.Error("Error initializing dataStore field")
             }
+            let dataStore = unwrappedDataStore
             
             try self.init(creds: creds, startSyncing: false, dataStore: dataStore)
             
@@ -128,13 +123,12 @@ extension Matrix {
             self.statusMessage = try container.decodeIfPresent(String.self, forKey: .statusMessage)
             
             // Rooms are encoded as references to Room objects in a DataStore
-            if let roomsKey = CodingUserInfoKey(rawValue: CodingKeys.rooms.stringValue),
-               let unwrappedRooms = decoder.userInfo[roomsKey] as? [RoomId: Matrix.Room]  {
-                self.rooms = unwrappedRooms
-            }
+            guard let roomsKey = CodingUserInfoKey(rawValue: CodingKeys.rooms.stringValue),
+                  let unwrappedRooms = decoder.userInfo[roomsKey] as? [RoomId: Matrix.Room]
             else {
                 throw Matrix.Error("Error initializing rooms field")
             }
+            self.rooms = unwrappedRooms
             
             // .userInfo is a get-only property, so having to workaround by using a type with reference semantics...
             let userInfoSessionKey = CodingUserInfoKey(rawValue: "session")!

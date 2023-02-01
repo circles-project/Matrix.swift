@@ -162,13 +162,13 @@ extension Matrix {
         public required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
-            if let sessionKey = CodingUserInfoKey(rawValue: CodingKeys.session.stringValue),
-               let unwrappedSession = decoder.userInfo[sessionKey] as? Session {
-                self.session = unwrappedSession
-            }
+            guard let sessionKey = CodingUserInfoKey(rawValue: CodingKeys.session.stringValue),
+                  let unwrappedSession = decoder.userInfo[sessionKey] as? Session
             else {
                 throw Matrix.Error("Error initializing session field")
             }
+
+            self.session = unwrappedSession
             self.stateEventsCache = [:]
             
             self.roomId = try container.decode(RoomId.self, forKey: .roomId)
@@ -183,13 +183,13 @@ extension Matrix {
             self.tombstoneEventId = try container.decodeIfPresent(EventId.self, forKey: .tombstoneEventId)
             
             // Messages are encoded as references to ClientEvent objects in a DataStore
-            if let messagesKey = CodingUserInfoKey(rawValue: CodingKeys.messages.stringValue),
-               let unwrappedMessages = decoder.userInfo[messagesKey] as? Set<ClientEventWithoutRoomId> {
-                self.messages = unwrappedMessages
-            }
+            guard let messagesKey = CodingUserInfoKey(rawValue: CodingKeys.messages.stringValue),
+                  let unwrappedMessages = decoder.userInfo[messagesKey] as? Set<ClientEventWithoutRoomId>
             else {
                 throw Matrix.Error("Error initializing messages field")
             }
+            
+            self.messages = unwrappedMessages
             
             if let clientEvent = try container.decodeIfPresent(ClientEvent.self, forKey: .localEchoEvent) {
                 self.localEchoEvent = clientEvent

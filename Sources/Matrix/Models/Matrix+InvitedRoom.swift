@@ -150,14 +150,14 @@ extension Matrix {
             
             // .userInfo is a get-only property, so having to workaround by using an NSArray
             // type with reference semantics instead of directly storing the object...
-            if let sessionKey = CodingUserInfoKey(rawValue: CodingKeys.session.stringValue),
-               let unwrappedSessions = decoder.userInfo[sessionKey] as? [Session],
-               let unwrappedSession = unwrappedSessions.first {
-                self.session = unwrappedSession
-            }
+            guard let sessionKey = CodingUserInfoKey(rawValue: CodingKeys.session.stringValue),
+                  let unwrappedSessions = decoder.userInfo[sessionKey] as? [Session],
+                  let unwrappedSession = unwrappedSessions.first
             else {
                 throw Matrix.Error("Error initializing session field")
             }
+            
+            self.session = unwrappedSession
             self.stateEventsCache = [:]
             
             self.roomId = try container.decode(RoomId.self, forKey: .roomId)
