@@ -174,10 +174,7 @@ extension Matrix {
             try container.encode(statusMessage, forKey: .statusMessage)
             
             // Rooms are encoded as references to Room objects in a DataStore
-            var roomIds: [RoomId] = []
-            for roomId in self.rooms.keys {
-                roomIds.append(roomId)
-            }
+            let roomIds: [RoomId] = self.rooms.keys.map { $0 }
             try container.encode(roomIds, forKey: .rooms)
             
             try container.encode(invitations, forKey: .invitations)

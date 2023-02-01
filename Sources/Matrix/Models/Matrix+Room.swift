@@ -241,10 +241,7 @@ extension Matrix {
             try container.encode(tombstoneEventId, forKey: .tombstoneEventId)
             
             // Messages are encoded as references to ClientEvent objects in a DataStore
-            var eventIds: [EventId] = []
-            for msg in self.messages {
-                eventIds.append(msg.eventId)
-            }
+            let eventIds: [EventId] = self.messages.map { $0.eventId }
             try container.encode(eventIds, forKey: .messages)
             
             if let unwrapedLocalEchoEvent = localEchoEvent {
