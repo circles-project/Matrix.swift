@@ -181,16 +181,8 @@ extension Matrix {
             self.predecessorRoomId = try container.decodeIfPresent(RoomId.self, forKey: .predecessorRoomId)
             self.successorRoomId = try container.decodeIfPresent(RoomId.self, forKey: .successorRoomId)
             self.tombstoneEventId = try container.decodeIfPresent(EventId.self, forKey: .tombstoneEventId)
-            
-            // Messages are encoded as references to ClientEvent objects in a DataStore
-            guard let messagesKey = CodingUserInfoKey(rawValue: CodingKeys.messages.stringValue),
-                  let unwrappedMessages = decoder.userInfo[messagesKey] as? Set<ClientEventWithoutRoomId>
-            else {
-                throw Matrix.Error("Error initializing messages field")
-            }
-            
-            self.messages = unwrappedMessages
-            
+            self.messages = Set<ClientEventWithoutRoomId>() // Messages must be added later by the caller
+
             if let clientEvent = try container.decodeIfPresent(ClientEvent.self, forKey: .localEchoEvent) {
                 self.localEchoEvent = clientEvent
             }
@@ -239,11 +231,7 @@ extension Matrix {
             try container.encode(predecessorRoomId, forKey: .predecessorRoomId)
             try container.encode(successorRoomId, forKey: .successorRoomId)
             try container.encode(tombstoneEventId, forKey: .tombstoneEventId)
-            
-            // Messages are encoded as references to ClientEvent objects in a DataStore
-            let eventIds: [EventId] = self.messages.map { $0.eventId }
-            try container.encode(eventIds, forKey: .messages)
-            
+            // messages not being encoded            
             if let unwrapedLocalEchoEvent = localEchoEvent {
                 try container.encode(unwrapedLocalEchoEvent, forKey: .localEchoEvent)
             }

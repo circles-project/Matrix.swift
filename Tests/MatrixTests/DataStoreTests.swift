@@ -165,12 +165,6 @@ final class DataStoreTests: XCTestCase {
         let roomEncryption = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.encryption)
         initialState.append(contentsOf: [roomCreate, roomName, roomTopic, roomAvatarUrl, roomTombstone, roomEncryption])
 
-        let roomName1 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "foo"), eventId: "$foo:bar.com",
-                                                     originServerTS: 1234, sender: UserId("@foo:bar.com")!,
-                                                     type: Matrix.EventType.mRoomName)
-        let roomName2 = try ClientEventWithoutRoomId(content: RoomNameContent(name: "bar"), eventId: "$bar:foo.com",
-                                                     originServerTS: 4321, sender: UserId("@bar:foo.com")!,
-                                                     type: Matrix.EventType.mRoomName)
         let roomMessage1 = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.message)
         let roomMessage2 = try ClientEventWithoutRoomId(content: Matrix.mTextContent(msgtype: Matrix.MessageType.text,
                                                                                      body: "bar message"),
@@ -185,7 +179,7 @@ final class DataStoreTests: XCTestCase {
                                                         sender: UserId("@foo:bar.com")!,
                                                         type: Matrix.EventType.mRoomMessage)
 
-        messages.append(contentsOf: [roomName1, roomName2, roomMessage1, roomMessage2])
+        messages.append(contentsOf: [roomMessage1, roomMessage2])
 
         var room = try Matrix.Room(roomId: RoomId("!foo:bar.com")!, session: session,
                                    initialState: initialState, initialMessages: messages)
