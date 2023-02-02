@@ -43,6 +43,12 @@ public struct ClientEvent: Matrix.Event, Codable, Storable {
         self.unsigned = unsigned
     }
     
+    public init(from: ClientEventWithoutRoomId, roomId: RoomId) throws {
+        try self.init(content: from.content, eventId: from.eventId,
+                      originServerTS: from.originServerTS, roomId: roomId,
+                      sender: from.sender, type: from.type)
+    }
+    
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
