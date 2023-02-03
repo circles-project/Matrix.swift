@@ -121,14 +121,7 @@ extension Matrix {
             self.avatarUrl = try container.decodeIfPresent(URL.self, forKey: .avatarUrl)
             self.avatar = nil // Avatar will be fetched from URLSession cache
             self.statusMessage = try container.decodeIfPresent(String.self, forKey: .statusMessage)
-            
-            // Rooms are encoded as references to Room objects in a DataStore
-            guard let roomsKey = CodingUserInfoKey(rawValue: CodingKeys.rooms.stringValue),
-                  let unwrappedRooms = decoder.userInfo[roomsKey] as? [RoomId: Matrix.Room]
-            else {
-                throw Matrix.Error("Error initializing rooms field")
-            }
-            self.rooms = unwrappedRooms
+            self.rooms = [:] // Rooms must be added later by the caller
             
             // .userInfo is a get-only property, so having to workaround by using a type with reference semantics...
             let userInfoSessionKey = CodingUserInfoKey(rawValue: "session")!
@@ -172,11 +165,7 @@ extension Matrix {
             try container.encode(avatarUrl, forKey: .avatarUrl)
             // avatar not being encoded
             try container.encode(statusMessage, forKey: .statusMessage)
-            
-            // Rooms are encoded as references to Room objects in a DataStore
-            let roomIds: [RoomId] = self.rooms.keys.map { $0 }
-            try container.encode(roomIds, forKey: .rooms)
-            
+            // rooms not being encoded
             try container.encode(invitations, forKey: .invitations)
             // syncRequestTask not being encoded
             try container.encode(syncToken, forKey: .syncToken)
