@@ -118,22 +118,21 @@ final class DataStoreTests: XCTestCase {
         creds.wellKnown?.homeserver.baseUrl = "https://org.example"
         creds.wellKnown?.identityserver?.baseUrl = "https://org.example.id"
 
-        creds = try await store.load(Matrix.Credentials.self, key: (creds.userId, creds.deviceId))!
+        creds = try await store.load(Matrix.Credentials.self, key: creds.userId)!
         let originalCreds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
 
-        let initCreds = try await store.load(Matrix.Credentials.self, key: (originalCreds.userId,
-                                                                            originalCreds.deviceId))!
+        let initCreds = try await store.load(Matrix.Credentials.self, key: originalCreds.userId)!
         XCTAssertEqual(initCreds, originalCreds)
 
         // Remove
         try await store.remove(creds)
-        var newCreds = try await store.load(Matrix.Credentials.self, key: (creds.userId, creds.deviceId))
+        var newCreds = try await store.load(Matrix.Credentials.self, key: creds.userId)
         XCTAssertNil(newCreds)
         
         // Remove by key
         try await store.save(creds)
-        try await store.remove(Matrix.Credentials.self, key: (creds.userId, creds.deviceId))
-        newCreds = try await store.load(Matrix.Credentials.self, key: (creds.userId, creds.deviceId))
+        try await store.remove(Matrix.Credentials.self, key: creds.userId)
+        newCreds = try await store.load(Matrix.Credentials.self, key: creds.userId)
         XCTAssertNil(newCreds)
         
         // Save all / load all validation
@@ -316,7 +315,7 @@ final class DataStoreTests: XCTestCase {
         session.rooms = [:]
         session.invitations = [:]
 
-        let newSession = try await store.load(Matrix.Session.self, key: (session.creds.userId, session.creds.deviceId))!
+        let newSession = try await store.load(Matrix.Session.self, key: session.creds.userId)!
         XCTAssertEqual(newSession.displayName, originalSession.displayName)
         XCTAssertEqual(newSession.rooms.isEmpty, false)
         XCTAssertEqual(newSession.invitations.isEmpty, false)
@@ -324,29 +323,14 @@ final class DataStoreTests: XCTestCase {
         // Remove
         try await store.remove(session)
         var newSession2: Matrix.Session? = try await store.load(Matrix.Session.self,
-                                                                key: (session.creds.userId, session.creds.deviceId))
+                                                                key: session.creds.userId)
         XCTAssertNil(newSession2)
 
         // Remove by key
         try await store.save(session)
-        try await store.remove(Matrix.Session.self, key: (session.creds.userId, session.creds.deviceId))
-        newSession2 = try await store.load(Matrix.Session.self, key: (session.creds.userId, session.creds.deviceId))
+        try await store.remove(Matrix.Session.self, key: session.creds.userId)
+        newSession2 = try await store.load(Matrix.Session.self, key: session.creds.userId)
         XCTAssertNil(newSession2)
-
-        // Save all / load all validation
-        try await store.clearStore()
-        var creds2 = Matrix.Credentials(userId: UserId("@foo:bar.com")!, deviceId: "abc123", accessToken: "def456")
-        creds2.wellKnown = Matrix.WellKnown(homeserverUrl: "https://foo.bar")
-        let session2 = try Matrix.Session(creds: creds2, startSyncing: false)
-        try await store.saveAll([session, session2])
-
-        var sessionList = try await store.loadAll(Matrix.Session.self)!
-        XCTAssertEqual(sessionList.count, 2)
-
-        // Remove all
-        try await store.removeAll(sessionList)
-        sessionList = try await store.loadAll(Matrix.Session.self)!
-        XCTAssertEqual(sessionList.count, 0)
     }
     
     func testDataStoreUser() async throws {

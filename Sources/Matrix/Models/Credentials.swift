@@ -10,7 +10,7 @@ import Foundation
 /// Login 200 response: https://spec.matrix.org/v1.5/client-server-api/#post_matrixclientv3login
 extension Matrix {
     public struct Credentials: Codable, Equatable, Storable {
-        public typealias StorableKey = (UserId, DeviceId)
+        public typealias StorableKey = UserId
         
         public let userId: UserId
         public let deviceId: DeviceId

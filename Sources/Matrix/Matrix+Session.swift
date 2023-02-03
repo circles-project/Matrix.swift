@@ -45,12 +45,8 @@ extension Matrix {
         private var recoveryTimestamp: Date?
         
         public enum CodingKeys: String, CodingKey {
-            // credentials is used for decoding, taken from the userInfo dictionary
-            case credentials
             // the creds field is encoded only by its StorableKey, which it can be retrieved later from the dataStore
-            case credentialsUserId = "user_id"
-            case credentialsDeviceId = "device_id"
-            
+            case credentials
             case dataStore
             case displayName
             case avatarUrl
@@ -157,9 +153,7 @@ extension Matrix {
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             
-            try container.encode(self.creds.userId, forKey: .credentialsUserId)
-            try container.encode(self.creds.deviceId, forKey: .credentialsDeviceId)
-            
+            try container.encode(creds.userId, forKey: .credentials)
             // dataStore not being encoded
             try container.encode(displayName, forKey: .displayName)
             try container.encode(avatarUrl, forKey: .avatarUrl)

@@ -15,9 +15,9 @@ extension Matrix.Credentials: FetchableRecord, PersistableRecord {
             try db.create(table: databaseTableName) { t in
                 t.primaryKey {
                     t.column(Matrix.Credentials.CodingKeys.userId.stringValue, .text).notNull()
-                    t.column(Matrix.Credentials.CodingKeys.deviceId.stringValue, .text).notNull()
                 }
 
+                t.column(Matrix.Credentials.CodingKeys.deviceId.stringValue, .text).notNull()
                 t.column(Matrix.Credentials.CodingKeys.accessToken.stringValue, .text).notNull()
                 t.column(Matrix.Credentials.CodingKeys.expiresInMs.stringValue, .integer)
                 t.column(Matrix.Credentials.CodingKeys.homeServer.stringValue, .text)
@@ -27,10 +27,4 @@ extension Matrix.Credentials: FetchableRecord, PersistableRecord {
         }
     }
     public static let databaseTableName = "credentials"
-    
-    internal static func getDatabaseValueConvertibleKey(_ key: StorableKey) -> [String: DatabaseValueConvertible] {
-        let compositeKey: [String: DatabaseValueConvertible] = [Matrix.Credentials.CodingKeys.userId.stringValue: key.0,
-                                                                Matrix.Credentials.CodingKeys.deviceId.stringValue: key.1]
-        return compositeKey
-    }
 }
