@@ -24,6 +24,7 @@ final class DataStoreTests: XCTestCase {
         let decoder = JSONDecoder()
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
         let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
+        let session = try Matrix.Session(creds: creds, startSyncing: false, dataStore: store)
 
         let roomName = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.name)
         try await store.save(creds)
@@ -36,7 +37,7 @@ final class DataStoreTests: XCTestCase {
         let newRoomName = try await store.load(ClientEventWithoutRoomId.self, key: roomName.eventId)
         XCTAssertNil(newRoomName)
         
-        let rooms = try await store.loadAll(Matrix.Room.self)!
+        let rooms = try await store.loadAll(Matrix.Room.self, session: session)!
         XCTAssertEqual(rooms.count, 0)
     }
     
@@ -207,7 +208,7 @@ final class DataStoreTests: XCTestCase {
         
         // Remove
         try await store.remove(room)
-        var newRoom = try await store.load(Matrix.Room.self, key: room.roomId)
+        var newRoom = try await store.load(Matrix.Room.self, key: room.roomId, session: session)
         XCTAssertNil(newRoom)
         
         // Remove by key
@@ -367,24 +368,24 @@ final class DataStoreTests: XCTestCase {
 
         // Remove
         try await store.remove(test1)
-        var newUser = try await store.load(Matrix.User.self, key: test1.id)
+        var newUser = try await store.load(Matrix.User.self, key: test1.id, session: session)
         XCTAssertNil(newUser)
 
         // Remove by key
         try await store.save(test1)
         try await store.remove(Matrix.User.self, key: test1.id)
-        newUser = try await store.load(Matrix.User.self, key: test1.id)
+        newUser = try await store.load(Matrix.User.self, key: test1.id, session: session)
         XCTAssertNil(newUser)
 
         // Save all / load all validation
         try await store.clearStore()
         try await store.saveAll([test1, test2])
-        var userList = try await store.loadAll(Matrix.User.self)!
+        var userList = try await store.loadAll(Matrix.User.self, session: session)!
         XCTAssertEqual([test1, test2].count, userList.count)
 
         // Remove all
         try await store.removeAll(userList)
-        userList = try await store.loadAll(Matrix.User.self)!
+        userList = try await store.loadAll(Matrix.User.self, session: session)!
         XCTAssertEqual(userList.count, 0)
     }
 }

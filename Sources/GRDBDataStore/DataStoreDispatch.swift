@@ -59,6 +59,12 @@ extension GRDBDataStore: DataStore {
         case let (_, keyValue) as (Matrix.Session.Type, Matrix.Session.StorableKey):
             return try Matrix.Session.load(self, key: keyValue) as? T
             
+        case (_, _) as (Matrix.Room.Type, Matrix.Room.StorableKey):
+            throw Matrix.Error("Method not supported for Room object, you must pass in the session object")
+            
+        case (_, _) as (Matrix.User.Type, Matrix.User.StorableKey):
+            throw Matrix.Error("Method not supported for User object, you must pass in the session object")
+            
         default:
             if let typeObj = type as? (FetchableRecord & TableRecord).Type,
                 let keyValue = key as? DatabaseValueConvertible {
@@ -73,6 +79,12 @@ extension GRDBDataStore: DataStore {
         switch T.self {
         case is Matrix.Session.Type:
             throw Matrix.Error("Method not supported for Session object")
+            
+        case is Matrix.Room.Type:
+            throw Matrix.Error("Method not supported for Room object, you must pass in the session object")
+            
+        case is Matrix.User.Type:
+            throw Matrix.Error("Method not supported for User object, you must pass in the session object")
             
         default:
             if let typeObj = type as? (FetchableRecord & TableRecord).Type {
@@ -194,6 +206,12 @@ extension GRDBDataStore: DataStore {
         case let (_, keyValue) as (Matrix.Session.Type, Matrix.Session.StorableKey):
             return try await Matrix.Session.load(self, key: keyValue) as? T
             
+        case (_, _) as (Matrix.Room.Type, Matrix.Room.StorableKey):
+            throw Matrix.Error("Method not supported for Room object, you must pass in the session object")
+            
+        case (_, _) as (Matrix.User.Type, Matrix.User.StorableKey):
+            throw Matrix.Error("Method not supported for User object, you must pass in the session object")
+            
         default:
             if let typeObj = type as? (FetchableRecord & TableRecord).Type,
                 let keyValue = key as? DatabaseValueConvertible {
@@ -208,6 +226,12 @@ extension GRDBDataStore: DataStore {
         switch T.self {
         case is Matrix.Session.Type:
             throw Matrix.Error("Method not supported for Session object")
+            
+        case is Matrix.Room.Type:
+            throw Matrix.Error("Method not supported for Room object, you must pass in the session object")
+            
+        case is Matrix.User.Type:
+            throw Matrix.Error("Method not supported for User object, you must pass in the session object")
             
         default:
             if let typeObj = type as? (FetchableRecord & TableRecord).Type {
