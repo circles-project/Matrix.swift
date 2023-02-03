@@ -17,7 +17,6 @@ public protocol DataStore {
     /// Path to the DataStore
     var url: URL { get }
     
-    init(userId: UserId, deviceId: String) async throws
     init(path: URL) async throws
     func clearStore() async throws
     

@@ -10,7 +10,7 @@ final class DataStoreTests: XCTestCase {
     func testDataStoreInitialization() async throws {
         let decoder = JSONDecoder()
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
+        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: store.url.path))
 
@@ -23,7 +23,7 @@ final class DataStoreTests: XCTestCase {
     func testDataStoreClear() async throws {
         let decoder = JSONDecoder()
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
+        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
 
         let roomName = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.name)
         try await store.save(creds)
@@ -43,7 +43,7 @@ final class DataStoreTests: XCTestCase {
     func testDataStoreModelClientEvent() async throws {
         let decoder = JSONDecoder()
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
+        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
 
         let roomName = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.name)
         
@@ -101,7 +101,7 @@ final class DataStoreTests: XCTestCase {
     func testDataStoreModelCredentials() async throws {
         let decoder = JSONDecoder()
         var creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
+        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
 
         // Verify proper key retrevial for later validation
         let test1 = Matrix.Credentials(userId: UserId("@foo:bar.com")!, deviceId: "foobar", accessToken: "baz")
@@ -150,7 +150,7 @@ final class DataStoreTests: XCTestCase {
     func testDataStoreModelRoom() async throws {
         let decoder = JSONDecoder()
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
+        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
 
         let session = try Matrix.Session(creds: creds, startSyncing: false, dataStore: store)
         var initialState: [ClientEventWithoutRoomId] = []
@@ -235,7 +235,7 @@ final class DataStoreTests: XCTestCase {
     func testDataStoreSession() async throws {
         let decoder = JSONDecoder()
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
+        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
 
         let session = try Matrix.Session(creds: creds, startSyncing: false, dataStore: store)
         var initialState: [ClientEventWithoutRoomId] = []
@@ -336,7 +336,7 @@ final class DataStoreTests: XCTestCase {
     func testDataStoreUser() async throws {
         let decoder = JSONDecoder()
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(userId: creds.userId, deviceId: creds.deviceId)
+        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
         let session = try Matrix.Session(creds: creds, startSyncing: false, dataStore: store)
 
         // Verify proper key retrevial for later validation

@@ -15,12 +15,12 @@ public class GRDBDataStore {
     // Publicly exposing the DB in case the user application requires advanced SQL functionality
     public let dbQueue: DatabaseQueue
     
-    public required convenience init(userId: UserId, deviceId: String) async throws {
+    public required convenience init(appName: String, userId: UserId) async throws {
         // User IDs contain invalid path characters
         var dbDirectory = URL(string: NSHomeDirectory())
         dbDirectory?.appendPathComponent(".matrix")
+        dbDirectory?.appendPathComponent(appName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? appName)
         dbDirectory?.appendPathComponent(userId.description.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? userId.description)
-        dbDirectory?.appendPathComponent(deviceId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? deviceId)
         
         guard var dbUrl = dbDirectory else {
             throw Matrix.Error("Error creating path for user data store: \(dbDirectory?.path ?? "nil")")
