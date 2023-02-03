@@ -43,9 +43,7 @@ extension ClientEvent: FetchableRecord, PersistableRecord {
     
     internal static func saveAll(_ store: GRDBDataStore, objects: [ClientEventWithoutRoomId],
                                  database: Database? = nil, roomId: RoomId? = nil) throws {
-        for event in objects {
-            try self.save(store, object: event, database: database, roomId: roomId)
-        }
+        try objects.forEach { try self.save(store, object: $0, database: database, roomId: roomId) }
     }
     
     internal static func save(_ store: GRDBDataStore, object: ClientEventWithoutRoomId,
@@ -61,8 +59,6 @@ extension ClientEvent: FetchableRecord, PersistableRecord {
     
     internal static func saveAll(_ store: GRDBDataStore, objects: [ClientEventWithoutRoomId],
                                  database: Database? = nil, roomId: RoomId? = nil) async throws {
-        for event in objects {
-            try await self.save(store, object: event, database: database, roomId: roomId)
-        }
+        try objects.forEach { try self.save(store, object: $0, database: database, roomId: roomId) }
     }
 }
