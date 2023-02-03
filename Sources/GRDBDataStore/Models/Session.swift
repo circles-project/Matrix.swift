@@ -72,8 +72,6 @@ extension Matrix.Session: FetchableRecord, PersistableRecord {
                 try store.save(object, database: db)
             }
         }
-        
-
     }
     
     internal static func saveAll(_ store: GRDBDataStore, objects: [Matrix.Session]) throws {

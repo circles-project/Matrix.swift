@@ -101,24 +101,14 @@ extension Matrix.Room: FetchableRecord, PersistableRecord {
     internal static func loadAll(_ store: GRDBDataStore, session: Matrix.Session,
                                  database: Database? = nil) throws -> [Matrix.Room]? {
         if let db = database {
-            let roomIds = try RoomId.fetchAll(db, sql: "SELECT roomId FROM rooms")
-            var rooms: [Matrix.Room] = []
-            for roomId in roomIds {
-                if let room = try Matrix.Room.load(store, key: roomId, session: session, database: db) {
-                    rooms.append(room)
-                }
-            }
+            let rooms = try store.loadAll(Matrix.Room.self, database: db)
+            try rooms?.forEach { try loadMessages($0, database: db) }
             return rooms
         }
         else {
             return try store.dbQueue.read { db in
-                let roomIds = try RoomId.fetchAll(db, sql: "SELECT roomId FROM rooms")
-                var rooms: [Matrix.Room] = []
-                for roomId in roomIds {
-                    if let room = try Matrix.Room.load(store, key: roomId, session: session, database: db) {
-                        rooms.append(room)
-                    }
-                }
+                let rooms = try store.loadAll(Matrix.Room.self, database: db)
+                try rooms?.forEach { try loadMessages($0, database: db) }
                 return rooms
             }
         }
@@ -173,13 +163,8 @@ extension Matrix.Room: FetchableRecord, PersistableRecord {
     internal static func loadAll(_ store: GRDBDataStore, session: Matrix.Session,
                                  database: Database? = nil) async throws -> [Matrix.Room]? {
         if let db = database {
-            let roomIds = try RoomId.fetchAll(db, sql: "SELECT roomId FROM rooms")
-            var rooms: [Matrix.Room] = []
-            for roomId in roomIds {
-                if let room = try await Matrix.Room.load(store, key: roomId, session: session, database: db) {
-                    rooms.append(room)
-                }
-            }
+            let rooms = try await store.loadAll(Matrix.Room.self, database: db)
+            try rooms?.forEach { try loadMessages($0, database: db) }
             return rooms
         }
         else {
