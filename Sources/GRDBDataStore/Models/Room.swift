@@ -100,6 +100,8 @@ extension Matrix.Room: FetchableRecord, PersistableRecord {
     
     internal static func loadAll(_ store: GRDBDataStore, session: Matrix.Session,
                                  database: Database? = nil) throws -> [Matrix.Room]? {
+        Matrix.Room.databaseDecodingUserInfo[Matrix.Room.userInfoSessionKey] = session
+        
         if let db = database {
             let rooms = try store.loadAll(Matrix.Room.self, database: db)
             try rooms?.forEach { try loadMessages($0, database: db) }
@@ -162,6 +164,8 @@ extension Matrix.Room: FetchableRecord, PersistableRecord {
     
     internal static func loadAll(_ store: GRDBDataStore, session: Matrix.Session,
                                  database: Database? = nil) async throws -> [Matrix.Room]? {
+        Matrix.Room.databaseDecodingUserInfo[Matrix.Room.userInfoSessionKey] = session
+        
         if let db = database {
             let rooms = try await store.loadAll(Matrix.Room.self, database: db)
             try rooms?.forEach { try loadMessages($0, database: db) }
