@@ -214,14 +214,14 @@ final class DataStoreTests: XCTestCase {
         // Remove by key
         try await store.save(room)
         try await store.remove(Matrix.Room.self, key: room.roomId)
-        newRoom = try await store.load(Matrix.Room.self, key: room.roomId)
+        newRoom = try await store.load(Matrix.Room.self, key: room.roomId, session: session)
         XCTAssertNil(newRoom)
         
         // Save all / load all validation
         try await store.clearStore()
         try await store.saveAll([room, test1, test2])
         
-        var roomList = try await store.loadAll(Matrix.Room.self)!
+        var roomList = try await store.loadAll(Matrix.Room.self, session: session)!
         XCTAssertEqual(roomList.count, 3)
         XCTAssertEqual(room.name, originalRoom.name)
         XCTAssertEqual(room.topic, originalRoom.topic)
@@ -229,7 +229,7 @@ final class DataStoreTests: XCTestCase {
 
         // Remove all
         try await store.removeAll(roomList)
-        roomList = try await store.loadAll(Matrix.Room.self)!
+        roomList = try await store.loadAll(Matrix.Room.self, session: session)!
         XCTAssertEqual(roomList.count, 0)
     }
 

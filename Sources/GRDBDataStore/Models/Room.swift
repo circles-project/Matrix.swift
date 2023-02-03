@@ -54,7 +54,8 @@ extension Matrix.Room: FetchableRecord, PersistableRecord {
         room?.messages = messages
     }
     
-    internal static func save(_ store: GRDBDataStore, object: Matrix.Room, database: Database? = nil) throws {
+    internal static func save(_ store: GRDBDataStore, object: Matrix.Room,
+                              database: Database? = nil) throws {
         if let db = database {
             try ClientEvent.saveAll(store, objects: Array(object.messages), database: db, roomId: object.roomId)
             try store.save(object, database: db)
@@ -67,10 +68,14 @@ extension Matrix.Room: FetchableRecord, PersistableRecord {
         }
     }
     
-    internal static func saveAll(_ store: GRDBDataStore, objects: [Matrix.Room]) throws {
-        try store.dbQueue.write { db in
-            for room in objects {
-                try self.save(store, object: room, database: db)
+    internal static func saveAll(_ store: GRDBDataStore, objects: [Matrix.Room],
+                                 database: Database? = nil) throws {
+        if let db = database {
+            try objects.forEach { try self.save(store, object: $0, database: db) }
+        }
+        else {
+            try store.dbQueue.write { db in
+                try objects.forEach { try self.save(store, object: $0, database: db) }
             }
         }
     }
@@ -95,21 +100,32 @@ extension Matrix.Room: FetchableRecord, PersistableRecord {
     
     internal static func loadAll(_ store: GRDBDataStore, session: Matrix.Session,
                                  database: Database? = nil) throws -> [Matrix.Room]? {
-        return try store.dbQueue.read { db in
-            if let unwrappedRoomIds = try Matrix.Room.fetchAll(db, sql: "SELECT roomId FROM rooms") as? [RoomId] {
+        if let db = database {
+            let roomIds = try RoomId.fetchAll(db, sql: "SELECT roomId FROM rooms")
+            var rooms: [Matrix.Room] = []
+            for roomId in roomIds {
+                if let room = try Matrix.Room.load(store, key: roomId, session: session, database: db) {
+                    rooms.append(room)
+                }
+            }
+            return rooms
+        }
+        else {
+            return try store.dbQueue.read { db in
+                let roomIds = try RoomId.fetchAll(db, sql: "SELECT roomId FROM rooms")
                 var rooms: [Matrix.Room] = []
-                for roomId in unwrappedRoomIds {
+                for roomId in roomIds {
                     if let room = try Matrix.Room.load(store, key: roomId, session: session, database: db) {
                         rooms.append(room)
                     }
                 }
                 return rooms
             }
-            return nil
         }
     }
     
-    internal static func save(_ store: GRDBDataStore, object: Matrix.Room, database: Database? = nil) async throws {
+    internal static func save(_ store: GRDBDataStore, object: Matrix.Room,
+                              database: Database? = nil) async throws {
         if let db = database {
             let _ = {
                 try ClientEvent.saveAll(store, objects: Array(object.messages), database: db, roomId: object.roomId)
@@ -124,9 +140,15 @@ extension Matrix.Room: FetchableRecord, PersistableRecord {
         }
     }
     
-    internal static func saveAll(_ store: GRDBDataStore, objects: [Matrix.Room]) async throws {
-        try await store.dbQueue.write { db in
-            try Matrix.Room.saveAll(store, objects: objects)
+    internal static func saveAll(_ store: GRDBDataStore, objects: [Matrix.Room],
+                                 database: Database? = nil) async throws {
+        if let db = database {
+            try objects.forEach { try self.save(store, object: $0, database: db) }
+        }
+        else {
+            try await store.dbQueue.write { db in
+                try Matrix.Room.saveAll(store, objects: objects, database: database)
+            }
         }
     }
     
@@ -148,9 +170,22 @@ extension Matrix.Room: FetchableRecord, PersistableRecord {
         }
     }
     
-    internal static func loadAll(_ store: GRDBDataStore, session: Matrix.Session) async throws -> [Matrix.Room]? {
-        return try await store.dbQueue.read { db in
-            return try Matrix.Room.loadAll(store, session: session, database: db)
+    internal static func loadAll(_ store: GRDBDataStore, session: Matrix.Session,
+                                 database: Database? = nil) async throws -> [Matrix.Room]? {
+        if let db = database {
+            let roomIds = try RoomId.fetchAll(db, sql: "SELECT roomId FROM rooms")
+            var rooms: [Matrix.Room] = []
+            for roomId in roomIds {
+                if let room = try await Matrix.Room.load(store, key: roomId, session: session, database: db) {
+                    rooms.append(room)
+                }
+            }
+            return rooms
+        }
+        else {
+            return try await store.dbQueue.read { db in
+                return try Matrix.Room.loadAll(store, session: session, database: db)
+            }
         }
     }
 }
