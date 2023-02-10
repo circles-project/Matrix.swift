@@ -38,16 +38,6 @@ public enum Matrix {
 
     // MARK: Utility Functions
     
-    public static func getDomainFromUserId(_ userId: String) -> String? {
-        let toks = userId.split(separator: ":")
-        if toks.count != 2 {
-            return nil
-        }
-
-        let domain = String(toks[1])
-        return domain
-    }
-    
     // MARK: Well-Known
     
     public struct WellKnown: Codable {
@@ -64,6 +54,13 @@ public enum Matrix {
         public enum CodingKeys: String, CodingKey {
             case homeserver = "m.homeserver"
             case identityserver = "m.identity_server"
+        }
+        
+        public init(homeserver: String, identityServer: String? = nil) {
+            self.homeserver = ServerConfig(baseUrl: homeserver)
+                 if let identity = identityServer {
+                     self.identityserver = ServerConfig(baseUrl: identity)
+             }
         }
     }
     

@@ -23,38 +23,78 @@ public class SignupSession: UIAuthSession {
     //public let deviceId: String?
     //public let initialDeviceDisplayName: String?
     //public let inhibitLogin = false
+    
+    public convenience init(domain: String,
+                            username: String? = nil,
+                            password: String? = nil,
+                            deviceId: String? = nil,
+                            initialDeviceDisplayName: String? = nil,
+                            //showMSISDN: Bool = false,
+                            inhibitLogin: Bool = false
+    ) async throws {
+
+        let wellKnown = try await Matrix.fetchWellKnown(for: domain)
+        guard let homeserver = URL(string: wellKnown.homeserver.baseUrl)
+        else {
+            throw Matrix.Error("Couldn't look up homeserver URL for domain [\(domain)]")
+        }
+
+        try await self.init(domain: domain,
+                            homeserver: homeserver,
+                            username: username,
+                            password: password,
+                            deviceId: deviceId,
+                            initialDeviceDisplayName: initialDeviceDisplayName,
+                            inhibitLogin: inhibitLogin)
+    }
+
 
     public init(domain: String,
-         deviceId: String? = nil,
-         initialDeviceDisplayName: String? = nil,
-         //showMSISDN: Bool = false,
-         inhibitLogin: Bool = false
+                homeserver: URL,
+                username: String? = nil,
+                password: String? = nil,
+                deviceId: String? = nil,
+                initialDeviceDisplayName: String? = nil,
+                //showMSISDN: Bool = false,
+                inhibitLogin: Bool = false
     ) async throws {
         self.domain = domain
         
-        let wellKnown = try await Matrix.fetchWellKnown(for: domain)
-        guard let homeserverUrl = URL(string: wellKnown.homeserver.baseUrl),
-              let signupURL = URL(string: "/_matrix/client/v3/register", relativeTo: homeserverUrl)
+        guard let signupURL = URL(string: "/_matrix/client/v3/register", relativeTo: homeserver)
         else {
             throw Matrix.Error("Couldn't construct signup URL for domain [\(domain)]")
         }
         print("SIGNUP\tURL is \(signupURL)")
-        var requestDict: [String: AnyCodable] = [:]
 
-        if let d = deviceId {
-            requestDict["device_id"] = AnyCodable(d)
+        guard password == nil || (password != nil && username != nil)
+        else {
+            throw Matrix.Error("Can't signup with a password but no username")
         }
-        if let iddn = initialDeviceDisplayName {
-            requestDict["initial_device_display_name"] = AnyCodable(iddn)
-        }
-        //requestDict["x_show_msisdn"] = AnyCodable(showMSISDN)
-        requestDict["inhibit_login"] = AnyCodable(inhibitLogin)
+
+        let requestDict: [String: Codable] = [
+            "username": username,
+            "password": password,
+            "device_id": deviceId,
+            "initial_device_display_name": initialDeviceDisplayName,
+            //requestDict["x_show_msisdn": showMSISDN,
+            "inhibit_login": inhibitLogin,
+        ]
         super.init(method: "POST", url: signupURL, requestDict: requestDict)
     }
     
     // MARK: Set username and password
     
     public func doUsernameStage(username: String) async throws {
+        
+        // Now that we allow legacy Matrix-spec registration
+        // with username & password in the real request body,
+        // we have to sanity check that the caller is not trying
+        // to mix & match the old style with the new.
+        guard self.realRequestDict["username"] == nil
+        else {
+            throw Matrix.Error("Can't do \(AUTH_TYPE_ENROLL_USERNAME) when we already have a username set")
+        }
+        
         let authDict = [
             "type": AUTH_TYPE_ENROLL_USERNAME,
             "username": username,
