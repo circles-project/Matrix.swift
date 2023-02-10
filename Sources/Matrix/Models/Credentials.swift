@@ -6,12 +6,11 @@
 //
 
 import Foundation
+import GRDB
 
 /// Login 200 response: https://spec.matrix.org/v1.5/client-server-api/#post_matrixclientv3login
 extension Matrix {
-    public struct Credentials: Codable, Equatable, Storable {
-        public typealias StorableKey = UserId
-        
+    public struct Credentials: Codable, Equatable {        
         public let userId: UserId
         public let deviceId: DeviceId
         
@@ -63,3 +62,27 @@ extension Matrix {
         }
     }
 }
+
+extension Matrix.Credentials: StorableDecodingContext, FetchableRecord, PersistableRecord {
+    public static func createTable(_ store: GRDBDataStore) async throws {
+        try await store.dbQueue.write { db in
+            try db.create(table: databaseTableName) { t in
+                t.primaryKey {
+                    t.column(Matrix.Credentials.CodingKeys.userId.stringValue, .text).notNull()
+                }
+
+                t.column(Matrix.Credentials.CodingKeys.deviceId.stringValue, .text).notNull()
+                t.column(Matrix.Credentials.CodingKeys.accessToken.stringValue, .text).notNull()
+                t.column(Matrix.Credentials.CodingKeys.expiresInMs.stringValue, .integer)
+                t.column(Matrix.Credentials.CodingKeys.homeServer.stringValue, .text)
+                t.column(Matrix.Credentials.CodingKeys.refreshToken.stringValue, .text)
+                t.column(Matrix.Credentials.CodingKeys.wellKnown.stringValue, .blob)
+            }
+        }
+    }
+    public static let databaseTableName = "credentials"
+    public static var decodingDataStore: GRDBDataStore?
+    public static var decodingDatabase: Database?
+    public static var decodingSession: Matrix.Session?
+}
+

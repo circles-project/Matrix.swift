@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GRDB
 
 #if !os(macOS)
 import UIKit
@@ -14,9 +15,8 @@ import AppKit
 #endif
 
 extension Matrix {
-    public class Session: Matrix.Client, ObservableObject, Codable, Storable {
-        public typealias StorableKey = Credentials.StorableKey
-        public let dataStore: (any DataStore)?
+    public class Session: Matrix.Client, ObservableObject {
+        public var dataStore: GRDBDataStore? = nil
         
         @Published public var displayName: String?
         @Published public var avatarUrl: URL?
@@ -45,9 +45,7 @@ extension Matrix {
         private var recoveryTimestamp: Date?
         
         public enum CodingKeys: String, CodingKey {
-            // the creds field is encoded only by its StorableKey, which it can be retrieved later from the dataStore
             case credentials
-            case dataStore
             case displayName
             case avatarUrl
             case avatar
@@ -65,8 +63,7 @@ extension Matrix {
             case recoveryTimestamp
         }
         
-        public init(creds: Credentials, startSyncing: Bool = true, dataStore: (any DataStore)? = nil) throws {
-            self.dataStore = dataStore
+        public init(creds: Credentials, startSyncing: Bool = true) throws {
             self.rooms = [:]
             self.invitations = [:]
             
@@ -94,47 +91,39 @@ extension Matrix {
             }
         }
             
-        public required convenience init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-
-            guard let credsKey = CodingUserInfoKey(rawValue: CodingKeys.credentials.stringValue),
-                  let unwrappedCreds = decoder.userInfo[credsKey] as? Matrix.Credentials
-            else {
-                throw Matrix.Error("Error initializing creds field")
+        public required convenience init(row: Row) throws {
+            let decoder = JSONDecoder()
+            guard let dataStore = Matrix.Session.decodingDataStore,
+                  let database = Matrix.Session.decodingDatabase,
+                  let userId = row[CodingKeys.credentials.stringValue] as? String,
+                  let creds = try dataStore.load(Matrix.Credentials.self, key: userId, database: database) else {
+                throw Matrix.Error("Error decoding room object")
             }
-            let creds = unwrappedCreds
             
-            guard let dataStoreKey = CodingUserInfoKey(rawValue: CodingKeys.dataStore.stringValue),
-                  let unwrappedDataStore = decoder.userInfo[dataStoreKey] as? any DataStore
-            else {
-                throw Matrix.Error("Error initializing dataStore field")
-            }
-            let dataStore = unwrappedDataStore
+            try self.init(creds: creds, startSyncing: false)
             
-            try self.init(creds: creds, startSyncing: false, dataStore: dataStore)
-            
-            self.displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
-            self.avatarUrl = try container.decodeIfPresent(URL.self, forKey: .avatarUrl)
+            self.displayName = row[CodingKeys.displayName.stringValue]
+            self.avatarUrl = row[CodingKeys.avatarUrl.stringValue]
             self.avatar = nil // Avatar will be fetched from URLSession cache
-            self.statusMessage = try container.decodeIfPresent(String.self, forKey: .statusMessage)
-            self.rooms = [:] // Rooms must be added later by the caller
-            
-            // .userInfo is a get-only property, so having to workaround by using a type with reference semantics...
-            let userInfoSessionKey = CodingUserInfoKey(rawValue: "session")!
-            if let userInfoSessionArraySingleton = decoder.userInfo[userInfoSessionKey] as? NSMutableArray {
-                userInfoSessionArraySingleton.add(self)
+            self.statusMessage = row[CodingKeys.statusMessage.stringValue]
+            if let rooms = try dataStore.loadAll(Matrix.Room.self, database: database) {
+                rooms.forEach { self.rooms[$0.roomId] = $0 }
             }
-
-            self.invitations = try container.decode([RoomId: Matrix.InvitedRoom].self, forKey: .invitations)
+            
+            // Required for InvitedRoom object decoding
+            let userInfoSessionKey = CodingUserInfoKey(rawValue: "session")!
+            decoder.userInfo[userInfoSessionKey] = self
+            
+            self.invitations = try decoder.decode([RoomId: Matrix.InvitedRoom].self, from: row[CodingKeys.invitations.stringValue])
             // syncRequestTask not being encoded
-            self.syncToken = try container.decodeIfPresent(String.self, forKey: .syncToken)
-            self.syncRequestTimeout = try container.decode(Int.self, forKey: .syncRequestTimeout)
-            self.keepSyncing = try container.decode(Bool.self, forKey: .keepSyncing)
-            self.syncDelayNs = try container.decode(UInt64.self, forKey: .syncDelayNs)
+            self.syncToken = row[CodingKeys.syncToken.stringValue]
+            self.syncRequestTimeout = row[CodingKeys.syncRequestTimeout.stringValue]
+            self.keepSyncing = row[CodingKeys.keepSyncing.stringValue]
+            self.syncDelayNs = row[CodingKeys.syncDelayNs.stringValue]
             // backgroundSyncTask not being encoded
-            self.ignoreUserIds = try container.decode(Set<UserId>.self, forKey: .ignoreUserIds)
-            self.recoverySecretKey = try container.decodeIfPresent(Data.self, forKey: .recoverySecretKey)
-            self.recoveryTimestamp = try container.decodeIfPresent(Date.self, forKey: .recoveryTimestamp)
+            self.ignoreUserIds = try decoder.decode(Set<UserId>.self, from: row[CodingKeys.ignoreUserIds.stringValue])
+            self.recoverySecretKey = row[CodingKeys.recoverySecretKey.stringValue]
+            self.recoveryTimestamp = row[CodingKeys.recoveryTimestamp.stringValue]
             
             // Ok now we're initialized as a valid Matrix.Client (super class)
             // Are we supposed to start syncing?
@@ -149,27 +138,34 @@ extension Matrix {
                 }
             }
         }
-        
-        public func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
+
+        public func encode(to container: inout PersistenceContainer) throws {
+            let encoder = JSONEncoder()
+            guard let dataStore = Matrix.Session.decodingDataStore,
+                  let database = Matrix.Session.decodingDatabase else {
+                throw Matrix.Error("Error encoding session object")
+            }
+
+            // credentials not being encoded
+            container[CodingKeys.credentials.stringValue] = creds.userId
+            try dataStore.save(creds, database: database)
             
-            try container.encode(creds.userId, forKey: .credentials)
-            // dataStore not being encoded
-            try container.encode(displayName, forKey: .displayName)
-            try container.encode(avatarUrl, forKey: .avatarUrl)
+            container[CodingKeys.displayName.stringValue] = displayName
+            container[CodingKeys.avatarUrl.stringValue] = avatarUrl
             // avatar not being encoded
-            try container.encode(statusMessage, forKey: .statusMessage)
-            // rooms not being encoded
-            try container.encode(invitations, forKey: .invitations)
+            container[CodingKeys.statusMessage.stringValue] = statusMessage
+            try dataStore.saveAll(Array(self.rooms.values), database: database)
+            container[CodingKeys.invitations.stringValue] = try encoder.encode(invitations)
+            
             // syncRequestTask not being encoded
-            try container.encode(syncToken, forKey: .syncToken)
-            try container.encode(syncRequestTimeout, forKey: .syncRequestTimeout)
-            try container.encode(keepSyncing, forKey: .keepSyncing)
-            try container.encode(syncDelayNs, forKey: .syncDelayNs)
+            container[CodingKeys.syncToken.stringValue] = syncToken
+            container[CodingKeys.syncRequestTimeout.stringValue] = syncRequestTimeout
+            container[CodingKeys.keepSyncing.stringValue] = keepSyncing
+            container[CodingKeys.syncDelayNs.stringValue] = syncDelayNs
             // backgroundSyncTask not being encoded
-            try container.encode(ignoreUserIds, forKey: .ignoreUserIds)
-            try container.encode(recoverySecretKey, forKey: .recoverySecretKey)
-            try container.encode(recoveryTimestamp, forKey: .recoveryTimestamp)
+            container[CodingKeys.ignoreUserIds.stringValue] = try encoder.encode(ignoreUserIds)
+            container[CodingKeys.recoverySecretKey.stringValue] = recoverySecretKey
+            container[CodingKeys.recoveryTimestamp.stringValue] = recoveryTimestamp
         }
         
         // MARK: Sync
@@ -350,4 +346,34 @@ extension Matrix {
             return self.creds.userId
         }
     }
+}
+
+extension Matrix.Session: StorableDecodingContext, FetchableRecord, PersistableRecord {
+    public static func createTable(_ store: GRDBDataStore) async throws {
+        try await store.dbQueue.write { db in
+            try db.create(table: databaseTableName) { t in
+                t.primaryKey {
+                    t.column(Matrix.Session.CodingKeys.credentials.stringValue, .text).notNull()
+                        //.references(Matrix.Credentials.databaseTableName, column: Matrix.Credentials.CodingKeys.userId.stringValue)
+                }
+
+                t.column(Matrix.Session.CodingKeys.displayName.stringValue, .text)
+                t.column(Matrix.Session.CodingKeys.avatarUrl.stringValue, .text)
+                t.column(Matrix.Session.CodingKeys.statusMessage.stringValue, .text)
+                t.column(Matrix.Session.CodingKeys.invitations.stringValue, .blob).notNull()
+                t.column(Matrix.Session.CodingKeys.syncToken.stringValue, .text)
+                t.column(Matrix.Session.CodingKeys.syncRequestTimeout.stringValue, .integer).notNull()
+                t.column(Matrix.Session.CodingKeys.keepSyncing.stringValue, .boolean).notNull()
+                t.column(Matrix.Session.CodingKeys.syncDelayNs.stringValue, .integer).notNull()
+                t.column(Matrix.Session.CodingKeys.ignoreUserIds.stringValue, .blob).notNull()
+                t.column(Matrix.Session.CodingKeys.recoverySecretKey.stringValue, .blob)
+                t.column(Matrix.Session.CodingKeys.recoveryTimestamp.stringValue, .date)
+            }
+        }
+    }
+    
+    public static let databaseTableName = "sessions"
+    public static var decodingDataStore: GRDBDataStore?
+    public static var decodingDatabase: Database?
+    public static var decodingSession: Matrix.Session?
 }

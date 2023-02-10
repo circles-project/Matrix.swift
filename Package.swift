@@ -32,22 +32,15 @@ let package = Package(
         .target(
             name: "Matrix",
             dependencies: [
+                .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "AnyCodable", package: "anycodable"),
                 .product(name: "BlindSaltSpeke", package: "blindsaltspeke"),
                 .product(name: "MatrixSDKCrypto", package: "MatrixSDKCrypto"),
-            ]),
-        .target(
-            name: "GRDBDataStore",
-            dependencies: [
-                "Matrix",
-                .product(name: "GRDB", package: "GRDB.swift"),
-                .product(name: "BlindSaltSpeke", package: "blindsaltspeke"),
             ]),
         .testTarget(
             name: "MatrixTests",
             dependencies: [
                 "Matrix",
-                "GRDBDataStore",
                 .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "AnyCodable", package: "anycodable"),
                 .product(name: "BlindSaltSpeke", package: "blindsaltspeke"),

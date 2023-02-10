@@ -1,16 +1,17 @@
 import XCTest
 import Matrix
-//@testable import GRDBDataStore
+//@testable import Matrix
 
 // Not using @testable since we are validating public-facing API
-import GRDBDataStore
+import Matrix
 
 // Sanity tests for GRDB implementation of the DataStore protocol
 final class DataStoreTests: XCTestCase {
     func testDataStoreInitialization() async throws {
         let decoder = JSONDecoder()
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
+        let session = try Matrix.Session(creds: creds, startSyncing: false)
+        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId, session: session)
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: store.url.path))
 
@@ -23,28 +24,29 @@ final class DataStoreTests: XCTestCase {
     func testDataStoreClear() async throws {
         let decoder = JSONDecoder()
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
-        let session = try Matrix.Session(creds: creds, startSyncing: false, dataStore: store)
+        let session = try Matrix.Session(creds: creds, startSyncing: false)
+        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId, session: session)
 
         let roomName = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.name)
         try await store.save(creds)
         try await store.save(roomName)
         try await store.clearStore()
         
-        let newCreds = try await store.load(Matrix.Credentials.self, key: (creds.userId, creds.deviceId))
+        let newCreds = try await store.load(Matrix.Credentials.self, key: creds.userId)
         XCTAssertNil(newCreds)
         
         let newRoomName = try await store.load(ClientEventWithoutRoomId.self, key: roomName.eventId)
         XCTAssertNil(newRoomName)
         
-        let rooms = try await store.loadAll(Matrix.Room.self, session: session)!
+        let rooms = try await store.loadAll(Matrix.Room.self)!
         XCTAssertEqual(rooms.count, 0)
     }
     
     func testDataStoreModelClientEvent() async throws {
         let decoder = JSONDecoder()
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
+        let session = try Matrix.Session(creds: creds, startSyncing: false)
+        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId, session: session)
 
         let roomName = try decoder.decode(ClientEventWithoutRoomId.self, from: JSONResponses.RoomEvent.name)
         
@@ -102,7 +104,8 @@ final class DataStoreTests: XCTestCase {
     func testDataStoreModelCredentials() async throws {
         let decoder = JSONDecoder()
         var creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
+        let session = try Matrix.Session(creds: creds, startSyncing: false)
+        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId, session: session)
 
         // Verify proper key retrevial for later validation
         let test1 = Matrix.Credentials(userId: UserId("@foo:bar.com")!, deviceId: "foobar", accessToken: "baz")
@@ -151,9 +154,8 @@ final class DataStoreTests: XCTestCase {
     func testDataStoreModelRoom() async throws {
         let decoder = JSONDecoder()
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
-
-        let session = try Matrix.Session(creds: creds, startSyncing: false, dataStore: store)
+        let session = try Matrix.Session(creds: creds, startSyncing: false)
+        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId, session: session)
         var initialState: [ClientEventWithoutRoomId] = []
         var messages: [ClientEventWithoutRoomId] = []
 
@@ -187,12 +189,12 @@ final class DataStoreTests: XCTestCase {
                                            initialState: initialState, initialMessages: messages)
 
         // Verify proper key retrevial for later validation
-        let test1: Matrix.Room? = try Matrix.Room(roomId: RoomId("!bar:foo.com")!,
-                                                  session: session, initialState: initialState)
+        let test1: Matrix.Room = try Matrix.Room(roomId: RoomId("!bar:foo.com")!,
+                                                 session: session, initialState: initialState)
         try await store.save(test1)
 
-        let test2: Matrix.Room? = try Matrix.Room(roomId: RoomId("!baz:oof.com")!,
-                                                  session: session, initialState: initialState)
+        let test2: Matrix.Room = try Matrix.Room(roomId: RoomId("!baz:oof.com")!,
+                                                 session: session, initialState: initialState)
         try await store.save(test2)
 
         // Save/load validation
@@ -201,27 +203,27 @@ final class DataStoreTests: XCTestCase {
         room.topic = "Another topic"
         room.messages.insert(roomMessage3)
 
-        room = try await store.load(Matrix.Room.self, key: room.roomId, session: session)!
+        room = try await store.load(Matrix.Room.self, key: room.roomId)!
         XCTAssertEqual(room.name, originalRoom.name)
         XCTAssertEqual(room.topic, originalRoom.topic)
         XCTAssertEqual(room.messages, originalRoom.messages)
-        
+
         // Remove
         try await store.remove(room)
-        var newRoom = try await store.load(Matrix.Room.self, key: room.roomId, session: session)
+        var newRoom = try await store.load(Matrix.Room.self, key: room.roomId)
         XCTAssertNil(newRoom)
-        
+
         // Remove by key
         try await store.save(room)
         try await store.remove(Matrix.Room.self, key: room.roomId)
-        newRoom = try await store.load(Matrix.Room.self, key: room.roomId, session: session)
+        newRoom = try await store.load(Matrix.Room.self, key: room.roomId)
         XCTAssertNil(newRoom)
-        
+
         // Save all / load all validation
         try await store.clearStore()
         try await store.saveAll([room, test1, test2])
-        
-        var roomList = try await store.loadAll(Matrix.Room.self, session: session)!
+
+        var roomList = try await store.loadAll(Matrix.Room.self)!
         XCTAssertEqual(roomList.count, 3)
         XCTAssertEqual(room.name, originalRoom.name)
         XCTAssertEqual(room.topic, originalRoom.topic)
@@ -229,16 +231,15 @@ final class DataStoreTests: XCTestCase {
 
         // Remove all
         try await store.removeAll(roomList)
-        roomList = try await store.loadAll(Matrix.Room.self, session: session)!
+        roomList = try await store.loadAll(Matrix.Room.self)!
         XCTAssertEqual(roomList.count, 0)
     }
 
     func testDataStoreSession() async throws {
         let decoder = JSONDecoder()
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
-
-        let session = try Matrix.Session(creds: creds, startSyncing: false, dataStore: store)
+        let session = try Matrix.Session(creds: creds, startSyncing: false)
+        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId, session: session)
         var initialState: [ClientEventWithoutRoomId] = []
         var messages: [ClientEventWithoutRoomId] = []
         var stateEvents: [StrippedStateEvent] = []
@@ -305,7 +306,7 @@ final class DataStoreTests: XCTestCase {
         session.displayName = "foo"
         session.rooms = [test1.roomId: test1, test2.roomId: test2]
         session.invitations = [test3.roomId: test3, test4.roomId: test4]
-        let originalSession = try Matrix.Session(creds: creds, startSyncing: false, dataStore: store)
+        let originalSession = try Matrix.Session(creds: creds, startSyncing: false)
         originalSession.displayName = session.displayName
         originalSession.rooms = session.rooms
         originalSession.invitations = session.invitations
@@ -337,8 +338,8 @@ final class DataStoreTests: XCTestCase {
     func testDataStoreUser() async throws {
         let decoder = JSONDecoder()
         let creds = try decoder.decode(Matrix.Credentials.self, from: JSONResponses.login)
-        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId)
-        let session = try Matrix.Session(creds: creds, startSyncing: false, dataStore: store)
+        let session = try Matrix.Session(creds: creds, startSyncing: false)
+        let store = try await GRDBDataStore(appName: "MatrixTests", userId: creds.userId, session: session)
 
         // Verify proper key retrevial for later validation
         let test1 = Matrix.User(userId: UserId("@foo:bar.com")!, session: session)
@@ -359,7 +360,7 @@ final class DataStoreTests: XCTestCase {
         test2.displayName = "Raboof"
         test2.statusMessage = "sutats"
 
-        let newTest2 = try await store.load(Matrix.User.self, key: test2.id, session: session)!
+        let newTest2 = try await store.load(Matrix.User.self, key: test2.id)!
         XCTAssertEqual(originalTest2.id, newTest2.id)
 //        XCTAssertEqual(test2.session, newTest2.session)
         XCTAssertEqual(originalTest2.displayName, newTest2.displayName)
@@ -368,24 +369,24 @@ final class DataStoreTests: XCTestCase {
 
         // Remove
         try await store.remove(test1)
-        var newUser = try await store.load(Matrix.User.self, key: test1.id, session: session)
+        var newUser = try await store.load(Matrix.User.self, key: test1.id)
         XCTAssertNil(newUser)
 
         // Remove by key
         try await store.save(test1)
         try await store.remove(Matrix.User.self, key: test1.id)
-        newUser = try await store.load(Matrix.User.self, key: test1.id, session: session)
+        newUser = try await store.load(Matrix.User.self, key: test1.id)
         XCTAssertNil(newUser)
 
         // Save all / load all validation
         try await store.clearStore()
         try await store.saveAll([test1, test2])
-        var userList = try await store.loadAll(Matrix.User.self, session: session)!
+        var userList = try await store.loadAll(Matrix.User.self)!
         XCTAssertEqual([test1, test2].count, userList.count)
 
         // Remove all
         try await store.removeAll(userList)
-        userList = try await store.loadAll(Matrix.User.self, session: session)!
+        userList = try await store.loadAll(Matrix.User.self)!
         XCTAssertEqual(userList.count, 0)
     }
 }

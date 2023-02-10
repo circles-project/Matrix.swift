@@ -6,11 +6,10 @@
 //
 
 import Foundation
+import GRDB
 
 extension Matrix {
-    public class Room: ObservableObject, Codable, Storable {
-        public typealias StorableKey = RoomId
-        
+    public class Room: ObservableObject {
         public let roomId: RoomId
         public var session: Session
         
@@ -157,93 +156,106 @@ extension Matrix {
             
         }
         
-        // Successfuly decoding of the object requires that a session instance and messages
-        // are stored in the decoder's `userInfo` dictionary
-        public required init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            
-            guard let sessionKey = CodingUserInfoKey(rawValue: CodingKeys.session.stringValue),
-                  let unwrappedSession = decoder.userInfo[sessionKey] as? Session
-            else {
-                throw Matrix.Error("Error initializing session field")
+        public required init(row: Row) throws {
+            let decoder = JSONDecoder()
+            guard let database = Matrix.Room.decodingDatabase,
+                  let session = Matrix.Room.decodingSession else {
+                throw Matrix.Error("Error decoding room object")
             }
-
-            self.session = unwrappedSession
+            
+            self.session = session
             self.stateEventsCache = [:]
             
-            self.roomId = try container.decode(RoomId.self, forKey: .roomId)
-            self.type = try container.decodeIfPresent(String.self, forKey: .type)
-            self.version = try container.decode(String.self, forKey: .version)
-            self.name = try container.decodeIfPresent(String.self, forKey: .name)
-            self.topic = try container.decodeIfPresent(String.self, forKey: .topic)
-            self.avatarUrl = try container.decodeIfPresent(MXC.self, forKey: .avatarUrl)
+            self.roomId = row[CodingKeys.roomId.stringValue]
+            self.type = row[CodingKeys.type.stringValue]
+            self.version = row[CodingKeys.version.stringValue]
+            self.name = row[CodingKeys.name.stringValue]
+            self.topic = row[CodingKeys.topic.stringValue]
+            self.avatarUrl = row[CodingKeys.avatarUrl.stringValue]
             self.avatar = nil // Avatar will be fetched from URLSession cache
-            self.predecessorRoomId = try container.decodeIfPresent(RoomId.self, forKey: .predecessorRoomId)
-            self.successorRoomId = try container.decodeIfPresent(RoomId.self, forKey: .successorRoomId)
-            self.tombstoneEventId = try container.decodeIfPresent(EventId.self, forKey: .tombstoneEventId)
-            self.messages = Set<ClientEventWithoutRoomId>() // Messages must be added later by the caller
+            self.predecessorRoomId = row[CodingKeys.predecessorRoomId.stringValue]
+            self.successorRoomId = row[CodingKeys.successorRoomId.stringValue]
+            self.tombstoneEventId = row[CodingKeys.tombstoneEventId.stringValue]
+            self.messages = try Matrix.Room.loadMessages(roomId: self.roomId, database: database)
 
-            if let clientEvent = try container.decodeIfPresent(ClientEvent.self, forKey: .localEchoEvent) {
-                self.localEchoEvent = clientEvent
-            }
-            else if let clientEventWithoutRoomId = try container.decodeIfPresent(ClientEventWithoutRoomId.self,
-                                                                                 forKey: .localEchoEvent) {
-                self.localEchoEvent = clientEventWithoutRoomId
-            }
-            else if let minimalEvent = try container.decodeIfPresent(MinimalEvent.self,
-                                                                     forKey: .localEchoEvent) {
-                self.localEchoEvent = minimalEvent
-            }
-            else if let strippedStateEvent = try container.decodeIfPresent(StrippedStateEvent.self,
-                                                                           forKey: .localEchoEvent) {
-                self.localEchoEvent = strippedStateEvent
-            }
-            else if let toDeviceEvent = try container.decodeIfPresent(ToDeviceEvent.self,
-                                                                      forKey: .localEchoEvent) {
-                self.localEchoEvent = toDeviceEvent
-            }
-            else {
+            if row[CodingKeys.localEchoEvent.stringValue] == nil {
                 self.localEchoEvent = nil
             }
-            
-            self.highlightCount = try container.decode(Int.self, forKey: .highlightCount)
-            self.notificationCount = try container.decode(Int.self, forKey: .notificationCount)
-            self.joinedMembers = try container.decode(Set<UserId>.self, forKey: .joinedMembers)
-            self.invitedMembers = try container.decode(Set<UserId>.self, forKey: .invitedMembers)
-            self.leftMembers = try container.decode(Set<UserId>.self, forKey: .leftMembers)
-            self.bannedMembers = try container.decode(Set<UserId>.self, forKey: .bannedMembers)
-            self.knockingMembers = try container.decode(Set<UserId>.self, forKey: .knockingMembers)
-            self.encryptionParams = try container.decodeIfPresent(RoomEncryptionContent.self,
-                                                                  forKey: .encryptionParams)
-        }
-        
-        public func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            
-            try container.encode(roomId, forKey: .roomId)
-            // session not being encoded
-            try container.encode(type, forKey: .type)
-            try container.encode(version, forKey: .version)
-            try container.encode(name, forKey: .name)
-            try container.encode(topic, forKey: .topic)
-            try container.encode(avatarUrl, forKey: .avatarUrl)
-            // avatar not being encoded
-            try container.encode(predecessorRoomId, forKey: .predecessorRoomId)
-            try container.encode(successorRoomId, forKey: .successorRoomId)
-            try container.encode(tombstoneEventId, forKey: .tombstoneEventId)
-            // messages not being encoded            
-            if let unwrapedLocalEchoEvent = localEchoEvent {
-                try container.encode(unwrapedLocalEchoEvent, forKey: .localEchoEvent)
+            else if let unwrapedEvent = try? decoder.decode(ClientEvent.self, from: row[CodingKeys.localEchoEvent.stringValue]) {
+                self.localEchoEvent = unwrapedEvent
             }
+            else if let unwrapedEvent = try? decoder.decode(ClientEventWithoutRoomId.self,
+                                                                     from: row[CodingKeys.localEchoEvent.stringValue]) {
+                self.localEchoEvent = unwrapedEvent
+            }
+            else if let unwrapedEvent = try? decoder.decode(MinimalEvent.self, from: row[CodingKeys.localEchoEvent.stringValue]) {
+                self.localEchoEvent = unwrapedEvent
+            }
+            else if let unwrapedEvent = try? decoder.decode(StrippedStateEvent.self, from: row[CodingKeys.localEchoEvent.stringValue]) {
+                self.localEchoEvent = unwrapedEvent
+            }
+            else if let unwrapedEvent = try? decoder.decode(ToDeviceEvent.self, from: row[CodingKeys.localEchoEvent.stringValue]) {
+                self.localEchoEvent = unwrapedEvent
+            }
+            
+            self.highlightCount = row[CodingKeys.highlightCount.stringValue]
+            self.notificationCount = row[CodingKeys.notificationCount.stringValue]
+            self.joinedMembers = try decoder.decode(Set<UserId>.self, from: row[CodingKeys.joinedMembers.stringValue])
+            self.invitedMembers = try decoder.decode(Set<UserId>.self, from: row[CodingKeys.invitedMembers.stringValue])
+            self.leftMembers = try decoder.decode(Set<UserId>.self, from: row[CodingKeys.leftMembers.stringValue])
+            self.bannedMembers = try decoder.decode(Set<UserId>.self, from: row[CodingKeys.bannedMembers.stringValue])
+            self.knockingMembers = try decoder.decode(Set<UserId>.self, from: row[CodingKeys.knockingMembers.stringValue])
+            self.encryptionParams = try decoder.decode(RoomEncryptionContent.self, from: row[CodingKeys.encryptionParams.stringValue])
+        }
+
+        public func encode(to container: inout PersistenceContainer) throws {
+            let encoder = JSONEncoder()
+            guard let dataStore = Matrix.Room.decodingDataStore,
+                  let database = Matrix.Room.decodingDatabase else {
+                throw Matrix.Error("Error encoding room object")
+            }
+            
+            container[CodingKeys.roomId.stringValue] = roomId
+            // session not being encoded
+            container[CodingKeys.type.stringValue] = type
+            container[CodingKeys.version.stringValue] = version
+            container[CodingKeys.name.stringValue] = name
+            container[CodingKeys.topic.stringValue] = topic
+            container[CodingKeys.avatarUrl.stringValue] = avatarUrl
+            // avatar not being encoded
+            container[CodingKeys.predecessorRoomId.stringValue] = predecessorRoomId
+            container[CodingKeys.successorRoomId.stringValue] = successorRoomId
+            container[CodingKeys.tombstoneEventId.stringValue] = tombstoneEventId
+            try ClientEvent.saveAll(dataStore, objects: Array(self.messages), database: database, roomId: self.roomId)
+            
+            if let unwrapedEvent = localEchoEvent as? ClientEvent {
+                container[CodingKeys.localEchoEvent.stringValue] = try encoder.encode(unwrapedEvent)
+            }
+            else if let unwrapedEvent = localEchoEvent as? ClientEventWithoutRoomId {
+                container[CodingKeys.localEchoEvent.stringValue] = try encoder.encode(unwrapedEvent)
+            }
+            else if let unwrapedEvent = localEchoEvent as? MinimalEvent {
+                container[CodingKeys.localEchoEvent.stringValue] = try encoder.encode(unwrapedEvent)
+            }
+            else if let unwrapedEvent = localEchoEvent as? StrippedStateEvent {
+                container[CodingKeys.localEchoEvent.stringValue] = try encoder.encode(unwrapedEvent)
+            }
+            else if let unwrapedEvent = localEchoEvent as? ToDeviceEvent {
+                container[CodingKeys.localEchoEvent.stringValue] = try encoder.encode(unwrapedEvent)
+            }
+            else {
+                container[CodingKeys.localEchoEvent.stringValue] = nil
+            }
+            
             // stateEventsCache not being encoded
-            try container.encode(highlightCount, forKey: .highlightCount)
-            try container.encode(notificationCount, forKey: .notificationCount)
-            try container.encode(joinedMembers, forKey: .joinedMembers)
-            try container.encode(invitedMembers, forKey: .invitedMembers)
-            try container.encode(leftMembers, forKey: .leftMembers)
-            try container.encode(bannedMembers, forKey: .bannedMembers)
-            try container.encode(knockingMembers, forKey: .knockingMembers)
-            try container.encode(encryptionParams, forKey: .encryptionParams)
+            container[CodingKeys.highlightCount.stringValue] = highlightCount
+            container[CodingKeys.notificationCount.stringValue] = notificationCount
+            container[CodingKeys.joinedMembers.stringValue] = try encoder.encode(joinedMembers)
+            container[CodingKeys.invitedMembers.stringValue] = try encoder.encode(invitedMembers)
+            container[CodingKeys.leftMembers.stringValue] = try encoder.encode(leftMembers)
+            container[CodingKeys.bannedMembers.stringValue] = try encoder.encode(bannedMembers)
+            container[CodingKeys.knockingMembers.stringValue] = try encoder.encode(knockingMembers)
+            container[CodingKeys.encryptionParams.stringValue] = try encoder.encode(encryptionParams)
         }
                 
         public func updateState(from events: [ClientEventWithoutRoomId]) {
@@ -424,5 +436,52 @@ extension Matrix {
             let content = ReactionContent(eventId: eventId, reaction: reaction)
             return try await self.session.sendMessageEvent(to: self.roomId, type: .mReaction, content: content)
         }
+    }
+}
+
+extension RoomId: DatabaseValueConvertible {}
+
+extension Matrix.Room: StorableDecodingContext, FetchableRecord, PersistableRecord {
+    public static func createTable(_ store: GRDBDataStore) async throws {
+        try await store.dbQueue.write { db in
+            try db.create(table: databaseTableName) { t in
+                t.primaryKey {
+                    t.column(Matrix.Room.CodingKeys.roomId.stringValue, .text).notNull()
+                }
+
+                t.column(Matrix.Room.CodingKeys.type.stringValue, .text)
+                t.column(Matrix.Room.CodingKeys.version.stringValue, .text).notNull()
+                t.column(Matrix.Room.CodingKeys.name.stringValue, .text)
+                t.column(Matrix.Room.CodingKeys.topic.stringValue, .text)
+                t.column(Matrix.Room.CodingKeys.avatarUrl.stringValue, .text)
+                t.column(Matrix.Room.CodingKeys.predecessorRoomId.stringValue, .text)
+                t.column(Matrix.Room.CodingKeys.successorRoomId.stringValue, .text)
+                t.column(Matrix.Room.CodingKeys.tombstoneEventId.stringValue, .text)
+                t.column(Matrix.Room.CodingKeys.localEchoEvent.stringValue, .blob)
+                t.column(Matrix.Room.CodingKeys.highlightCount.stringValue, .integer).notNull()
+                t.column(Matrix.Room.CodingKeys.notificationCount.stringValue, .integer).notNull()
+                t.column(Matrix.Room.CodingKeys.joinedMembers.stringValue, .blob).notNull()
+                t.column(Matrix.Room.CodingKeys.invitedMembers.stringValue, .blob).notNull()
+                t.column(Matrix.Room.CodingKeys.leftMembers.stringValue, .blob).notNull()
+                t.column(Matrix.Room.CodingKeys.bannedMembers.stringValue, .blob).notNull()
+                t.column(Matrix.Room.CodingKeys.knockingMembers.stringValue, .blob).notNull()
+                t.column(Matrix.Room.CodingKeys.encryptionParams.stringValue, .blob)
+            }
+        }
+    }
+    
+    public static let databaseTableName = "rooms"
+    public static var decodingDataStore: GRDBDataStore?
+    public static var decodingDatabase: Database?
+    public static var decodingSession: Matrix.Session?
+    
+    public static func loadMessages(roomId: RoomId, database: Database) throws -> Set<ClientEventWithoutRoomId> {
+        let events = try ClientEvent
+            .filter(Column(ClientEvent.CodingKeys.roomId.stringValue) == roomId)
+            .filter(Column(ClientEvent.CodingKeys.type.stringValue) == Matrix.EventType.mRoomMessage.rawValue)
+            .fetchAll(database)
+        let messages = Set(try events.map { try ClientEventWithoutRoomId(from: $0) })
+        
+        return messages
     }
 }

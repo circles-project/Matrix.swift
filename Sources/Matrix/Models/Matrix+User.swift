@@ -6,11 +6,10 @@
 //
 
 import Foundation
+import GRDB
 
 extension Matrix {
-    public class User: ObservableObject, Identifiable, Codable, Storable {
-        public typealias StorableKey = UserId
-        
+    public class User: ObservableObject, Identifiable {
         public let id: UserId // For Identifiable
         public var session: Session
         @Published public var displayName: String?
@@ -36,43 +35,55 @@ extension Matrix {
             }
         }
         
-        // Successfuly decoding of the object requires that a session instance is stored
-        // in the decoder's `userInfo` dictionary
-        public required init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            
-            guard let sessionKey = CodingUserInfoKey(rawValue: CodingKeys.session.stringValue),
-                  let unwrappedSession = decoder.userInfo[sessionKey] as? Session
-            else {
+        public required init(row: Row) throws {
+            guard let session = Matrix.User.decodingSession else {
                 throw Matrix.Error("Error initializing session field")
             }
             
-            self.session = unwrappedSession
-
-            self.id = try container.decode(UserId.self, forKey: .id)
-            self.displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
-            self.avatarUrl = try container.decodeIfPresent(String.self, forKey: .avatarUrl)
+            self.id = row[CodingKeys.id.stringValue]
+            self.session = session
+            self.displayName = row[CodingKeys.displayName.stringValue]
+            self.avatarUrl = row[CodingKeys.avatarUrl.stringValue]
             self.avatar = nil // Avatar will be fetched from URLSession cache
-            self.statusMessage = try container.decodeIfPresent(String.self, forKey: .statusMessage)
+            self.statusMessage = row[CodingKeys.statusMessage.stringValue]
             
             _ = Task {
                 try await self.refreshProfile()
             }
         }
 
-        public func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-
-            try container.encode(id, forKey: .id)
+        public func encode(to container: inout PersistenceContainer) throws {
+            container[CodingKeys.id.stringValue] = id
             // session not being encoded
-            try container.encode(displayName, forKey: .displayName)
-            try container.encode(avatarUrl, forKey: .avatarUrl)
+            container[CodingKeys.displayName.stringValue] = displayName
+            container[CodingKeys.avatarUrl.stringValue] = avatarUrl
             // avatar not being encoded
-            try container.encode(statusMessage, forKey: .statusMessage)
+            container[CodingKeys.statusMessage.stringValue] = statusMessage
         }
-        
+                
         public func refreshProfile() async throws {
             (self.displayName, self.avatarUrl) = try await self.session.getProfileInfo(userId: self.id)
         }
     }
+}
+
+extension Matrix.User: StorableDecodingContext, FetchableRecord, PersistableRecord {
+    public static func createTable(_ store: GRDBDataStore) async throws {
+        try await store.dbQueue.write { db in
+            try db.create(table: databaseTableName) { t in
+                t.primaryKey {
+                    t.column(Matrix.User.CodingKeys.id.stringValue, .text).notNull()
+                }
+
+                t.column(Matrix.User.CodingKeys.displayName.stringValue, .text)
+                t.column(Matrix.User.CodingKeys.avatarUrl.stringValue, .text)
+                t.column(Matrix.User.CodingKeys.statusMessage.stringValue, .text)
+            }
+        }
+    }
+
+    public static let databaseTableName = "users"
+    public static var decodingDataStore: GRDBDataStore?
+    public static var decodingDatabase: Database?
+    public static var decodingSession: Matrix.Session?
 }

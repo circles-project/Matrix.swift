@@ -6,9 +6,10 @@
 //
 
 import Foundation
+import GRDB
     
-public struct UserId: LosslessStringConvertible, Codable, Equatable, Hashable, CodingKey {
-    
+public struct UserId: LosslessStringConvertible, Codable, Equatable, Hashable, CodingKey,
+                      DatabaseValueConvertible {
     public let username: String
     public let domain: String
     public let port: UInt16?

@@ -6,14 +6,13 @@
 //
 
 import Foundation
+import GRDB
 
 // Used for the /sync API
 // Normally this would be defined in-line in the only place where it's used,
 // but since it's much bigger than most random data-transfer object types,
 // this one gets its own file.
-public struct ClientEventWithoutRoomId: Matrix.Event, Codable, Storable {
-    public typealias StorableKey = EventId
-    
+public struct ClientEventWithoutRoomId: Matrix.Event, Codable {    
     public let eventId: String
     public let originServerTS: UInt64
     //public let roomId: String
@@ -86,4 +85,12 @@ extension ClientEventWithoutRoomId: Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(eventId)
     }    
+}
+
+extension ClientEventWithoutRoomId: StorableDecodingContext, FetchableRecord, PersistableRecord {
+    // Uses ClientEvent table with storing null room id
+    public static let databaseTableName = "clientEvents"
+    public static var decodingDataStore: GRDBDataStore?
+    public static var decodingDatabase: Database?
+    public static var decodingSession: Matrix.Session?
 }

@@ -6,8 +6,10 @@
 //
 
 import Foundation
+import GRDB
 
-public struct MXC: Codable, Equatable, LosslessStringConvertible {
+public struct MXC: Codable, Equatable, LosslessStringConvertible,
+                   DatabaseValueConvertible {
     
     public var serverName: String
     public var mediaId: String

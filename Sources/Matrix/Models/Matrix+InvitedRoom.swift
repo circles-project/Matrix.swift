@@ -148,11 +148,8 @@ extension Matrix {
         public required init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
-            // .userInfo is a get-only property, so having to workaround by using an NSArray
-            // type with reference semantics instead of directly storing the object...
             guard let sessionKey = CodingUserInfoKey(rawValue: CodingKeys.session.stringValue),
-                  let unwrappedSessions = decoder.userInfo[sessionKey] as? [Session],
-                  let unwrappedSession = unwrappedSessions.first
+                  let unwrappedSession = decoder.userInfo[sessionKey] as? Session
             else {
                 throw Matrix.Error("Error initializing session field")
             }
