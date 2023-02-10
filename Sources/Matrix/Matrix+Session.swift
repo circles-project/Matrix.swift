@@ -91,7 +91,8 @@ extension Matrix {
                         // FIXME: Decode the response data to find out how much we should slow down
                         try await Task.sleep(nanoseconds: 30_000_000_000)
                     }
-                    return self.syncToken
+                    //return self.syncToken
+                    return nil
                 }
                 
                 let decoder = JSONDecoder()
@@ -105,8 +106,8 @@ extension Matrix {
                 // Process the sync response, updating local state
                 
                 // Handle invites
-                print("/sync:\tHandling invites")
                 if let invitedRoomsDict = responseBody.rooms?.invite {
+                    print("/sync:\t\(invitedRoomsDict.count) invited rooms")
                     for (roomId, info) in invitedRoomsDict {
                         print("/sync:\tFound invited room \(roomId)")
                         guard let events = info.inviteState?.events
@@ -124,6 +125,7 @@ extension Matrix {
                 
                 // Handle rooms where we're already joined
                 if let joinedRoomsDict = responseBody.rooms?.join {
+                    print("/sync:\t\(joinedRoomsDict.count) joined rooms")
                     for (roomId, info) in joinedRoomsDict {
                         print("/sync:\tFound joined room \(roomId)")
                         let messages = info.timeline?.events.filter {
@@ -182,6 +184,7 @@ extension Matrix {
                 
                 // Handle rooms that we've left
                 if let leftRoomsDict = responseBody.rooms?.leave {
+                    print("/sync:\(leftRoomsDict.count) left rooms")
                     for (roomId, info) in leftRoomsDict {
                         print("/sync:\tFound left room \(roomId)")
                         // TODO: What should we do here?
@@ -197,8 +200,14 @@ extension Matrix {
                 
                 // FIXME: Handle to-device messages
 
-                self.syncToken = responseBody.nextBatch
-                self.syncRequestTask = nil
+                print("/sync:\tUpdating sync token...  awaiting MainActor")
+                await MainActor.run {
+                    print("/sync:\tMainActor updating sync token")
+                    self.syncToken = responseBody.nextBatch
+                    self.syncRequestTask = nil
+                }
+
+                print("/sync:\tDone!")
                 return responseBody.nextBatch
             
             }
