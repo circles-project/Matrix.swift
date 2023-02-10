@@ -197,6 +197,8 @@ extension Matrix {
     }
 }
 
+/*
+
 extension KeyedDecodingContainer {
     public func decodeIfPresent(_ type: Dictionary<RoomId, Matrix.SyncResponseBody.InvitedRoomSyncInfo>.Type, forKey key: K)
     throws -> Dictionary<RoomId, Matrix.SyncResponseBody.InvitedRoomSyncInfo>? {
@@ -278,3 +280,4 @@ extension KeyedDecodingContainer {
         return joinedDictionary
     }
 }
+*/

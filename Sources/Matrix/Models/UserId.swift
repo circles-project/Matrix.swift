@@ -7,50 +7,84 @@
 
 import Foundation
     
-public struct UserId: LosslessStringConvertible, Codable, Equatable, Hashable {
+public struct UserId: LosslessStringConvertible, Codable, Equatable, Hashable, CodingKey {
+    
     public let username: String
     public let domain: String
+    public let port: UInt16?
     
     private static func validate(_ userId: String) -> Bool {
         let toks = userId.split(separator: ":")
+        // First we validate the user part
         guard userId.starts(with: "@"),
-              toks.count == 2,
               let first = toks.first,
-              first.count > 1,
-              let last = toks.last,
-              last.count > 3,
-              last.contains(".")
+              first.count > 1
+        else {
+            return false
+        }
+        // Now we need to figure out if we have a port number in our homeserver
+        // And if we do, it needs to be all-numeric
+        if toks.count == 3 {
+            guard let port = toks.last,
+                  port.allSatisfy({ c in
+                      c.isNumber
+                  }),
+                  let num = Int(port),
+                  num < 65535
+            else {
+                return false
+            }
+        }
+        // Finally, does it look like we have a valid hostname?
+        // There's really not a lot that we can do here, given that hostnames may not be FQDN's
+        //     e.g. for testing, the hostname is often 'localhost'
+        let host = toks[1]
+        guard !host.isEmpty
         else {
             return false
         }
         return true
     }
     
-    public init?(_ userId: String) {
-        guard UserId.validate(userId) else {
+    // for LosslessStringConvertible
+    public init?(_ stringValue: String) {
+        self.init(stringValue: stringValue)
+    }
+    
+    // for CodingKey
+    public init?(stringValue: String) {
+        guard UserId.validate(stringValue) else {
             //let msg = "Invalid user id"
             //throw Matrix.Error(msg)
             return nil
         }
-        let toks = userId.split(separator: ":")
-        guard let userPart = toks.first,
-              let domainPart = toks.last
-        else {
-            //let msg = "Invalid user id"
-            //throw Matrix.Error(msg)
-            return nil
+        let toks = stringValue.split(separator: ":")
+
+        self.username = String(toks[0])
+        self.domain = String(toks[1])
+        if toks.count > 2 {
+            self.port = UInt16(toks[2])
+        } else {
+            self.port = nil
         }
-        self.username = String(userPart)
-        self.domain = String(domainPart)
     }
     
     public init(from decoder: Decoder) throws {
-        let userId = try String(from: decoder)
-        guard let me: UserId = .init(userId)
+        //print("Decoding UserId")
+        guard let stringUserId = try? String(from: decoder)
         else {
-            let msg = "Invalid user id: \(userId)"
+            let msg = "UserId: Failed to decode String version"
+            print(msg)
             throw Matrix.Error(msg)
         }
+        //print("\tGot string user id [\(stringUserId)]")
+        guard let me: UserId = .init(stringUserId)
+        else {
+            let msg = "Invalid user id: \(stringUserId)"
+            print("\tUserId: \(msg)")
+            throw Matrix.Error(msg)
+        }
+        //print("UserId: Decoding success!")
         self = me
     }
     
@@ -59,15 +93,51 @@ public struct UserId: LosslessStringConvertible, Codable, Equatable, Hashable {
     }
 
     public var description: String {
-        "\(username):\(domain)"
+        if let port = self.port {
+            return "\(username):\(domain):\(port)"
+        } else {
+            return "\(username):\(domain)"
+        }
+            
     }
     
     public static func == (lhs: UserId, rhs: UserId) -> Bool {
-        lhs.description == rhs.description
+        lhs.username == rhs.username && lhs.domain == rhs.domain && lhs.port == rhs.port
     }
 
     public func hash(into hasher: inout Hasher) {
         self.description.hash(into: &hasher)
     }
+    
+    public var stringValue: String {
+        description
+    }
+    
+    public var intValue: Int? {
+        nil
+    }
+    
+    public init?(intValue: Int) {
+        nil
+    }
 }
 
+extension KeyedDecodingContainer {
+        
+    func decodeIfPresent<T:Decodable>(_ type: Dictionary<UserId,T>.Type, forKey key: KeyedDecodingContainer<K>.Key) throws -> Dictionary<UserId,T>? {
+        if self.contains(key) {
+            return try self.decode([UserId: T].self, forKey: key)
+        } else {
+            return nil
+        }
+    }
+    
+    func decode<T:Decodable>(_ type: Dictionary<UserId,T>.Type, forKey key: KeyedDecodingContainer<K>.Key) throws -> Dictionary<UserId,T> {
+        let subContainer: KeyedDecodingContainer<UserId> = try self.nestedContainer(keyedBy: UserId.self, forKey: key)
+        var decodedDict = [UserId:T]()
+        for k in subContainer.allKeys {
+            decodedDict[k] = try subContainer.decode(T.self, forKey: k)
+        }
+        return decodedDict
+    }
+}
