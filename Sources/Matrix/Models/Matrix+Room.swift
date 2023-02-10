@@ -444,8 +444,6 @@ extension Matrix {
     }
 }
 
-extension RoomId: DatabaseValueConvertible {}
-
 extension Matrix.Room: StorableDecodingContext, FetchableRecord, PersistableRecord {
     public static func createTable(_ store: GRDBDataStore) async throws {
         try await store.dbQueue.write { db in

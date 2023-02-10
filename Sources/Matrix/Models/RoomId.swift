@@ -6,8 +6,10 @@
 //
 
 import Foundation
+import GRDB
 
-public struct RoomId: LosslessStringConvertible, Codable, Equatable, Hashable, CodingKey {
+public struct RoomId: LosslessStringConvertible, Codable, Equatable, Hashable, CodingKey,
+                      DatabaseValueConvertible {
     public let opaqueId: String
     public let domain: String
     public let port: UInt16?
