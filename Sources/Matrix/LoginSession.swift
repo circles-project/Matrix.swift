@@ -35,7 +35,35 @@ public class LoginSession: UIAuthSession {
         }
     }
     
-    public init(userId: String, deviceId: String? = nil, initialDeviceDisplayName: String? = nil) async throws {
+    public convenience init(userId: String,
+                            password: String? = nil,
+                            deviceId: String? = nil,
+                            initialDeviceDisplayName: String? = nil
+    ) async throws {
+        guard let domain = UserId(userId)?.domain
+        else {
+            throw Matrix.Error("Couldn't parse Matrix user id \(userId)")
+        }
+        let wellknown = try await Matrix.fetchWellKnown(for: domain)
+        
+        guard let homeserver = URL(string: wellknown.homeserver.baseUrl)
+        else {
+            throw Matrix.Error("Couldn't look up well-known homeserver for user id \(userId)")
+        }
+        
+        try await self.init(homeserver: homeserver,
+                            userId: userId,
+                            password: password,
+                            deviceId: deviceId,
+                            initialDeviceDisplayName: initialDeviceDisplayName)
+    }
+    
+    public init(homeserver: URL,
+                userId: String,
+                password: String? = nil,
+                deviceId: String? = nil,
+                initialDeviceDisplayName: String? = nil
+    ) async throws {
         let version = "v3"
         let urlPath = "/_matrix/client/\(version)/login"
         self.userId = UserId(userId)!
@@ -44,11 +72,13 @@ public class LoginSession: UIAuthSession {
         guard let url = URL(string: wellknown.homeserver.baseUrl + urlPath) else {
             throw Matrix.Error("Couldn't construct /login URL")
         }
-        // Ugh we're doing this the Idiocracy way...  ok fine...
-        let args: [String: AnyCodable] = [
-            "identifier": AnyCodable(LoginRequestBody.Identifier(type: "m.id.user", user: userId)),
-            "device_id": deviceId != nil ? AnyCodable(deviceId!) : nil,
-            "initial_device_display_name": initialDeviceDisplayName != nil ? AnyCodable(initialDeviceDisplayName!) : nil,
+
+        let args: [String: Codable] = [
+            "identifier": LoginRequestBody.Identifier(type: "m.id.user", user: userId),
+            "password": password,                                // For legacy non-UIA login
+            "type": password != nil ? "m.login.password" : nil,  // For legacy non-UIA login
+            "device_id": deviceId,
+            "initial_device_display_name": initialDeviceDisplayName,
         ]
         
         super.init(method: "POST", url: url, requestDict: args)

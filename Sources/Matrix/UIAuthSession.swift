@@ -56,7 +56,7 @@ public class UIAuthSession: UIASession, ObservableObject {
     //public let accessToken: String? // FIXME: Make this MatrixCredentials ???
     public let creds: Matrix.Credentials?
     @Published public var state: State
-    public var realRequestDict: [String:AnyCodable] // The JSON fields for the "real" request behind the UIA protection
+    public var realRequestDict: [String:Codable] // The JSON fields for the "real" request behind the UIA protection
     public var storage = [String: Any]() // For holding onto data between requests, like we do on the server side
     
     // Shortcut to get around a bunch of `case let` nonsense everywhere
@@ -71,7 +71,7 @@ public class UIAuthSession: UIASession, ObservableObject {
         }
     }
         
-    public init(method: String, url: URL, credentials: Matrix.Credentials? = nil, requestDict: [String:AnyCodable]) {
+    public init(method: String, url: URL, credentials: Matrix.Credentials? = nil, requestDict: [String:Codable]) {
         self.method = method
         self.url = url
         //self.accessToken = accessToken
@@ -153,7 +153,10 @@ public class UIAuthSession: UIASession, ObservableObject {
             request.httpBody = try encoder.encode(emptyDict)
         }
         else {
-            request.httpBody = try encoder.encode(self.realRequestDict)
+            let anyCodableRequestDict: [String:AnyCodable] = realRequestDict.mapValues {
+                AnyCodable($0)
+            }
+            request.httpBody = try encoder.encode(anyCodableRequestDict)
             let requestBody = String(decoding: request.httpBody!, as: UTF8.self)
             print("\(tag)\t\(requestBody)")
         }
@@ -280,7 +283,10 @@ public class UIAuthSession: UIASession, ObservableObject {
         if let accessToken = self.creds?.accessToken {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
-        var requestBodyDict: [String: AnyCodable] = self.realRequestDict
+        // Convert to AnyCodable because Codable is too dumb to, you know, encode things
+        var requestBodyDict: [String: AnyCodable] = self.realRequestDict.mapValues {
+            AnyCodable($0)
+        }
         // Doh!  The caller doesn't need to care about the session id,
         // so it does not include "session" in its auth dict.
         // Therefore we have to include it before we send the request.

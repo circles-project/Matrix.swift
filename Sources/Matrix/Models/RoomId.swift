@@ -7,37 +7,57 @@
 
 import Foundation
 
-public struct RoomId: LosslessStringConvertible, Codable, Equatable, Hashable {
+public struct RoomId: LosslessStringConvertible, Codable, Equatable, Hashable, CodingKey {
     public let opaqueId: String
     public let domain: String
+    public let port: UInt16?
     
     private static func validate(_ roomId: String) -> Bool {
         let toks = roomId.split(separator: ":")
+        // First validate the room id part
         guard roomId.starts(with: "!"),
-              toks.count == 2,
+              toks.count == 2 || toks.count == 3,
               let first = toks.first,
-              let last = toks.last,
-              first.count > 1,
-              last.count > 3,
-              last.contains(".")
+              first.count > 1
+        else {
+            return false
+        }
+        // FIXME We could do much more specific validation to the spec https://spec.matrix.org/v1.5/appendices/#server-name
+        if toks.count == 3 {
+            guard let port = toks.last,
+                  port.count < 6,
+                  port.allSatisfy({ c in
+                      c.isNumber
+                  })
+            else {
+                return false
+            }
+        }
+        let host = toks[1]
+        guard !host.isEmpty
         else {
             return false
         }
         return true
     }
     
-    public init?(_ roomId: String)  {
-        guard RoomId.validate(roomId) else {
+    public init?(_ stringValue: String) {
+        self.init(stringValue: stringValue)
+    }
+    
+    public init?(stringValue: String)  {
+        guard RoomId.validate(stringValue) else {
             return nil
         }
-        let toks = roomId.split(separator: ":")
-        guard let roomPart = toks.first,
-              let domainPart = toks.last
-        else {
-            return nil
+        let toks = stringValue.split(separator: ":")
+
+        self.opaqueId = String(toks[0].dropFirst(1))
+        self.domain = String(toks[1])
+        if toks.count > 2 {
+            self.port = UInt16(toks[2])
+        } else {
+            self.port = nil
         }
-        self.opaqueId = String(roomPart.dropFirst(1))
-        self.domain = String(domainPart)
     }
     
     public init(from decoder: Decoder) throws {
@@ -55,10 +75,46 @@ public struct RoomId: LosslessStringConvertible, Codable, Equatable, Hashable {
     }
     
     public var description: String {
-        "!\(opaqueId):\(domain)"
+        if let p = self.port {
+            return "!\(opaqueId):\(domain):\(p)"
+        } else {
+            return "!\(opaqueId):\(domain)"
+        }
     }
 
     public static func == (lhs: RoomId, rhs: RoomId) -> Bool {
-        lhs.description == rhs.description
+        lhs.opaqueId == rhs.opaqueId && lhs.domain == rhs.domain && lhs.port == rhs.port
+    }
+    
+    public var stringValue: String {
+        description
+    }
+    
+    public var intValue: Int? {
+        nil
+    }
+    
+    public init?(intValue: Int) {
+        nil
+    }
+}
+
+extension KeyedDecodingContainer {
+        
+    func decodeIfPresent<T:Decodable>(_ type: Dictionary<RoomId,T>.Type, forKey key: KeyedDecodingContainer<K>.Key) throws -> Dictionary<RoomId,T>? {
+        if self.contains(key) {
+            return try self.decode([RoomId: T].self, forKey: key)
+        } else {
+            return nil
+        }
+    }
+    
+    func decode<T:Decodable>(_ type: Dictionary<RoomId,T>.Type, forKey key: KeyedDecodingContainer<K>.Key) throws -> Dictionary<RoomId,T> {
+        let subContainer: KeyedDecodingContainer<RoomId> = try self.nestedContainer(keyedBy: RoomId.self, forKey: key)
+        var decodedDict = [RoomId:T]()
+        for k in subContainer.allKeys {
+            decodedDict[k] = try subContainer.decode(T.self, forKey: k)
+        }
+        return decodedDict
     }
 }
