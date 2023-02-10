@@ -184,7 +184,7 @@ extension Matrix {
                 
                 // Handle rooms that we've left
                 if let leftRoomsDict = responseBody.rooms?.leave {
-                    print("/sync:\(leftRoomsDict.count) left rooms")
+                    print("/sync:\t\(leftRoomsDict.count) left rooms")
                     for (roomId, info) in leftRoomsDict {
                         print("/sync:\tFound left room \(roomId)")
                         // TODO: What should we do here?
