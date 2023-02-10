@@ -181,20 +181,24 @@ extension Matrix {
             if row[CodingKeys.localEchoEvent.stringValue] == nil {
                 self.localEchoEvent = nil
             }
-            else if let unwrapedEvent = try? decoder.decode(ClientEvent.self, from: row[CodingKeys.localEchoEvent.stringValue]) {
+            else if let unwrapedEvent = try? decoder.decode(ClientEvent.self,
+                                                            from: row[CodingKeys.localEchoEvent.stringValue]) {
                 self.localEchoEvent = unwrapedEvent
             }
             else if let unwrapedEvent = try? decoder.decode(ClientEventWithoutRoomId.self,
                                                                      from: row[CodingKeys.localEchoEvent.stringValue]) {
                 self.localEchoEvent = unwrapedEvent
             }
-            else if let unwrapedEvent = try? decoder.decode(MinimalEvent.self, from: row[CodingKeys.localEchoEvent.stringValue]) {
+            else if let unwrapedEvent = try? decoder.decode(MinimalEvent.self,
+                                                            from: row[CodingKeys.localEchoEvent.stringValue]) {
                 self.localEchoEvent = unwrapedEvent
             }
-            else if let unwrapedEvent = try? decoder.decode(StrippedStateEvent.self, from: row[CodingKeys.localEchoEvent.stringValue]) {
+            else if let unwrapedEvent = try? decoder.decode(StrippedStateEvent.self,
+                                                            from: row[CodingKeys.localEchoEvent.stringValue]) {
                 self.localEchoEvent = unwrapedEvent
             }
-            else if let unwrapedEvent = try? decoder.decode(ToDeviceEvent.self, from: row[CodingKeys.localEchoEvent.stringValue]) {
+            else if let unwrapedEvent = try? decoder.decode(ToDeviceEvent.self,
+                                                            from: row[CodingKeys.localEchoEvent.stringValue]) {
                 self.localEchoEvent = unwrapedEvent
             }
             
@@ -205,7 +209,8 @@ extension Matrix {
             self.leftMembers = try decoder.decode(Set<UserId>.self, from: row[CodingKeys.leftMembers.stringValue])
             self.bannedMembers = try decoder.decode(Set<UserId>.self, from: row[CodingKeys.bannedMembers.stringValue])
             self.knockingMembers = try decoder.decode(Set<UserId>.self, from: row[CodingKeys.knockingMembers.stringValue])
-            self.encryptionParams = try decoder.decode(RoomEncryptionContent.self, from: row[CodingKeys.encryptionParams.stringValue])
+            self.encryptionParams = try decoder.decode(RoomEncryptionContent.self,
+                                                       from: row[CodingKeys.encryptionParams.stringValue])
         }
 
         public func encode(to container: inout PersistenceContainer) throws {

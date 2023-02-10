@@ -8,6 +8,16 @@
 import Foundation
 import GRDB
 
+/// Class that contains methods for DB management
+/// Assumptions:
+///    1. If you remove an object from the database, you are responsible for freeing any sub-objects a part of the class
+///    (e.g. Session rooms, Room messages, etc...). See the corresponding class's DB schema and/or encode/decode
+///    methods to see if it contains sub-objects to remove that are stored in the database, as the schema may not encode
+///    foreign keys of the sub-objects to facilitate cascading deletion rules
+///    2. Although creation of multiple GRDBDataStore objects are allowed, you may encounter undefined behavior if multiple
+///    stores attempt to read/write to their own respective databases. Some objects use information encoded in a static class
+///    (using the StorableDecodingContext protocol) during encoding/decoding, and multiple threads reading from/writing to
+///    variables stored in the class at the same time may cause undefined behavior.
 public class GRDBDataStore {
     public var url: URL
     public let session: Matrix.Session
@@ -166,7 +176,8 @@ public class GRDBDataStore {
         }
     }
 
-    public func remove(_ type: PersistableRecord.Type, key: DatabaseValueConvertible, database: Database? = nil) throws {
+    public func remove(_ type: PersistableRecord.Type, key: DatabaseValueConvertible,
+                       database: Database? = nil) throws {
         if let db = database {
             try type.deleteOne(db, key: key)
         }
@@ -223,7 +234,8 @@ public class GRDBDataStore {
         try await handle.value
     }
     
-    public func remove(_ type: PersistableRecord.Type, key: DatabaseValueConvertible, database: Database? = nil) async throws {
+    public func remove(_ type: PersistableRecord.Type, key: DatabaseValueConvertible,
+                       database: Database? = nil) async throws {
         let handle = Task { try remove(type, key: key, database: database) }
         try await handle.value
     }

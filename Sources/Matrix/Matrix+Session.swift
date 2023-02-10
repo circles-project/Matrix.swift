@@ -114,7 +114,8 @@ extension Matrix {
             let userInfoSessionKey = CodingUserInfoKey(rawValue: "session")!
             decoder.userInfo[userInfoSessionKey] = self
             
-            self.invitations = try decoder.decode([RoomId: Matrix.InvitedRoom].self, from: row[CodingKeys.invitations.stringValue])
+            self.invitations = try decoder.decode([RoomId: Matrix.InvitedRoom].self,
+                                                  from: row[CodingKeys.invitations.stringValue])
             // syncRequestTask not being encoded
             self.syncToken = row[CodingKeys.syncToken.stringValue]
             self.syncRequestTimeout = row[CodingKeys.syncRequestTimeout.stringValue]
