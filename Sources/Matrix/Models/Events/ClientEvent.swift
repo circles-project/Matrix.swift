@@ -120,7 +120,7 @@ extension ClientEvent: StorableDecodingContext, FetchableRecord, PersistableReco
             try store.save(object, database: database)
         }
     }
-    
+
     public static func saveAll(_ store: GRDBDataStore, objects: [ClientEventWithoutRoomId],
                                  database: Database? = nil, roomId: RoomId? = nil) throws {
         try objects.forEach { try self.save(store, object: $0, database: database, roomId: roomId) }
@@ -128,18 +128,14 @@ extension ClientEvent: StorableDecodingContext, FetchableRecord, PersistableReco
     
     public static func save(_ store: GRDBDataStore, object: ClientEventWithoutRoomId,
                               database: Database? = nil, roomId: RoomId? = nil) async throws {
-        if let unwrappedRoomId = roomId {
-            let event = try ClientEvent(from: object, roomId: unwrappedRoomId)
-            try await store.save(event, database: database)
-        }
-        else {
-            try await store.save(object, database: database)
-        }
+        let handle = Task { try save(store, object: object, database: database, roomId: roomId) }
+        try await handle.value
     }
     
     public static func saveAll(_ store: GRDBDataStore, objects: [ClientEventWithoutRoomId],
                                  database: Database? = nil, roomId: RoomId? = nil) async throws {
-        try objects.forEach { try self.save(store, object: $0, database: database, roomId: roomId) }
+        let handle = Task { try saveAll(store, objects: objects, database: database, roomId: roomId) }
+        try await handle.value
     }
 }
 

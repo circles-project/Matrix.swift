@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import Matrix
 import GRDB
 
 public class GRDBDataStore {
@@ -72,7 +71,7 @@ public class GRDBDataStore {
             T.decodingDataStore = self
             T.decodingSession = self.session
             T.decodingDatabase = db
-            
+
             try object.upsert(db)
         }
         else {
@@ -80,7 +79,7 @@ public class GRDBDataStore {
                 T.decodingDataStore = self
                 T.decodingSession = self.session
                 T.decodingDatabase = db
-                
+
                 try object.upsert(db)
             }
         }
@@ -92,7 +91,7 @@ public class GRDBDataStore {
             T.decodingDataStore = self
             T.decodingSession = self.session
             T.decodingDatabase = db
-            
+
             for obj in objects {
                 try obj.upsert(db)
             }
@@ -102,7 +101,7 @@ public class GRDBDataStore {
                 T.decodingDataStore = self
                 T.decodingSession = self.session
                 T.decodingDatabase = db
-                
+
                 for obj in objects {
                     try obj.upsert(db)
                 }
@@ -116,7 +115,7 @@ public class GRDBDataStore {
             T.decodingDataStore = self
             T.decodingSession = self.session
             T.decodingDatabase = db
-            
+
             if let obj = try T.fetchOne(db, key: key) {
                 return obj
             }
@@ -127,7 +126,7 @@ public class GRDBDataStore {
                 T.decodingDataStore = self
                 T.decodingSession = self.session
                 T.decodingDatabase = db
-                
+
                 if let obj = try T.fetchOne(db, key: key) {
                     return obj
                 }
@@ -142,7 +141,7 @@ public class GRDBDataStore {
             T.decodingDataStore = self
             T.decodingSession = self.session
             T.decodingDatabase = db
-            
+
             return try T.fetchAll(db)
         }
         else {
@@ -150,7 +149,7 @@ public class GRDBDataStore {
                 T.decodingDataStore = self
                 T.decodingSession = self.session
                 T.decodingDatabase = db
-                
+
                 return try T.fetchAll(db)
             }
         }
@@ -197,128 +196,40 @@ public class GRDBDataStore {
     
     public func save<T>(_ object: T, database: Database? = nil) async throws
     where T: PersistableRecord & StorableDecodingContext {
-        if let db = database {
-            T.decodingDataStore = self
-            T.decodingSession = self.session
-            T.decodingDatabase = db
-            
-            try object.upsert(db)
-        }
-        else {
-            try await dbQueue.write { db in
-                T.decodingDataStore = self
-                T.decodingSession = self.session
-                T.decodingDatabase = db
-                
-                try object.upsert(db)
-            }
-        }
+        let handle = Task { try save(object, database: database) }
+        try await handle.value
     }
     
     public func saveAll<T>(_ objects: [T], database: Database? = nil) async throws
     where T: PersistableRecord & StorableDecodingContext {
-        if let db = database {
-            T.decodingDataStore = self
-            T.decodingSession = self.session
-            T.decodingDatabase = db
-            
-            for obj in objects {
-                try obj.upsert(db)
-            }
-        }
-        else {
-            try await dbQueue.write { db in
-                T.decodingDataStore = self
-                T.decodingSession = self.session
-                T.decodingDatabase = db
-                
-                for obj in objects {
-                    try obj.upsert(db)
-                }
-            }
-        }
+        let handle = Task { try saveAll(objects, database: database) }
+        try await handle.value
     }
     
     public func load<T>(_ type: T.Type, key: DatabaseValueConvertible, database: Database? = nil) async throws -> T?
     where T: FetchableRecord & TableRecord & StorableDecodingContext {
-        if let db = database {
-            T.decodingDataStore = self
-            T.decodingSession = self.session
-            T.decodingDatabase = db
-            
-            if let obj = try T.fetchOne(db, key: key) {
-                return obj
-            }
-            return nil
-        }
-        else {
-            return try await dbQueue.read { db in
-                T.decodingDataStore = self
-                T.decodingSession = self.session
-                T.decodingDatabase = db
-                
-                if let obj = try T.fetchOne(db, key: key) {
-                    return obj
-                }
-                return nil
-            }
-        }
+        let handle = Task { try load(type, key: key, database: database) }
+        return try await handle.value
     }
     
     public func loadAll<T>(_ type: T.Type, database: Database? = nil) async throws -> [T]?
     where T: FetchableRecord & TableRecord & StorableDecodingContext {
-        if let db = database {
-            T.decodingDataStore = self
-            T.decodingSession = self.session
-            T.decodingDatabase = db
-            
-            return try T.fetchAll(db)
-        }
-        else {
-            return try await dbQueue.read { db in
-                T.decodingDataStore = self
-                T.decodingSession = self.session
-                T.decodingDatabase = db
-                
-                return try T.fetchAll(db)
-            }
-        }
+        let handle = Task { try loadAll(type, database: database) }
+        return try await handle.value
     }
         
     public func remove(_ object: PersistableRecord, database: Database? = nil) async throws {
-        if let db = database {
-            try object.delete(db)
-        }
-        else {
-            let _ = try await dbQueue.write { db in
-                try object.delete(db)
-            }
-        }
+        let handle = Task { try remove(object, database: database) }
+        try await handle.value
     }
     
     public func remove(_ type: PersistableRecord.Type, key: DatabaseValueConvertible, database: Database? = nil) async throws {
-        if let db = database {
-            try type.deleteOne(db, key: key)
-        }
-        else {
-            let _ = try await dbQueue.write { db in
-                try type.deleteOne(db, key: key)
-            }
-        }
+        let handle = Task { try remove(type, key: key, database: database) }
+        try await handle.value
     }
     
     public func removeAll(_ objects: [PersistableRecord], database: Database? = nil) async throws {
-        if let db = database {
-            for obj in objects {
-                try obj.delete(db)
-            }
-        }
-        else {
-            try await dbQueue.write { db in
-                for obj in objects {
-                    try obj.delete(db)
-                }
-            }
-        }
+        let handle = Task { try removeAll(objects, database: database) }
+        try await handle.value
     }
 }
