@@ -86,8 +86,8 @@ final class UnencryptedTests: XCTestCase {
             return creds
         } else {
             let fullCreds = Matrix.Credentials(userId: creds.userId,
-                                               accessToken: creds.accessToken,
                                                deviceId: creds.deviceId,
+                                               accessToken: creds.accessToken,
                                                wellKnown: Matrix.WellKnown(homeserver: "\(homeserver)"))
             return fullCreds
         }

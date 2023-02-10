@@ -53,13 +53,6 @@ extension Matrix {
             case userId = "user_id"
             case wellKnown = "well_known"
         }
-        
-        public init(userId: UserId, accessToken: String, deviceId: String, wellKnown: Matrix.WellKnown? = nil) {
-            self.userId = userId
-            self.accessToken = accessToken
-            self.deviceId = deviceId
-            self.wellKnown = wellKnown
-        }
     }
 }
 
