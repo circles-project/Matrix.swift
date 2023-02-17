@@ -28,7 +28,7 @@ extension Matrix {
         @Published public var localEchoEvent: Event?
         //@Published var earliestMessage: MatrixMessage?
         //@Published var latestMessage: MatrixMessage?
-        private var stateEventsCache: [EventType: [ClientEventWithoutRoomId]]
+        private var state: [EventType: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
         
         @Published public var highlightCount: Int = 0
         @Published public var notificationCount: Int = 0
@@ -46,14 +46,18 @@ extension Matrix {
             self.session = session
             self.messages = Set(initialMessages)
             
-            self.stateEventsCache = [:]
+            self.state = [:]
             for event in initialState {
-                var cache = stateEventsCache[event.type] ?? []
-                cache.append(event)
-                stateEventsCache[event.type] = cache
+                guard let stateKey = event.stateKey
+                else {
+                    continue
+                }
+                var d = self.state[event.type] ?? [:]
+                d[stateKey] = event
+                self.state[event.type] = d
             }
             
-            guard let creationEvent = stateEventsCache[.mRoomCreate]?.first,
+            guard let creationEvent = state[.mRoomCreate]?[""],
                   let creationContent = creationEvent.content as? RoomCreateContent
             else {
                 throw Matrix.Error("No m.room.create event")
@@ -62,7 +66,7 @@ extension Matrix {
             self.version = creationContent.roomVersion ?? "1"
             self.predecessorRoomId = creationContent.predecessor?.roomId
             
-            if let tombstoneEvent = stateEventsCache[.mRoomTombstone]?.last,
+            if let tombstoneEvent = state[.mRoomTombstone]?[""],
                let tombstoneContent = tombstoneEvent.content as? RoomTombstoneContent
             {
                 self.tombstoneEventId = tombstoneEvent.eventId
@@ -72,55 +76,57 @@ extension Matrix {
                 self.successorRoomId = nil
             }
             
-            if let nameEvent = stateEventsCache[.mRoomName]?.last,
+            if let nameEvent = state[.mRoomName]?[""],
                let nameContent = nameEvent.content as? RoomNameContent
             {
                 self.name = nameContent.name
             }
             
-            if let avatarEvent = stateEventsCache[.mRoomAvatar]?.last,
+            if let avatarEvent = state[.mRoomAvatar]?[""],
                let avatarContent = avatarEvent.content as? RoomAvatarContent
             {
                 self.avatarUrl = avatarContent.mxc
             }
             
-            if let topicEvent = stateEventsCache[.mRoomTopic]?.last,
+            if let topicEvent = state[.mRoomTopic]?[""],
                let topicContent = topicEvent.content as? RoomTopicContent
             {
                 self.topic = topicContent.topic
             }
             
-            for memberEvent in stateEventsCache[.mRoomMember] ?? [] {
-                if let memberContent = memberEvent.content as? RoomMemberContent,
-                   let stateKey = memberEvent.stateKey,
-                   let memberUserId = UserId(stateKey)
-                {
-                    switch memberContent.membership {
-                    case .join:
-                        joinedMembers.insert(memberUserId)
-                    case .invite:
-                        invitedMembers.insert(memberUserId)
-                    case .ban:
-                        bannedMembers.insert(memberUserId)
-                    case .knock:
-                        knockingMembers.insert(memberUserId)
-                    case .leave:
-                        leftMembers.insert(memberUserId)
-                    }
+            for (memberKey, memberEvent) in state[.mRoomMember] ?? [:] {
+                guard memberKey == memberEvent.stateKey,                           // Sanity check
+                      let memberContent = memberEvent.content as? RoomMemberContent,
+                      let memberUserId = UserId(memberKey)
+                else {
+                    // continue
+                    throw Matrix.Error("Error processing \(EventType.mRoomMember) event for user \(memberKey)")
+                }
+                
+                switch memberContent.membership {
+                case .join:
+                    joinedMembers.insert(memberUserId)
+                case .invite:
+                    invitedMembers.insert(memberUserId)
+                case .ban:
+                    bannedMembers.insert(memberUserId)
+                case .knock:
+                    knockingMembers.insert(memberUserId)
+                case .leave:
+                    leftMembers.insert(memberUserId)
                 }
             }
             
-            let powerLevelsEvents = stateEventsCache[.mRoomPowerLevels] ?? []
-            for powerLevelsEvent in powerLevelsEvents {
+            for (powerLevelsKey, powerLevelsEvent) in state[.mRoomPowerLevels] ?? [:]  {
                 guard powerLevelsEvent.content is RoomPowerLevelsContent
                 else {
-                    throw Matrix.Error("Couldn't parse room power levels")
+                    throw Matrix.Error("Couldn't parse \(EventType.mRoomPowerLevels) event for key \(powerLevelsKey)")
                 }
+                // Do we need to *do* anything with the powerlevels for now?
+                // No?
             }
-            // Do we need to *do* anything with the powerlevels for now?
-            // No?
-            
-            if let encryptionEvent = stateEventsCache[.mRoomEncryption]?.last,
+
+            if let encryptionEvent = state[.mRoomEncryption]?[""],
                let encryptionContent = encryptionEvent.content as? RoomEncryptionContent
             {
                 self.encryptionParams = encryptionContent
@@ -130,8 +136,16 @@ extension Matrix {
             
         }
         
-        public func updateState(from events: [ClientEventWithoutRoomId]) {
+        public func updateState(from events: [ClientEventWithoutRoomId]) throws {
             for event in events {
+                
+                guard let stateKey = event.stateKey
+                else {
+                    let msg = "No state key for \"state\" event of type \(event.type)"
+                    print("updateState:\t\(msg)")
+                    throw Matrix.Error(msg)
+                    //continue
+                }
                 
                 switch event.type {
                 
@@ -207,7 +221,40 @@ extension Matrix {
                     
                 } // end switch event.type
                 
-            } // end func updateState()
+                // Finally, update our local copy of the state to include this event
+                var d = self.state[event.type] ?? [:]
+                d[stateKey] = event
+                self.state[event.type] = d
+                
+            } // end for event in events
+        } // end func updateState()
+        
+        // The minimal list of state events required to reconstitute the room into a useful state
+        // e.g. for displaying the user's room list
+        public var minimalState: [ClientEventWithoutRoomId] {
+            return [
+                state[.mRoomCreate]![""]!,                             // Room creation
+                state[.mRoomEncryption]?[""],                         // Encryption settings
+                state[.mRoomMember]?["\(session.creds.userId)"],      // My membership in the room
+                state[.mRoomPowerLevels]?["\(session.creds.userId)"], // My power level in the room
+                state[.mRoomName]?[""],
+                state[.mRoomAvatar]?[""],
+                state[.mRoomTopic]?[""],
+                state[.mRoomTombstone]?[""],
+            ]
+            .compactMap{ $0 }
+        }
+        
+        public var creator: UserId {
+            state[.mRoomCreate]![""]!.sender
+        }
+        
+        public var lastMessage: ClientEventWithoutRoomId? {
+            messages
+                .sorted {
+                    $0.originServerTS < $1.originServerTS
+                }
+                .last
         }
         
         public func setDisplayName(newName: String) async throws {
@@ -309,4 +356,5 @@ extension Matrix {
             return try await self.session.sendMessageEvent(to: self.roomId, type: .mReaction, content: content)
         }
     }
+    
 }

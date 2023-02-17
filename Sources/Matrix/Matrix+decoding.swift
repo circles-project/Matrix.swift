@@ -9,7 +9,40 @@ import Foundation
 
 extension Matrix {
     
+    /*
+    public static func decodeEventContent(of type: Matrix.EventType, from data: Data) throws -> Codable {
+        let decoder = JSONDecoder()
+                
+        let lookup: [Matrix.EventType : Codable.Type] = [
+            .mRoomCanonicalAlias : RoomCanonicalAliasContent.self,
+            .mRoomCreate : RoomCreateContent.self,
+            .mRoomMember : RoomMemberContent.self,
+            .mRoomJoinRules : RoomJoinRuleContent.self,
+            .mRoomPowerLevels : RoomPowerLevelsContent.self,
+            .mRoomName : RoomNameContent.self,
+            .mRoomAvatar : RoomAvatarContent.self,
+            .mRoomTopic : RoomTopicContent.self,
+            .mPresence : PresenceContent.self,
+            .mTyping : TypingContent.self,
+            .mReceipt : ReceiptContent.self,
+            .mRoomHistoryVisibility : RoomHistoryVisibilityContent.self,
+            .mRoomGuestAccess : RoomGuestAccessContent.self,
+            .mRoomTombstone : RoomTombstoneContent.self,
+            .mTag : TagContent.self,
+            .mRoomEncryption : RoomEncryptionContent.self,
+            .mEncrypted : EncryptedEventContent.self,
+            .mSpaceChild : SpaceChildContent.self,
+            .mSpaceParent : SpaceParentContent.self,
+            .mReaction : ReactionContent.self,
+        ]
+    }
+    */
+    
     public static func decodeEventContent(of type: Matrix.EventType, from decoder: Decoder) throws -> Codable {
+        
+        func decode<T: Decodable>(_ type: T.Type , from container: KeyedDecodingContainer<MinimalEvent.CodingKeys>) throws -> T {
+            return try container.decode(type, forKey: .content)
+        }
         
         let container = try decoder.container(keyedBy: MinimalEvent.CodingKeys.self)
             

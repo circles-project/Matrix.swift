@@ -139,7 +139,7 @@ extension Matrix {
                             print("\t\(messages?.count ?? 0) new messages")
 
                             // Update the room with the latest data from `info`
-                            room.updateState(from: stateEvents ?? [])
+                            try room.updateState(from: stateEvents ?? [])
                             room.messages.formUnion(messages ?? [])
                             
                             if let unread = info.unreadNotifications {

@@ -128,7 +128,7 @@ public enum Matrix {
 
 
 // MARK: EventType
-public enum _MatrixEventType: String, Codable {
+public enum _MatrixEventType: String, Codable, Equatable, Hashable {
     case mRoomCanonicalAlias = "m.room.canonical_alias"
     case mRoomCreate = "m.room.create"
     case mRoomJoinRules = "m.room.join_rules"
