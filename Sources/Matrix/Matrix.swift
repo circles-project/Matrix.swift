@@ -158,7 +158,14 @@ public enum Matrix {
         M_VIDEO : mVideoContent.self,
         M_LOCATION : mLocationContent.self,
     ]
-    static var accountDataTypes: [String: Codable.Type] = [:]
+    static var accountDataTypes: [String: Codable.Type] = [
+        //M_IDENTITY_SERVER : IdentityServerContent.self,
+        //M_FULLY_READ : FullyReadContent.self,
+        M_DIRECT : DirectContent.self,
+        M_IGNORED_USER_LIST : IgnoredUserListContent.self,
+        M_PUSH_RULES : PushRulesContent.self,
+        M_TAG : TagContent.self,
+    ]
     
     public static func registerEventType(_ string: String, _ codable: Codable.Type) {
         eventTypes[string] = codable

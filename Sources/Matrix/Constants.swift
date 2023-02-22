@@ -46,3 +46,13 @@ let M_FILE = "m.file"
 let M_AUDIO = "m.audio"
 let M_VIDEO = "m.video"
 let M_LOCATION = "m.location"
+
+// MARK: Account Data Types
+
+let M_IDENTITY_SERVER = "m.identity_server"
+let M_FULLY_READ = "m.fully_read"
+let M_DIRECT = "m.direct"
+let M_IGNORED_USER_LIST = "m.ignored_user_list"
+let M_PUSH_RULES = "m.push_rules"
+let M_SECRET_STORAGE_KEY = "m.secret_storage_key" // Ugh this one is FUBAR.  The actual format is "m.secret_storage.key.[key ID]"
+// We already have M_TAG = "m.tag"

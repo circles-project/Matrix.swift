@@ -175,36 +175,28 @@ extension Matrix {
 
     }
     
-    public static func decodeAccountData(of dataType: Matrix.AccountDataType, from decoder: Decoder) throws -> Decodable {
-        let container = try decoder.container(keyedBy: MinimalEvent.CodingKeys.self)
+    public static func decodeAccountData(of dataType: String, from decoder: Decoder) throws -> Codable {
+        enum CodingKeys: String, CodingKey {
+            case content
+        }
+        let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        switch dataType {
-            
-        case .mIdentityServer:
-            throw Matrix.Error("Not implemented")
-            
-        case .mIgnoredUserList:
-            let content = try container.decode(IgnoredUserListContent.self, forKey: .content)
-            return content
-            
-        case .mFullyRead:
-            throw Matrix.Error("Not implemented")
-
-        case .mDirect:
-            let content = try container.decode(DirectContent.self, forKey: .content)
-            return content
-            
-        case .mPushRules:
-            let content = try container.decode(PushRulesContent.self, forKey: .content)
-            return content
-
-        case .mSecretStorageKey(let string):
-            throw Matrix.Error("Not implemented")
-
-        case .mTag:
-            let content = try container.decode(TagContent.self, forKey: .content)
+        if let codableType = accountDataTypes[dataType] {
+            let content = try container.decode(codableType.self, forKey: .content)
             return content
         }
+        
+        if dataType.starts(with: M_SECRET_STORAGE_KEY) {
+            guard let keyId = dataType.split(separator: ".").last
+            else {
+                let msg = "Couldn't get key id for \(M_SECRET_STORAGE_KEY)"
+                print(msg)
+                throw Matrix.Error(msg)
+            }
+            throw Matrix.Error("Not implemented")
+        }
+        
+        throw Matrix.Error("Cannot decode unknown account data type \(dataType)")
     }
 
     
