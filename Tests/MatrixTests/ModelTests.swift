@@ -37,7 +37,7 @@ final class ModelTests: XCTestCase {
         print("Full Sync Response:\n\t \(syncResponse)\n")
         
         print("AccountData:\n\t \(syncResponse.accountData!)")
-        XCTAssertEqual(syncResponse.accountData!.events![0].type, _MatrixAccountDataType.mTag)
+        XCTAssertEqual(syncResponse.accountData!.events![0].type, M_TAG)
         XCTAssertEqual((syncResponse.accountData!.events![0].content
                         as! TagContent).tags["u.work"]!.order, 0.9)
         
@@ -46,7 +46,7 @@ final class ModelTests: XCTestCase {
         let presenceData = syncResponse.presence!.events![0]
         let presenceDataContent = presenceData.content as! PresenceContent
         print("Presence:\n\t \(syncResponse.presence!)")
-        XCTAssertEqual(presenceData.type, _MatrixEventType.mPresence)
+        XCTAssertEqual(presenceData.type, M_PRESENCE)
         XCTAssertEqual(presenceData.sender, UserId("@example:localhost.com"))
         XCTAssertEqual(presenceDataContent.avatarUrl, "mxc://localhost/wefuiwegh8742w")
         XCTAssertEqual(presenceDataContent.currentlyActive, false)
@@ -57,13 +57,13 @@ final class ModelTests: XCTestCase {
         let inviteRoomId = RoomId("!696r7674:example.com")!
         print("Room Invite:\n\t \(invite)")
         XCTAssertEqual(invite[inviteRoomId]!.inviteState!.events![0].type,
-                       _MatrixEventType.mRoomName)
+                       M_ROOM_NAME)
         XCTAssertEqual(invite[inviteRoomId]!.inviteState!.events![0].sender,
                        UserId("@alice:example.com"))
         XCTAssertEqual((invite[inviteRoomId]!.inviteState!.events![0].content
                         as! RoomNameContent).name, "My Room Name")
         XCTAssertEqual(invite[inviteRoomId]!.inviteState!.events![1].type,
-                       _MatrixEventType.mRoomMember)
+                       M_ROOM_MEMBER)
         XCTAssertEqual(invite[inviteRoomId]!.inviteState!.events![1].sender,
                        UserId("@alice:example.com"))
         XCTAssertEqual(invite[inviteRoomId]!.inviteState!.events![1].stateKey,
@@ -76,15 +76,15 @@ final class ModelTests: XCTestCase {
         let joinReceiptContentEvents = (join[joinRoomId]!.ephemeral!.events![1].content as! ReceiptContent).events
         let joinReceiptContentEventId = "$1435641916114394fHBLK:matrix.org"
         print("Room Join:\n\t \(join)")
-        XCTAssertEqual(join[joinRoomId]!.accountData!.events![0].type, _MatrixAccountDataType.mTag)
+        XCTAssertEqual(join[joinRoomId]!.accountData!.events![0].type, M_TAG)
         XCTAssertEqual((join[joinRoomId]!.accountData!.events![0].content
                         as! TagContent).tags["u.work"]!.order, 0.9)
         
-        XCTAssertEqual(join[joinRoomId]!.ephemeral!.events![0].type, _MatrixEventType.mTyping)
+        XCTAssertEqual(join[joinRoomId]!.ephemeral!.events![0].type, M_TYPING)
         XCTAssertEqual((join[joinRoomId]!.ephemeral!.events![0].content
                         as! TypingContent).userIds,
                        [UserId("@alice:matrix.org"), UserId("@bob:example.com")])
-        XCTAssertEqual(join[joinRoomId]!.ephemeral!.events![1].type, _MatrixEventType.mReceipt)
+        XCTAssertEqual(join[joinRoomId]!.ephemeral!.events![1].type, M_RECEIPT)
         
         for receiptType in joinReceiptContentEvents[joinReceiptContentEventId]! {
             switch receiptType {
@@ -99,7 +99,7 @@ final class ModelTests: XCTestCase {
             }
         }
         
-        XCTAssertEqual(join[joinRoomId]!.state!.events![0].type, _MatrixEventType.mRoomMember)
+        XCTAssertEqual(join[joinRoomId]!.state!.events![0].type, M_ROOM_MEMBER)
         XCTAssertEqual(join[joinRoomId]!.state!.events![0].eventId, "$143273582443PhrSn:example.org")
         XCTAssertEqual(join[joinRoomId]!.state!.events![0].originServerTS, 1432735824653)
         XCTAssertEqual(join[joinRoomId]!.state!.events![0].sender, UserId("@example:example.org"))
@@ -121,7 +121,7 @@ final class ModelTests: XCTestCase {
         
         XCTAssertEqual(join[joinRoomId]!.timeline!.limited, true)
         XCTAssertEqual(join[joinRoomId]!.timeline!.prevBatch, "t34-23535_0_0")
-        XCTAssertEqual(join[joinRoomId]!.timeline!.events[0].type, _MatrixEventType.mRoomMember)
+        XCTAssertEqual(join[joinRoomId]!.timeline!.events[0].type, M_ROOM_MEMBER)
         XCTAssertEqual(join[joinRoomId]!.timeline!.events[0].eventId, "$143273582443PhrSn:example.org")
         XCTAssertEqual(join[joinRoomId]!.timeline!.events[0].originServerTS, 1432735824653)
         XCTAssertEqual(join[joinRoomId]!.timeline!.events[0].sender, UserId("@example:example.org"))
@@ -136,7 +136,7 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual((join[joinRoomId]!.timeline!.events[0].content
                         as! RoomMemberContent).reason, "Looking for support")
         
-        XCTAssertEqual(join[joinRoomId]!.timeline!.events[1].type, _MatrixEventType.mRoomMessage)
+        XCTAssertEqual(join[joinRoomId]!.timeline!.events[1].type, M_ROOM_MESSAGE)
         XCTAssertEqual(join[joinRoomId]!.timeline!.events[1].eventId, "$143273582443PhrSn:example.org")
         XCTAssertEqual(join[joinRoomId]!.timeline!.events[1].originServerTS, 1432735824653)
         XCTAssertEqual(join[joinRoomId]!.timeline!.events[1].sender, UserId("@example:example.org"))
@@ -158,11 +158,11 @@ final class ModelTests: XCTestCase {
         let knock = syncResponse.rooms!.knock!
         let knockRoomId = RoomId("!223asd456:example.com")!
         print("Room Knock:\n\t \(knock)")
-        XCTAssertEqual(knock[knockRoomId]!.knockState!.events[0].type, _MatrixEventType.mRoomName)
+        XCTAssertEqual(knock[knockRoomId]!.knockState!.events[0].type, M_ROOM_NAME)
         XCTAssertEqual(knock[knockRoomId]!.knockState!.events[0].sender, UserId("@alice:example.com"))
         XCTAssertEqual((knock[knockRoomId]!.knockState!.events[0].content
                         as! RoomNameContent).name, "My Room Name")
-        XCTAssertEqual(knock[knockRoomId]!.knockState!.events[1].type, _MatrixEventType.mRoomMember)
+        XCTAssertEqual(knock[knockRoomId]!.knockState!.events[1].type, M_ROOM_MEMBER)
         XCTAssertEqual(knock[knockRoomId]!.knockState!.events[1].sender, UserId("@bob:example.com"))
         XCTAssertEqual(knock[knockRoomId]!.knockState!.events[1].stateKey, "@bob:example.com")
         XCTAssertEqual((knock[knockRoomId]!.knockState!.events[1].content
@@ -174,7 +174,7 @@ final class ModelTests: XCTestCase {
         let room = try decoder.decode(ClientEvent.self, from: JSONResponses.RoomEvent.roomCreate)
         print(room)
         
-        XCTAssertEqual(room.type, _MatrixEventType.mRoomCreate)
+        XCTAssertEqual(room.type, M_ROOM_CREATE)
         XCTAssertEqual(room.eventId, "$143273582443PhrSn:example.org")
         XCTAssertEqual(room.originServerTS, 1432735824653)
         XCTAssertEqual(room.roomId, RoomId("!jEsUZKDJdhlrceRyVU:example.org"))
