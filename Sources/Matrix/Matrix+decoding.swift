@@ -9,9 +9,58 @@ import Foundation
 
 extension Matrix {
     
-    public static func decodeEventContent(of type: Matrix.EventType, from decoder: Decoder) throws -> Codable {
+    public static func decodeEventContent(of eventType: String, from data: Data) throws -> Codable {
+        let decoder = JSONDecoder()
+        if let codableType = eventTypes[eventType] {
+            let content = try decoder.decode(codableType.self, from: data)
+            return content
+        }
+        if eventType == M_ROOM_MESSAGE {
+            // Peek into the content struct to examine the `msgtype`
+            struct MinimalMessageContent: Codable {
+                var msgtype: String
+            }
+            let mmc = try decoder.decode(MinimalMessageContent.self, from: data)
+            let msgtype = mmc.msgtype
+            
+            guard let codableType = messageTypes[msgtype]
+            else {
+                throw Matrix.Error("Cannot decode unknown message type \(msgtype)")
+            }
+            
+            let content = try decoder.decode(codableType.self, from: data)
+            return content
+        }
         
+        throw Matrix.Error("Cannot decode unknown event type \(eventType)")
+    }
+    
+    public static func decodeEventContent(of eventType: String, from decoder: Decoder) throws -> Codable {
         let container = try decoder.container(keyedBy: MinimalEvent.CodingKeys.self)
+
+        if let codableType = eventTypes[eventType] {
+            let content = try container.decode(codableType.self, forKey: .content)
+            return content
+        }
+        
+        if eventType == M_ROOM_MESSAGE {
+            // Peek into the content struct to examine the `msgtype`
+            struct MinimalMessageContent: Codable {
+                var msgtype: String
+            }
+            let mmc = try container.decode(MinimalMessageContent.self, forKey: .content)
+            // Now use the msgtype to determine how we decode the content
+            guard let codableType = messageTypes[mmc.msgtype]
+            else {
+                throw Matrix.Error("Cannot decode unknown message type \(mmc.msgtype)")
+            }
+            let content = try container.decode(codableType.self, forKey: .content)
+            return content
+        }
+        
+        throw Matrix.Error("Cannot decode unknown event type \(eventType)")
+        
+        /*
             
         switch type {
         case .mRoomCanonicalAlias:
@@ -121,8 +170,9 @@ extension Matrix {
                 let content = try container.decode(mFileContent.self, forKey: .content)
                 return content
             }
-
         }
+         */
+
     }
     
     public static func decodeAccountData(of dataType: Matrix.AccountDataType, from decoder: Decoder) throws -> Decodable {

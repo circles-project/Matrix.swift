@@ -16,10 +16,10 @@ extension Matrix {
         public var limit: Int?
         public var notRooms: [RoomId]?
         public var notSenders: [UserId]?
-        public var notTypes: [EventType]?
+        public var notTypes: [String]?
         public var rooms: [RoomId]?
         public var senders: [UserId]?
-        public var types: [EventType]?
+        public var types: [String]?
         
         public enum CodingKeys: String, CodingKey {
             case containsUrl = "contains_url"

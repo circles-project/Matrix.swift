@@ -396,7 +396,7 @@ public class Client {
             struct StateEvent: Matrix.Event {
                 var content: Codable
                 var stateKey: String
-                var type: Matrix.EventType
+                var type: String
                 
                 enum CodingKeys: String, CodingKey {
                     case content
@@ -404,7 +404,7 @@ public class Client {
                     case type
                 }
                 
-                init(type: Matrix.EventType, stateKey: String = "", content: Codable) {
+                init(type: String, stateKey: String = "", content: Codable) {
                     self.type = type
                     self.stateKey = stateKey
                     self.content = content
@@ -413,7 +413,7 @@ public class Client {
                 init(from decoder: Decoder) throws {
                     let container = try decoder.container(keyedBy: CodingKeys.self)
                     self.stateKey = try container.decode(String.self, forKey: .stateKey)
-                    self.type = try container.decode(Matrix.EventType.self, forKey: .type)
+                    self.type = try container.decode(String.self, forKey: .type)
                     //let minimal = try MinimalEvent(from: decoder)
                     //self.content = minimal.content
                     self.content = try Matrix.decodeEventContent(of: type, from: decoder)
@@ -423,7 +423,7 @@ public class Client {
                     var container = encoder.container(keyedBy: CodingKeys.self)
                     try container.encode(stateKey, forKey: .stateKey)
                     try container.encode(type, forKey: .type)
-                    try Matrix.encodeEventContent(content: content, of: type, to: encoder)
+                    try container.encode(AnyCodable(content), forKey:.content)
                 }
             }
             var initial_state: [StateEvent]?
@@ -450,7 +450,7 @@ public class Client {
                 self.name = name
                 if encrypted {
                     let encryptionEvent = StateEvent(
-                        type: Matrix.EventType.mRoomEncryption,
+                        type: M_ROOM_ENCRYPTION,
                         stateKey: "",
                         content: RoomEncryptionContent()
                     )
@@ -485,11 +485,11 @@ public class Client {
     }
     
     public func sendStateEvent(to roomId: RoomId,
-                        type: Matrix.EventType,
+                        type: String,
                         content: Codable,
                         stateKey: String = ""
     ) async throws -> EventId {
-        print("SENDSTATE\tSending state event of type [\(type.rawValue)] to room [\(roomId)]")
+        print("SENDSTATE\tSending state event of type [\(type)] to room [\(roomId)]")
         
         let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
         let (data, response) = try await call(method: "PUT",
@@ -512,10 +512,10 @@ public class Client {
     
     // https://spec.matrix.org/v1.5/client-server-api/#put_matrixclientv3roomsroomidsendeventtypetxnid
     public func sendMessageEvent(to roomId: RoomId,
-                          type: Matrix.EventType,
+                          type: String,
                           content: Codable
     ) async throws -> EventId {
-        print("SENDMESSAGE\tSending message event of type [\(type.rawValue)] to room [\(roomId)]")
+        print("SENDMESSAGE\tSending message event of type [\(type)] to room [\(roomId)]")
 
         let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
         let (data, response) = try await call(method: "PUT",
@@ -640,12 +640,12 @@ public class Client {
                               mimetype: "image/jpeg",
                               size: jpegData.count)
         
-        let _ = try await sendStateEvent(to: roomId, type: Matrix.EventType.mRoomAvatar, content: RoomAvatarContent(mxc: mxc, info: info))
+        let _ = try await sendStateEvent(to: roomId, type: M_ROOM_AVATAR, content: RoomAvatarContent(mxc: mxc, info: info))
     }
 
     
     public func getAvatarImage(roomId: RoomId) async throws -> Matrix.NativeImage? {
-        guard let content = try? await getRoomState(roomId: roomId, for: .mRoomAvatar, of: RoomAvatarContent.self)
+        guard let content = try? await getRoomState(roomId: roomId, eventType: M_ROOM_AVATAR) as? RoomAvatarContent
         else {
             // No avatar for this room???
             return nil
@@ -657,15 +657,18 @@ public class Client {
     }
     
     public func setTopic(roomId: RoomId, topic: String) async throws {
-        let _ = try await sendStateEvent(to: roomId, type: .mRoomTopic, content: ["topic": topic])
+        let _ = try await sendStateEvent(to: roomId, type: M_ROOM_TOPIC, content: ["topic": topic])
     }
     
-    public func setDisplayName(roomId: RoomId, name: String) async throws {
-        try await sendStateEvent(to: roomId, type: .mRoomName, content: RoomNameContent(name: name))
+    public func setRoomName(roomId: RoomId, name: String) async throws {
+        try await sendStateEvent(to: roomId, type: M_ROOM_NAME, content: RoomNameContent(name: name))
     }
     
-    public func getDisplayName(roomId: RoomId) async throws -> String {
-        let content = try await getRoomState(roomId: roomId, for: .mRoomName, of: RoomNameContent.self)
+    public func getRoomName(roomId: RoomId) async throws -> String? {
+        guard let content = try await getRoomState(roomId: roomId, eventType: M_ROOM_NAME) as? RoomNameContent
+        else {
+            return nil
+        }
         return content.name
     }
     
@@ -729,7 +732,7 @@ public class Client {
     }
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3roomsroomidstate
-    public func getRoomState(roomId: RoomId) async throws -> [ClientEvent] {
+    public func getRoomStateEvents(roomId: RoomId) async throws -> [ClientEvent] {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/state"
         
         let (data, response) = try await call(method: "GET", path: path)
@@ -740,14 +743,14 @@ public class Client {
         return events
     }
     
-    public func getRoomState<T>(roomId: RoomId, for eventType: Matrix.EventType, of dataType: T.Type, with stateKey: String? = nil) async throws -> T where T: Decodable {
-        let path = "/_matrix/client/\(version)/rooms/\(roomId)/state/\(eventType)/\(stateKey ?? "")"
+    public func getRoomState(roomId: RoomId, eventType: String, with stateKey: String = "") async throws -> Codable {
+        let path = "/_matrix/client/\(version)/rooms/\(roomId)/state/\(eventType)/\(stateKey)"
         let (data, response) = try await call(method: "GET", path: path)
         
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        
-        guard let content = try? decoder.decode(dataType, from: data)
+
+        guard let codableType = Matrix.eventTypes[eventType],
+              let content = try? decoder.decode(codableType.self, from: data)
         else {
             let msg = "Couldn't decode room state for event type \(eventType)"
             print(msg)
@@ -837,37 +840,78 @@ public class Client {
         let servers = Array(Set([child.domain, parent.domain]))
         let order = (0x20 ... 0x7e).randomElement()?.description ?? "A"
         let content = SpaceChildContent(order: order, via: servers)
-        let _ = try await sendStateEvent(to: parent, type: .mSpaceChild, content: content, stateKey: child.description)
+        let _ = try await sendStateEvent(to: parent, type: M_SPACE_CHILD, content: content, stateKey: child.description)
     }
     
     public func addSpaceParent(_ parent: RoomId, to child: RoomId, canonical: Bool = false) async throws {
         let servers = Array(Set([child.domain, parent.domain]))
         let content = SpaceParentContent(canonical: canonical, via: servers)
-        let _ = try await sendStateEvent(to: child, type: .mSpaceParent, content: content, stateKey: parent.description)
+        let _ = try await sendStateEvent(to: child, type: M_SPACE_PARENT, content: content, stateKey: parent.description)
     }
     
+    // https://spec.matrix.org/v1.5/client-server-api/#get_matrixclientv1roomsroomidhierarchy
     public func getSpaceChildren(_ roomId: RoomId) async throws -> [RoomId] {
-        let allStateEvents = try await getRoomState(roomId: roomId)
-        let spaceChildEvents = allStateEvents.filter {
-            $0.type == .mSpaceChild
-        }
-        return spaceChildEvents.compactMap {
-            guard let childRoomIdString = $0.stateKey,
-                  let content = $0.content as? SpaceChildContent,
-                  content.via != nil  // This check for `via` is the only way we have to know if this child relationship is still valid
-            else {
-                return nil
+        var children: [RoomId] = []
+        var nextBatch: String? = nil
+        
+        repeat {
+            var path = "/_matrix/client/v1/rooms/\(roomId)/hierarchy?max_depth=1"
+            if let start = nextBatch {
+                path += "&from=\(start)"
             }
+            let (data, response) = try await call(method: "GET", path: path)
             
-            return RoomId(childRoomIdString)
-        }
+            struct SpaceHierarchyResponseBody: Decodable {
+                var nextBatch: String?
+                var rooms: [ChildRoomsChunk]
+                
+                enum CodingKeys: String, CodingKey {
+                    case nextBatch = "next_batch"
+                    case rooms
+                }
+                
+                struct ChildRoomsChunk: Decodable {
+                    var avatarUrl: MXC?
+                    var canonicalAlias: String?
+                    var childrenState: [StrippedStateEvent]
+                    var guestCanJoin: Bool
+                    var joinRule: RoomJoinRuleContent.JoinRule?
+                    var name: String?
+                    var numJoinedMembers: Int
+                    var roomId: RoomId
+                    var roomType: String?
+                    var topic: String?
+                    var worldReadable: Bool
+                    
+                    enum CodingKeys: String, CodingKey {
+                        case avatarUrl = "avatar_url"
+                        case canonicalAlias = "canonical_alias"
+                        case childrenState = "children_state"
+                        case guestCanJoin = "guest_can_join"
+                        case joinRule = "join_rule"
+                        case name
+                        case numJoinedMembers = "num_joined_members"
+                        case roomId = "room_id"
+                        case roomType = "room_type"
+                        case topic
+                        case worldReadable = "world_readable"
+                    }
+                }
+            }
+            let decoder = JSONDecoder()
+            let hierarchy = try decoder.decode(SpaceHierarchyResponseBody.self, from: data)
+            nextBatch = hierarchy.nextBatch
+            children += hierarchy.rooms.map { $0.roomId }
+        } while nextBatch != nil
+                    
+        return children
     }
     
     public func removeSpaceChild(_ child: RoomId, from parent: RoomId) async throws {
         print("SPACES\tRemoving [\(child)] as a child space of [\(parent)]")
         let order = "\(0x7e)"
         let content = SpaceChildContent(order: order, via: nil)  // This stupid `via = nil` thing is the only way we have to remove a child relationship
-        let _ = try await sendStateEvent(to: parent, type: .mSpaceChild, content: content, stateKey: child.description)
+        let _ = try await sendStateEvent(to: parent, type: M_SPACE_CHILD, content: content, stateKey: child.description)
     }
     
 

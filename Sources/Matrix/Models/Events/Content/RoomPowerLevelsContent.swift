@@ -14,7 +14,7 @@ public struct RoomPowerLevelsContent: Codable {
     public let ban: Int?
     public let redact: Int?
     
-    public let events: [Matrix.EventType: Int]?
+    public let events: [String: Int]?
     public let eventsDefault: Int?
 
     public let notifications: [String: Int]?
@@ -28,7 +28,7 @@ public struct RoomPowerLevelsContent: Codable {
                 kick: Int? = nil,
                 ban: Int? = nil,
                 redact: Int? = nil,
-                events: [Matrix.EventType : Int]? = nil,
+                events: [String : Int]? = nil,
                 eventsDefault: Int? = nil,
                 notifications: [String : Int]? = nil,
                 stateDefault: Int? = nil,

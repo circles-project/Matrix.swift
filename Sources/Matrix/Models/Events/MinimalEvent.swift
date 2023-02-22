@@ -6,12 +6,13 @@
 //
 
 import Foundation
+import AnyCodable
 
 // The bare minimum implementation of the MatrixEvent protocol
 // Used for decoding other event types
 // Also used in the /sync response for AccountData, Presence, etc.
 public struct MinimalEvent: Matrix.Event {
-    public let type: Matrix.EventType
+    public let type: String
     public let sender: UserId?
     public let content: Codable
     
@@ -23,7 +24,7 @@ public struct MinimalEvent: Matrix.Event {
     
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.type = try container.decode(Matrix.EventType.self, forKey: .type)
+        self.type = try container.decode(String.self, forKey: .type)
         self.sender = try container.decodeIfPresent(UserId.self, forKey: .sender)
         self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
     }
@@ -35,7 +36,7 @@ public struct MinimalEvent: Matrix.Event {
             try container.encode(senderUserId, forKey: .sender)
         }
         try container.encode(type, forKey: .type)
-        try Matrix.encodeEventContent(content: content, of: type, to: encoder)
+        try container.encode(AnyCodable(content), forKey: .content)
     }
 }
 
