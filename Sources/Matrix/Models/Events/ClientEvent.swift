@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AnyCodable
 
 public struct ClientEvent: Matrix.Event {
     public let content: Codable
@@ -14,7 +15,7 @@ public struct ClientEvent: Matrix.Event {
     public let roomId: RoomId
     public let sender: UserId
     public let stateKey: String?
-    public let type: Matrix.EventType
+    public let type: String
     
     public struct UnsignedData: Codable {
         public let age: Int
@@ -47,7 +48,7 @@ public struct ClientEvent: Matrix.Event {
         self.roomId = try container.decode(RoomId.self, forKey: .roomId)
         self.sender = try container.decode(UserId.self, forKey: .sender)
         self.stateKey = try? container.decode(String.self, forKey: .stateKey)
-        self.type = try container.decode(Matrix.EventType.self, forKey: .type)
+        self.type = try container.decode(String.self, forKey: .type)
         self.unsigned = try? container.decode(UnsignedData.self, forKey: .unsigned)
         
         self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
@@ -62,7 +63,7 @@ public struct ClientEvent: Matrix.Event {
         try container.encode(stateKey, forKey: .stateKey)
         try container.encode(type, forKey: .type)
         try container.encode(unsigned, forKey: .unsigned)
-        try Matrix.encodeEventContent(content: content, of: type, to: encoder)
+        try container.encode(AnyCodable(content), forKey: .content)
     }
 }
 

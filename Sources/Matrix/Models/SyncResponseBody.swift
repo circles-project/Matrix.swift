@@ -10,7 +10,7 @@ import Foundation
 extension Matrix {
     
     public struct AccountDataEvent: Decodable {
-        public var type: AccountDataType
+        public var type: String
         public var content: Decodable
         
         public enum CodingKeys: String, CodingKey {
@@ -22,7 +22,7 @@ extension Matrix {
             print("Decoding account data event")
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
-            self.type = try container.decode(AccountDataType.self, forKey: .type)
+            self.type = try container.decode(String.self, forKey: .type)
             print("\tGot type = \(self.type)")
             self.content = try Matrix.decodeAccountData(of: self.type, from: decoder)
         }
