@@ -25,35 +25,60 @@ extension Matrix {
         
         @Published public var rooms: [RoomId: Matrix.Room]
         @Published public var invitations: [RoomId: Matrix.InvitedRoom]
+        
+        // cvw: Stuff that we need to add, but haven't got to yet
+        public var accountData: [Matrix.AccountDataType: Codable]
 
         // Need some private stuff that outside callers can't see
+        private var dataStore: DataStore?
         private var syncRequestTask: Task<String?,Swift.Error>? // FIXME Use a TaskGroup to make this subordinate to the backgroundSyncTask
         private var syncToken: String? = nil
         private var syncRequestTimeout: Int = 30_000
         private var keepSyncing: Bool
-        private var syncDelayNs: UInt64 = 30_000_000_000
+        private var syncDelayNS: UInt64 = 30_000_000_000
         private var backgroundSyncTask: Task<UInt,Swift.Error>? // FIXME use a TaskGroup
         
-        private var ignoreUserIds: Set<UserId>
+        // FIXME: Derive this from our account data???
+        // The type is `m.ignored_user_list` https://spec.matrix.org/v1.5/client-server-api/#mignored_user_list
+        private var ignoreUserIds: [UserId] {
+            guard let content = self.accountData[.mIgnoredUserList] as? IgnoredUserListContent
+            else {
+                return []
+            }
+            return content.ignoredUsers
+        }
 
         // We need to use the Matrix 'recovery' feature to back up crypto keys etc
         // This saves us from struggling with UISI errors and unverified devices
         private var recoverySecretKey: Data?
         private var recoveryTimestamp: Date?
         
-        public init(creds: Credentials, startSyncing: Bool = true) throws {
+        public init(creds: Credentials,
+                    syncToken: String? = nil, startSyncing: Bool = true,
+                    displayname: String? = nil, avatarUrl: MXC? = nil, statusMessage: String? = nil,
+                    recoverySecretKey: Data? = nil, recoveryTimestamp: Data? = nil,
+                    storageType: StorageType = .persistent
+        ) async throws {
             self.rooms = [:]
             self.invitations = [:]
-            
-            self.ignoreUserIds = []
-            
+            self.accountData = [:]
+                        
             self.keepSyncing = startSyncing
             // Initialize the sync tasks to nil so we can run super.init()
             self.syncRequestTask = nil
             self.backgroundSyncTask = nil
             
+            // Another Swift annoyance.  It's hard (impossible) to have a hierarchy of objects that are all initialized together.
+            // So we have to make the DataStore an optional in order for it to get a pointer to us.
+            // And here we initialize it to nil so we can call super.init()
+            self.dataStore = nil
             
             try super.init(creds: creds)
+
+            // Phase 1 init is done -- Now we can reference `self`
+            
+            self.dataStore = try await GRDBDataStore(session: self, type: storageType)
+
             
             // Ok now we're initialized as a valid Matrix.Client (super class)
             // Are we supposed to start syncing?
@@ -73,8 +98,11 @@ extension Matrix {
         // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3sync
         public func sync() async throws -> String? {
             
-            // FIXME: Use a TaskGroup
-            syncRequestTask = syncRequestTask ?? .init(priority: .background) {
+            // Stupid Swift compiler couldn't figure out that the operation's return type is actually `String?`,
+            // despite telling it multiple different ways.  Xcode seems to understand, but the compiler does not.
+            // Oh well fine.  We just break that code out into its own named function so we can be explicit about its type.
+            @Sendable
+            func syncTaskOperation() async throws -> String? {
                 var url = "/_matrix/client/v3/sync?timeout=\(self.syncRequestTimeout)"
                 if let token = syncToken {
                     url += "&since=\(token)"
@@ -86,11 +114,6 @@ extension Matrix {
                 
                 guard response.statusCode == 200 else {
                     print("ERROR: /sync got HTTP \(response.statusCode) \(response.description)")
-                    if response.statusCode == 429 {
-                        // Slow down!
-                        // FIXME: Decode the response data to find out how much we should slow down
-                        try await Task.sleep(nanoseconds: 30_000_000_000)
-                    }
                     //return self.syncToken
                     return nil
                 }
@@ -128,19 +151,22 @@ extension Matrix {
                     print("/sync:\t\(joinedRoomsDict.count) joined rooms")
                     for (roomId, info) in joinedRoomsDict {
                         print("/sync:\tFound joined room \(roomId)")
+                        /*
                         let messages = info.timeline?.events.filter {
                             $0.type == .mRoomMessage // FIXME: Encryption
                         }
-                        let stateEvents = info.state?.events
+                        */
+                        let stateEvents = info.state?.events ?? []
+                        let timelineEvents = info.timeline?.events ?? []
 
                         if let room = self.rooms[roomId] {
                             print("\tWe know this room already")
-                            print("\t\(stateEvents?.count ?? 0) new state events")
-                            print("\t\(messages?.count ?? 0) new messages")
+                            print("\t\(stateEvents.count) new state events")
+                            print("\t\(timelineEvents.count) new events in the timeline")
 
                             // Update the room with the latest data from `info`
-                            try room.updateState(from: stateEvents ?? [])
-                            room.messages.formUnion(messages ?? [])
+                            try await room.updateState(from: stateEvents)
+                            try await room.updateTimeline(from: timelineEvents)
                             
                             if let unread = info.unreadNotifications {
                                 print("\t\(unread.notificationCount) notifications")
@@ -155,15 +181,10 @@ extension Matrix {
                             // Create the new Room object.  Also, remove the room id from the invites.
                             invitations.removeValue(forKey: roomId)
                             
-                            guard let initialStateEvents = stateEvents
-                            else {
-                                print("Can't create a new room with no initial state (room id = \(roomId))")
-                                continue
-                            }
-                            print("\t\(initialStateEvents.count) initial state events")
-                            print("\t\(messages?.count ?? 0) initial messages")
+                            print("\t\(stateEvents.count) initial state events")
+                            print("\t\(timelineEvents.count) initial timeline events")
                             
-                            guard let room = try? Room(roomId: roomId, session: self, initialState: initialStateEvents, initialMessages: messages ?? [])
+                            guard let room = try? Room(roomId: roomId, session: self, initialState: stateEvents, initialTimeline: timelineEvents)
                             else {
                                 print("Failed to create room \(roomId)")
                                 continue
@@ -177,6 +198,13 @@ extension Matrix {
                                 room.highlightCount = unread.highlightCount
                             }
                         }
+                        
+                        // Save events to the datastore
+                        if let store = self.dataStore {
+                            try await store.save(events: stateEvents, in: roomId)
+                            try await store.save(events: timelineEvents, in: roomId)
+                        }
+                        
                     }
                 } else {
                     print("/sync:\tNo joined rooms")
@@ -211,6 +239,9 @@ extension Matrix {
                 return responseBody.nextBatch
             
             }
+            
+            // FIXME: Use a TaskGroup
+            syncRequestTask = syncRequestTask ?? .init(priority: .background, operation: syncTaskOperation)
             
             guard let task = syncRequestTask else {
                 print("Error: /sync Failed to launch sync request task")

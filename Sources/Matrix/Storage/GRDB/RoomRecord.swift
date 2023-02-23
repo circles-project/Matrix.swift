@@ -52,7 +52,7 @@ extension RoomRecord: FetchableRecord, TableRecord {
         case minimalState
         case latestMessages
     }
-        
+
     public init(row: Row) {
 
         self.roomId = row[Columns.roomId] as RoomId

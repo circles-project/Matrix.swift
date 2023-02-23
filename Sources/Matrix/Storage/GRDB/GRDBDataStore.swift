@@ -9,11 +9,12 @@ import Foundation
 
 import GRDB
 
-struct GRDBDataStore: DataStore {
-    var session: Matrix.Session
+public struct GRDBDataStore: DataStore {
     //let db: Database
     let dbQueue: DatabaseQueue
     var migrator: DatabaseMigrator
+    
+    public var session: Matrix.Session
     
     // MARK: Migrations
     
@@ -21,6 +22,7 @@ struct GRDBDataStore: DataStore {
         // First Migration -- Create the basic tables
         migrator.registerMigration("Create Tables") { db in
             
+            // Events database
             try db.create(table: "events") { t in
                 t.column("eventId", .text).unique().notNull()
                 t.column("roomId", .text).notNull()
@@ -30,6 +32,21 @@ struct GRDBDataStore: DataStore {
                 t.column("originServerTS", .integer).notNull()
                 t.column("content", .blob).notNull()
                 t.primaryKey(["eventId"])
+            }
+            
+            // Room state events
+            // This is almost the same schema as `events`, except:
+            // * stateKey is NOT NULL
+            // * primary key is (roomId, type, stateKey) instead of eventId
+            try db.create(table: "roomState") { t in
+                t.column("eventId", .text).notNull()
+                t.column("roomId", .text).notNull()
+                t.column("sender", .text).notNull()
+                t.column("type", .text).notNull()
+                t.column("stateKey", .text).notNull()
+                t.column("originServerTS", .integer).notNull()
+                t.column("content", .blob).notNull()
+                t.primaryKey(["roomId", "type", "stateKey"])
             }
             
             try db.create(table: "rooms") { t in
@@ -79,6 +96,30 @@ struct GRDBDataStore: DataStore {
                 t.column("content", .blob)
                 t.primaryKey(["userId", "roomId", "type"])
             }
+            
+            // FIXME: Really this should move into a different type
+            //        The existing data store is for all the stuff *inside* a session
+            //        It has no notion of multiple sessions at all
+            try db.create(table: "sessions") { t in
+                t.column("userId", .text).notNull()
+                t.column("deviceId", .text).notNull()
+                t.column("accessToken", .text).notNull()
+                t.column("homeserver", .text).notNull()
+                
+                t.column("displayname", .text)
+                t.column("avatarUrl", .text)
+                t.column("statusMessage", .text)
+                
+                t.column("syncToken", .text)
+                t.column("syncing", .boolean)
+                t.column("syncRequestTimeout", .integer).notNull()
+                t.column("syncDelayNS", .integer).notNull()
+                
+                t.column("recoverySecretKey", .blob)
+                t.column("recoveryTimestamp", .datetime)
+                
+                t.primaryKey(["userId"])
+            }
         }
         
         try migrator.migrate(dbQueue)
@@ -86,19 +127,24 @@ struct GRDBDataStore: DataStore {
     
     // MARK: init()
     
-    init(queue: DatabaseQueue, session: Matrix.Session) async throws {
-        //dbQueue = try DatabaseQueue(path: path)
-        self.dbQueue = queue
+    public init(session: Matrix.Session, type: StorageType) async throws {
         self.session = session
-        self.migrator = DatabaseMigrator()
+        let path = NSHomeDirectory() + "/" + "\(session.creds.userId)" // FIXME
+        switch type {
+        case .inMemory:
+            self.dbQueue = DatabaseQueue()
+        case .persistent:
+            self.dbQueue = try DatabaseQueue(path: path)
+        }
         
+        self.migrator = DatabaseMigrator()
         try runMigrations()
         
     }
     
     // MARK: Events
     
-    func save(events: [ClientEvent]) async throws {
+    public func save(events: [ClientEvent]) async throws {
         try await dbQueue.write { db in
             for event in events {
                 try event.save(db)
@@ -106,7 +152,7 @@ struct GRDBDataStore: DataStore {
         }
     }
     
-    func save(events: [ClientEventWithoutRoomId], in roomId: RoomId) async throws {
+    public func save(events: [ClientEventWithoutRoomId], in roomId: RoomId) async throws {
         let clientEvents = try events.map {
             try ClientEvent(from: $0, roomId: roomId)
         }
@@ -117,7 +163,7 @@ struct GRDBDataStore: DataStore {
         }
     }
     
-    func loadEvents(for roomId: RoomId,
+    public func loadEvents(for roomId: RoomId,
                     limit: Int = 25, offset: Int? = nil
     ) async throws -> [ClientEvent] {
         let roomIdColumn = ClientEvent.Columns.roomId
@@ -132,8 +178,8 @@ struct GRDBDataStore: DataStore {
         return events
     }
     
-    func loadEvents(for roomId: RoomId, of types: [Matrix.EventType],
-                    limit: Int = 25, offset: Int? = nil
+    public func loadEvents(for roomId: RoomId, of types: [Matrix.EventType],
+                           limit: Int = 25, offset: Int? = nil
     ) async throws -> [ClientEvent] {
         let roomIdColumn = ClientEvent.Columns.roomId
         let typeColumn = ClientEvent.Columns.type
@@ -152,26 +198,32 @@ struct GRDBDataStore: DataStore {
         return events
     }
     
-    func loadStateEvents(for roomId: RoomId,
-                         limit: Int = 25, offset: Int? = nil
+    public func loadStateEvents(for roomId: RoomId,
+                                limit: Int = 25, offset: Int? = nil
     ) async throws -> [ClientEvent] {
         let roomIdColumn = ClientEvent.Columns.roomId
-        let stateKeyColumn = ClientEvent.Columns.stateKey
+        // let stateKeyColumn = ClientEvent.Columns.stateKey
         let timestampColumn = ClientEvent.Columns.originServerTS
+        let table = Table<ClientEvent>("state")
+        let request = table.filter(roomIdColumn == "\(roomId)")
+                           .order(timestampColumn.desc)
+                           .limit(limit, offset: offset)
         let events = try await dbQueue.read { db -> [ClientEvent] in
-            try ClientEvent
-                .filter(roomIdColumn == "\(roomId)")
-                .filter(stateKeyColumn != nil)
-                .order(timestampColumn.desc)
-                .limit(limit, offset: offset)
-                .fetchAll(db)
+            try request.fetchAll(db)
         }
         return events
     }
     
+    public func saveStateEvents(events: [ClientEventWithoutRoomId], in: RoomId) async throws {
+        let table = Table<ClientEvent>("state")
+        for event in events {
+            
+        }
+    }
+    
     // MARK: Rooms
     
-    func loadRooms(limit: Int=100, offset: Int? = nil) async throws -> [Matrix.Room] {
+    public func loadRooms(limit: Int=100, offset: Int? = nil) async throws -> [Matrix.Room] {
         let timestampColumn = RoomRecord.Columns.timestamp
         let records = try await dbQueue.read { db -> [RoomRecord] in
             try RoomRecord
@@ -183,12 +235,12 @@ struct GRDBDataStore: DataStore {
             let decoder = JSONDecoder()
             let stateEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.minimalState)
             let messageEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.latestMessages)
-            return try? Matrix.Room(roomId: rec.roomId, session: self.session, initialState: stateEvents, initialMessages: messageEvents)
+            return try? Matrix.Room(roomId: rec.roomId, session: self.session, initialState: stateEvents, initialTimeline: messageEvents)
         }
         return rooms
     }
     
-    func loadRooms(of type: String?, limit: Int=100, offset: Int?=nil) async throws -> [Matrix.Room] {
+    public func loadRooms(of type: String?, limit: Int=100, offset: Int?=nil) async throws -> [Matrix.Room] {
         let timestampColumn = RoomRecord.Columns.timestamp
         let typeColumn = RoomRecord.Columns.type
         let records = try await dbQueue.read { db -> [RoomRecord] in
@@ -202,12 +254,12 @@ struct GRDBDataStore: DataStore {
             let decoder = JSONDecoder()
             let stateEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.minimalState)
             let messageEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.latestMessages)
-            return try? Matrix.Room(roomId: rec.roomId, session: self.session, initialState: stateEvents, initialMessages: messageEvents)
+            return try? Matrix.Room(roomId: rec.roomId, session: self.session, initialState: stateEvents, initialTimeline: messageEvents)
         }
         return rooms
     }
     
-    func saveRooms(_ rooms: [Matrix.Room]) async throws {
+    public func saveRooms(_ rooms: [Matrix.Room]) async throws {
         let records = try rooms.map { room in
             let encoder = JSONEncoder()
             let stateData = try encoder.encode(room.minimalState)
@@ -239,7 +291,7 @@ struct GRDBDataStore: DataStore {
     
     // MARK: User profiles
     
-    func loadProfileItem(_ item: String, for userId: UserId) async throws -> String? {
+    public func loadProfileItem(_ item: String, for userId: UserId) async throws -> String? {
         let userIdColumn = UserProfileRecord.Columns.userId
         let keyColumn = UserProfileRecord.Columns.key
         let record = try await dbQueue.read { db -> UserProfileRecord? in
@@ -251,11 +303,11 @@ struct GRDBDataStore: DataStore {
         return record?.value
     }
     
-    func loadDisplayname(for userId: UserId) async throws -> String? {
+    public func loadDisplayname(for userId: UserId) async throws -> String? {
         try await loadProfileItem("displayname", for: userId)
     }
     
-    func loadAvatarUrl(for userId: UserId) async throws -> MXC? {
+    public func loadAvatarUrl(for userId: UserId) async throws -> MXC? {
         guard let string = try await loadProfileItem("avatar_url", for: userId)
         else {
             return nil
@@ -263,32 +315,32 @@ struct GRDBDataStore: DataStore {
         return MXC(string)
     }
     
-    func loadStatusMessage(for userId: UserId) async throws -> String? {
+    public func loadStatusMessage(for userId: UserId) async throws -> String? {
         try await loadProfileItem("status", for: userId)
     }
     
-    func saveProfileItem(_ item: String, _ value: String, for userId: UserId) async throws {
+    public func saveProfileItem(_ item: String, _ value: String, for userId: UserId) async throws {
         let record = UserProfileRecord(userId: userId, key: item, value: value)
         try await dbQueue.write { db in
             try record.save(db)
         }
     }
     
-    func saveDisplayname(_ name: String, for userId: UserId) async throws {
+    public func saveDisplayname(_ name: String, for userId: UserId) async throws {
         try await saveProfileItem("displayname", name, for: userId)
     }
     
-    func saveAvatarUrl(_ url: MXC, for userId: UserId) async throws {
+    public func saveAvatarUrl(_ url: MXC, for userId: UserId) async throws {
         try await saveProfileItem("avatar_url", url.description, for: userId)
     }
     
-    func saveStatusMessage(_ msg: String, for userId: UserId) async throws {
+    public func saveStatusMessage(_ msg: String, for userId: UserId) async throws {
         try await saveProfileItem("status", msg, for: userId)
     }
     
     // MARK: Account data
     
-    func loadAccountData(for userId: UserId, of type: String, in roomId: RoomId? = nil) async throws -> Codable {
+    public func loadAccountData(for userId: UserId, of type: String, in roomId: RoomId? = nil) async throws -> Codable {
         throw Matrix.Error("Not Implemented")
     }
 }

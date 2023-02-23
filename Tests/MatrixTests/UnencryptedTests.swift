@@ -121,7 +121,7 @@ final class UnencryptedTests: XCTestCase {
         
         let creds = try await registerNewUser(domain: self.domain, homeserver: self.homeserver)
         
-        let session = try Matrix.Session(creds: creds, startSyncing: false)
+        let session = try await Matrix.Session(creds: creds, startSyncing: false)
         
         let roomId = try await createUnencryptedRoom(session: session, name: "testCreateUnencryptedRoom")
     }
@@ -130,7 +130,7 @@ final class UnencryptedTests: XCTestCase {
         
         let creds = try await registerNewUser(domain: self.domain, homeserver: self.homeserver)
         
-        let session = try Matrix.Session(creds: creds, startSyncing: true)
+        let session = try await Matrix.Session(creds: creds, startSyncing: true)
         
         let roomId = try await createUnencryptedRoom(session: session, name: "testSendUnencryptedMessage")
         

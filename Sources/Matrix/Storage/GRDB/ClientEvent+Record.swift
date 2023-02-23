@@ -8,13 +8,12 @@
 import Foundation
 import GRDB
 
-extension ClientEvent: FetchableRecord, TableRecord {
+extension ClientEvent: FetchableRecord {
     
     enum Columns: String, ColumnExpression {
         case content, eventId, originServerTS, roomId, sender, stateKey, type
     }
     
-    static public var databaseTableName = "events"
 }
 
 extension ClientEvent: PersistableRecord {

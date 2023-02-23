@@ -165,7 +165,7 @@ public protocol _MatrixEvent: Codable {
 }
 
 // MARK: AccountDataType
-public enum _MatrixAccountDataType: Codable, Equatable {
+public enum _MatrixAccountDataType: Codable, Equatable, Hashable {
     case mIdentityServer // "m.identity_server"
     case mFullyRead // "m.fully_read"
     case mDirect // "m.direct"
@@ -240,4 +240,10 @@ public enum _MatrixMessageType: String, Codable {
 public protocol _MatrixMessageContent: Codable {
     var body: String {get}
     var msgtype: Matrix.MessageType {get}
+}
+
+extension _MatrixMessageContent {
+    init(from: Decoder) throws {
+        
+    }
 }

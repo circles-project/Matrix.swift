@@ -8,13 +8,12 @@
 import Foundation
 import GRDB
 
-extension ClientEventWithoutRoomId: FetchableRecord, TableRecord {
+extension ClientEventWithoutRoomId: FetchableRecord {
     
     enum Columns: String, ColumnExpression {
         case content, eventId, originServerTS, sender, stateKey, type
     }
     
-    static public var databaseTableName = "events"
 }
 
 // Note: ClientEventWithoutRoomId does NOT conform to PersistableRecord

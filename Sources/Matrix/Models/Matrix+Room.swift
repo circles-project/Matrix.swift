@@ -11,6 +11,7 @@ extension Matrix {
     public class Room: ObservableObject {
         public let roomId: RoomId
         public let session: Session
+        private var dataStore: DataStore?
         
         public let type: String?
         public let version: String
@@ -24,7 +25,7 @@ extension Matrix {
         public let successorRoomId: RoomId?
         public let tombstoneEventId: EventId?
         
-        @Published public var messages: Set<ClientEventWithoutRoomId>
+        @Published public var timeline: Set<ClientEventWithoutRoomId>
         @Published public var localEchoEvent: Event?
         //@Published var earliestMessage: MatrixMessage?
         //@Published var latestMessage: MatrixMessage?
@@ -41,13 +42,22 @@ extension Matrix {
 
         @Published public var encryptionParams: RoomEncryptionContent?
         
-        public init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialMessages: [ClientEventWithoutRoomId] = []) throws {
+        public init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialTimeline: [ClientEventWithoutRoomId] = []) throws {
             self.roomId = roomId
             self.session = session
-            self.messages = Set(initialMessages)
+            self.timeline = Set(initialTimeline)
             
             self.state = [:]
-            for event in initialState {
+            
+            // Ugh, sometimes all of our state is actually in the timeline.
+            // This can happen especially for an initial sync when there are new rooms and very few messages.
+            // See https://spec.matrix.org/v1.5/client-server-api/#syncing
+            // > In the case of an initial (since-less) sync, the state list represents the complete state
+            // > of the room at the start of the returned timeline (so in the case of a recently-created
+            // > room whose state fits entirely in the timeline, the state list will be empty).
+            let allInitialStateEvents = initialState + initialTimeline.filter { $0.stateKey != nil }
+            
+            for event in allInitialStateEvents {
                 guard let stateKey = event.stateKey
                 else {
                     continue
@@ -134,52 +144,85 @@ extension Matrix {
                 self.encryptionParams = nil
             }
             
+            // Swift Phase 1 initialization complete
+            // See https://docs.swift.org/swift-book/documentation/the-swift-programming-language/initialization/#Two-Phase-Initialization
+            // Now we can call instance functions
         }
         
-        public func updateState(from events: [ClientEventWithoutRoomId]) throws {
+        public func updateTimeline(from events: [ClientEventWithoutRoomId]) async throws {
             for event in events {
-                
-                guard let stateKey = event.stateKey
+                // Is this a state event?
+                if event.stateKey != nil {
+                    // If so, update our local state
+                    try await updateState(from: event)
+                }
+                // And regardless, add the event to our timeline
+                await MainActor.run {
+                    self.timeline.insert(event)
+                }
+            }
+        }
+        
+        public func updateState(from events: [ClientEventWithoutRoomId]) async throws {
+            for event in events {
+                try await updateState(from: event)
+            }
+        }
+        
+        public func updateState(from event: ClientEventWithoutRoomId) async throws {
+            guard let stateKey = event.stateKey
+            else {
+                let msg = "No state key for \"state\" event of type \(event.type)"
+                print("updateState:\t\(msg)")
+                throw Matrix.Error(msg)
+                //continue
+            }
+            
+            var needToSave: Bool = false
+            
+            switch event.type {
+            
+            case .mRoomAvatar:
+                guard let content = event.content as? RoomAvatarContent
                 else {
-                    let msg = "No state key for \"state\" event of type \(event.type)"
-                    print("updateState:\t\(msg)")
-                    throw Matrix.Error(msg)
-                    //continue
+                    return
+                }
+                if self.avatarUrl != content.mxc {
+                    await MainActor.run {
+                        self.avatarUrl = content.mxc
+                    }
+                    needToSave = true
+                    // FIXME: Also fetch the new avatar image
                 }
                 
-                switch event.type {
-                
-                case .mRoomAvatar:
-                    guard let content = event.content as? RoomAvatarContent
-                    else {
-                        continue
-                    }
-                    if self.avatarUrl != content.mxc {
-                        self.avatarUrl = content.mxc
-                        // FIXME: Also fetch the new avatar image
-                    }
-                    
-                case .mRoomName:
-                    guard let content = event.content as? RoomNameContent
-                    else {
-                        continue
-                    }
+            case .mRoomName:
+                guard let content = event.content as? RoomNameContent
+                else {
+                    return
+                }
+                needToSave = true
+                await MainActor.run {
                     self.name = content.name
-                    
-                case .mRoomTopic:
-                    guard let content = event.content as? RoomTopicContent
-                    else {
-                        continue
-                    }
+                }
+                
+            case .mRoomTopic:
+                guard let content = event.content as? RoomTopicContent
+                else {
+                    return
+                }
+                needToSave = true
+                await MainActor.run {
                     self.topic = content.topic
-                    
-                case .mRoomMember:
-                    guard let content = event.content as? RoomMemberContent,
-                          let stateKey = event.stateKey,
-                          let userId = UserId(stateKey)
-                    else {
-                        continue
-                    }
+                }
+                
+            case .mRoomMember:
+                guard let content = event.content as? RoomMemberContent,
+                      let stateKey = event.stateKey,
+                      let userId = UserId(stateKey)
+                else {
+                    return
+                }
+                await MainActor.run {
                     switch content.membership {
                     case .invite:
                         self.invitedMembers.insert(userId)
@@ -208,33 +251,49 @@ extension Matrix {
                         self.joinedMembers.remove(userId)
                         self.leftMembers.remove(userId)
                     } // end switch content.membership
-                    
-                case .mRoomEncryption:
-                    guard let content = event.content as? RoomEncryptionContent
-                    else {
-                        continue
-                    }
+                }
+                
+            case .mRoomEncryption:
+                guard let content = event.content as? RoomEncryptionContent
+                else {
+                    return
+                }
+                needToSave = true
+                await MainActor.run {
                     self.encryptionParams = content
-                    
-                default:
-                    print("Not handling event of type \(event.type)")
-                    
-                } // end switch event.type
+                }
                 
-                // Finally, update our local copy of the state to include this event
-                var d = self.state[event.type] ?? [:]
-                d[stateKey] = event
-                self.state[event.type] = d
+            default:
+                print("Not handling event of type \(event.type)")
                 
-            } // end for event in events
+            } // end switch event.type
+            
+            // Finally, update our local copy of the state to include this event
+            var d = self.state[event.type] ?? [:]
+            d[stateKey] = event
+            self.state[event.type] = d
+            
+            // Do we need to save the room to local storage?
+            if needToSave {
+                // FIXME: TODO: Actually save the room to the DataStore
+            }
+            
         } // end func updateState()
+        
+        public func getState(type: Matrix.EventType, stateKey: String) async throws -> Codable? {
+            if let event = self.state[type]?[stateKey] {
+                return event.content
+            }
+            return try await session.getRoomState(roomId: roomId, for: type, with: stateKey)
+        }
         
         // The minimal list of state events required to reconstitute the room into a useful state
         // e.g. for displaying the user's room list
         public var minimalState: [ClientEventWithoutRoomId] {
             return [
-                state[.mRoomCreate]![""]!,                             // Room creation
+                state[.mRoomCreate]![""]!,                            // Room creation
                 state[.mRoomEncryption]?[""],                         // Encryption settings
+                //state[.mRoomHistoryVisibility]?[""],                  // History visibility
                 state[.mRoomMember]?["\(session.creds.userId)"],      // My membership in the room
                 state[.mRoomPowerLevels]?["\(session.creds.userId)"], // My power level in the room
                 state[.mRoomName]?[""],
@@ -250,7 +309,10 @@ extension Matrix {
         }
         
         public var lastMessage: ClientEventWithoutRoomId? {
-            messages
+            timeline
+                .filter {
+                    $0.stateKey == nil
+                }
                 .sorted {
                     $0.originServerTS < $1.originServerTS
                 }
