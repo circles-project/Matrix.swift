@@ -147,19 +147,17 @@ extension Matrix {
                 print("/sync:\t\(joinedRoomsDict.count) joined rooms")
                 for (roomId, info) in joinedRoomsDict {
                     print("/sync:\tFound joined room \(roomId)")
-                    let messages = info.timeline?.events.filter {
-                        $0.type == M_ROOM_MESSAGE // FIXME: Encryption
-                    }
-                    let stateEvents = info.state?.events
+                    let stateEvents = info.state?.events ?? []
+                    let timelineEvents = info.timeline?.events ?? []
 
                     if let room = self.rooms[roomId] {
                         print("\tWe know this room already")
-                        print("\t\(stateEvents?.count ?? 0) new state events")
-                        print("\t\(messages?.count ?? 0) new messages")
+                        print("\t\(stateEvents.count) new state events")
+                        print("\t\(timelineEvents.count) new timeline events")
 
                         // Update the room with the latest data from `info`
-                        room.updateState(from: stateEvents ?? [])
-                        room.messages.formUnion(messages ?? [])
+                        try await room.updateState(from: stateEvents)
+                        try await room.updateTimeline(from: timelineEvents)
                         
                         if let unread = info.unreadNotifications {
                             print("\t\(unread.notificationCount) notifications")
@@ -174,15 +172,10 @@ extension Matrix {
                         // Create the new Room object.  Also, remove the room id from the invites.
                         invitations.removeValue(forKey: roomId)
                         
-                        guard let initialStateEvents = stateEvents
-                        else {
-                            print("Can't create a new room with no initial state (room id = \(roomId))")
-                            continue
-                        }
-                        print("\t\(initialStateEvents.count) initial state events")
-                        print("\t\(messages?.count ?? 0) initial messages")
+                        print("\t\(stateEvents.count) initial state events")
+                        print("\t\(timelineEvents.count) initial timeline events")
                         
-                        guard let room = try? Room(roomId: roomId, session: self, initialState: initialStateEvents, initialMessages: messages ?? [])
+                        guard let room = try? Room(roomId: roomId, session: self, initialState: stateEvents, initialTimeline: timelineEvents)
                         else {
                             print("Failed to create room \(roomId)")
                             continue

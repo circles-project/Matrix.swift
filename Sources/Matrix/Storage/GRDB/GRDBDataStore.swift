@@ -178,7 +178,7 @@ public struct GRDBDataStore: DataStore {
         return events
     }
     
-    public func loadEvents(for roomId: RoomId, of types: [Matrix.EventType],
+    public func loadEvents(for roomId: RoomId, of types: [String],
                            limit: Int = 25, offset: Int? = nil
     ) async throws -> [ClientEvent] {
         let roomIdColumn = ClientEvent.Columns.roomId

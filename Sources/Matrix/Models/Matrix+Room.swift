@@ -29,7 +29,7 @@ extension Matrix {
         @Published public var localEchoEvent: Event?
         //@Published var earliestMessage: MatrixMessage?
         //@Published var latestMessage: MatrixMessage?
-        private var state: [EventType: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
+        private var state: [String: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
         
         @Published public var highlightCount: Int = 0
         @Published public var notificationCount: Int = 0
@@ -110,7 +110,7 @@ extension Matrix {
                       let memberUserId = UserId(memberKey)
                 else {
                     // continue
-                    throw Matrix.Error("Error processing \(EventType.mRoomMember) event for user \(memberKey)")
+                    throw Matrix.Error("Error processing \(M_ROOM_MEMBER) event for user \(memberKey)")
                 }
                 
                 switch memberContent.membership {
@@ -192,18 +192,19 @@ extension Matrix {
                         self.avatarUrl = content.mxc
                         // FIXME: Also fetch the new avatar image
                     }
+                }
                     
                 case M_ROOM_NAME:
                     guard let content = event.content as? RoomNameContent
                     else {
-                        continue
+                        return
                     }
                     self.name = content.name
                     
                 case M_ROOM_TOPIC:
                     guard let content = event.content as? RoomTopicContent
                     else {
-                        continue
+                        return
                     }
                     self.topic = content.topic
                     
@@ -212,7 +213,7 @@ extension Matrix {
                           let stateKey = event.stateKey,
                           let userId = UserId(stateKey)
                     else {
-                        continue
+                        return
                     }
                     switch content.membership {
                     case .invite:
@@ -242,7 +243,6 @@ extension Matrix {
                         self.joinedMembers.remove(userId)
                         self.leftMembers.remove(userId)
                     } // end switch content.membership
-                }
                 
             case M_ROOM_ENCRYPTION:
                 guard let content = event.content as? RoomEncryptionContent
@@ -271,32 +271,32 @@ extension Matrix {
             
         } // end func updateState()
         
-        public func getState(type: Matrix.EventType, stateKey: String) async throws -> Codable? {
+        public func getState(type: String, stateKey: String) async throws -> Codable? {
             if let event = self.state[type]?[stateKey] {
                 return event.content
             }
-            return try await session.getRoomState(roomId: roomId, for: type, with: stateKey)
+            return try await session.getRoomState(roomId: roomId, eventType: type, with: stateKey)
         }
         
         // The minimal list of state events required to reconstitute the room into a useful state
         // e.g. for displaying the user's room list
         public var minimalState: [ClientEventWithoutRoomId] {
             return [
-                state[.mRoomCreate]![""]!,                            // Room creation
-                state[.mRoomEncryption]?[""],                         // Encryption settings
+                state[M_ROOM_CREATE]![""]!,                            // Room creation
+                state[M_ROOM_ENCRYPTION]?[""],                         // Encryption settings
                 //state[.mRoomHistoryVisibility]?[""],                  // History visibility
-                state[.mRoomMember]?["\(session.creds.userId)"],      // My membership in the room
-                state[.mRoomPowerLevels]?["\(session.creds.userId)"], // My power level in the room
-                state[.mRoomName]?[""],
-                state[.mRoomAvatar]?[""],
-                state[.mRoomTopic]?[""],
-                state[.mRoomTombstone]?[""],
+                state[M_ROOM_MEMBER]?["\(session.creds.userId)"],      // My membership in the room
+                state[M_ROOM_POWER_LEVELS]?["\(session.creds.userId)"], // My power level in the room
+                state[M_ROOM_NAME]?[""],
+                state[M_ROOM_AVATAR]?[""],
+                state[M_ROOM_TOPIC]?[""],
+                state[M_ROOM_TOMBSTONE]?[""],
             ]
             .compactMap{ $0 }
         }
         
         public var creator: UserId {
-            state[.mRoomCreate]![""]!.sender
+            state[M_ROOM_CREATE]![""]!.sender
         }
         
         public var lastMessage: ClientEventWithoutRoomId? {

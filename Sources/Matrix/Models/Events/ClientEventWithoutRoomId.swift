@@ -34,7 +34,7 @@ public struct ClientEventWithoutRoomId: Matrix.Event, Codable {
     }
     
     public init(content: Codable, eventId: String, originServerTS: UInt64, sender: UserId,
-                stateKey: String? = nil, type: Matrix.EventType,
+                stateKey: String? = nil, type: String,
                 unsigned: UnsignedData? = nil) throws {
         self.content = content
         self.eventId = eventId
