@@ -6,12 +6,12 @@
 //
 
 import Foundation
-
+import AnyCodable
     
 // https://spec.matrix.org/v1.2/client-server-api/#extensions-to-sync
 public struct ToDeviceEvent: Matrix.Event {
     public var content: Codable
-    public var type: Matrix.EventType
+    public var type: String
     public var sender: UserId
     
     public enum CodingKeys: String, CodingKey {
@@ -23,7 +23,7 @@ public struct ToDeviceEvent: Matrix.Event {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.sender = try container.decode(UserId.self, forKey: .sender)
-        self.type = try container.decode(Matrix.EventType.self, forKey: .type)
+        self.type = try container.decode(String.self, forKey: .type)
         //let minimal = try MinimalEvent(from: decoder)
         //self.content = minimal.content
         self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
@@ -33,7 +33,7 @@ public struct ToDeviceEvent: Matrix.Event {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(sender, forKey: .sender)
         try container.encode(type, forKey: .type)
-        try Matrix.encodeEventContent(content: content, of: type, to: encoder)
+        try container.encode(AnyCodable(content), forKey: .content)
     }
 }
 

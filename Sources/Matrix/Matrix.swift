@@ -109,7 +109,6 @@ public enum Matrix {
     // Swift doesn't allow you to nest protocols inside other types, because fuck you.
     // Well fuck you too Swift, we're doing it anyway.
     // See below for the "real" type definitions.
-    public typealias EventType = _MatrixEventType
     public typealias Event = _MatrixEvent
     public typealias AccountDataType = _MatrixAccountDataType
     public typealias MessageType = _MatrixMessageType
@@ -124,43 +123,67 @@ public enum Matrix {
     
     // Types imported from the Rust Crypto SDK
     public typealias Device = MatrixSDKCrypto.Device
+    
+    // Mappings from String type names to Codable implementations
+    // Used for encoding and decoding Matrix events
+    static var eventTypes: [String: Codable.Type] = [
+        M_ROOM_CANONICAL_ALIAS : RoomCanonicalAliasContent.self,
+        M_ROOM_CREATE : RoomCreateContent.self,
+        M_ROOM_MEMBER : RoomMemberContent.self,
+        M_ROOM_JOIN_RULES : RoomJoinRuleContent.self,
+        M_ROOM_POWER_LEVELS : RoomPowerLevelsContent.self,
+        M_ROOM_NAME : RoomNameContent.self,
+        M_ROOM_AVATAR : RoomAvatarContent.self,
+        M_ROOM_TOPIC : RoomTopicContent.self,
+        M_PRESENCE : PresenceContent.self,
+        M_TYPING : TypingContent.self,
+        M_RECEIPT : ReceiptContent.self,
+        M_ROOM_HISTORY_VISIBILITY : RoomHistoryVisibilityContent.self,
+        M_ROOM_GUEST_ACCESS : RoomGuestAccessContent.self,
+        M_ROOM_TOMBSTONE : RoomTombstoneContent.self,
+        M_TAG : TagContent.self,
+        M_ROOM_ENCRYPTION : RoomEncryptionContent.self,
+        M_ENCRYPTED : EncryptedEventContent.self,
+        M_SPACE_CHILD : SpaceChildContent.self,
+        M_SPACE_PARENT : SpaceParentContent.self,
+        M_REACTION : ReactionContent.self,
+    ]
+    static var messageTypes: [String: Codable.Type] = [
+        M_TEXT : mTextContent.self,
+        M_EMOTE : mEmoteContent.self,
+        M_NOTICE : mNoticeContent.self,
+        M_IMAGE : mImageContent.self,
+        M_FILE : mFileContent.self,
+        M_AUDIO : mAudioContent.self,
+        M_VIDEO : mVideoContent.self,
+        M_LOCATION : mLocationContent.self,
+    ]
+    static var accountDataTypes: [String: Codable.Type] = [
+        //M_IDENTITY_SERVER : IdentityServerContent.self,
+        //M_FULLY_READ : FullyReadContent.self,
+        M_DIRECT : DirectContent.self,
+        M_IGNORED_USER_LIST : IgnoredUserListContent.self,
+        M_PUSH_RULES : PushRulesContent.self,
+        M_TAG : TagContent.self,
+    ]
+    
+    public static func registerEventType(_ string: String, _ codable: Codable.Type) {
+        eventTypes[string] = codable
+    }
+    
+    public static func registerMessageType(_ string: String, _ codable: Codable.Type) {
+        messageTypes[string] = codable
+    }
+    
+    public static func registerAccountDataType(_ string: String, _ codable: Codable.Type) {
+        accountDataTypes[string] = codable
+    }
 }
 
-
-// MARK: EventType
-public enum _MatrixEventType: String, Codable, Equatable, Hashable {
-    case mRoomCanonicalAlias = "m.room.canonical_alias"
-    case mRoomCreate = "m.room.create"
-    case mRoomJoinRules = "m.room.join_rules"
-    case mRoomMember = "m.room.member"
-    case mRoomPowerLevels = "m.room.power_levels"
-    case mRoomMessage = "m.room.message"
-    case mReaction = "m.reaction"
-    case mRoomEncryption = "m.room.encryption"
-    case mEncrypted = "m.encrypted"
-    case mRoomTombstone = "m.room.tombstone"
-    
-    case mRoomName = "m.room.name"
-    case mRoomAvatar = "m.room.avatar"
-    case mRoomTopic = "m.room.topic"
-    
-    case mPresence = "m.presence"
-    case mTyping = "m.typing"
-    case mReceipt = "m.receipt"
-    case mRoomHistoryVisibility = "m.room.history_visibility"
-    case mRoomGuestAccess = "m.room.guest_access"
-    case mTag = "m.tag"
-    // case mRoomPinnedEvents = "m.room.pinned_events" // https://spec.matrix.org/v1.2/client-server-api/#mroompinned_events
-    
-    case mSpaceChild = "m.space.child"
-    case mSpaceParent = "m.space.parent"
-    
-    // Add types for extensible events here
-}
 
 // MARK: Event
 public protocol _MatrixEvent: Codable {
-    var type: Matrix.EventType {get}
+    var type: String {get}
     var content: Codable {get}
 }
 
@@ -240,10 +263,4 @@ public enum _MatrixMessageType: String, Codable {
 public protocol _MatrixMessageContent: Codable {
     var body: String {get}
     var msgtype: Matrix.MessageType {get}
-}
-
-extension _MatrixMessageContent {
-    init(from: Decoder) throws {
-        
-    }
 }

@@ -9,42 +9,58 @@ import Foundation
 
 extension Matrix {
     
-    /*
-    public static func decodeEventContent(of type: Matrix.EventType, from data: Data) throws -> Codable {
+    public static func decodeEventContent(of eventType: String, from data: Data) throws -> Codable {
         let decoder = JSONDecoder()
-                
-        let lookup: [Matrix.EventType : Codable.Type] = [
-            .mRoomCanonicalAlias : RoomCanonicalAliasContent.self,
-            .mRoomCreate : RoomCreateContent.self,
-            .mRoomMember : RoomMemberContent.self,
-            .mRoomJoinRules : RoomJoinRuleContent.self,
-            .mRoomPowerLevels : RoomPowerLevelsContent.self,
-            .mRoomName : RoomNameContent.self,
-            .mRoomAvatar : RoomAvatarContent.self,
-            .mRoomTopic : RoomTopicContent.self,
-            .mPresence : PresenceContent.self,
-            .mTyping : TypingContent.self,
-            .mReceipt : ReceiptContent.self,
-            .mRoomHistoryVisibility : RoomHistoryVisibilityContent.self,
-            .mRoomGuestAccess : RoomGuestAccessContent.self,
-            .mRoomTombstone : RoomTombstoneContent.self,
-            .mTag : TagContent.self,
-            .mRoomEncryption : RoomEncryptionContent.self,
-            .mEncrypted : EncryptedEventContent.self,
-            .mSpaceChild : SpaceChildContent.self,
-            .mSpaceParent : SpaceParentContent.self,
-            .mReaction : ReactionContent.self,
-        ]
-    }
-    */
-    
-    public static func decodeEventContent(of type: Matrix.EventType, from decoder: Decoder) throws -> Codable {
-        
-        func decode<T: Decodable>(_ type: T.Type , from container: KeyedDecodingContainer<MinimalEvent.CodingKeys>) throws -> T {
-            return try container.decode(type, forKey: .content)
+        if let codableType = eventTypes[eventType] {
+            let content = try decoder.decode(codableType.self, from: data)
+            return content
+        }
+        if eventType == M_ROOM_MESSAGE {
+            // Peek into the content struct to examine the `msgtype`
+            struct MinimalMessageContent: Codable {
+                var msgtype: String
+            }
+            let mmc = try decoder.decode(MinimalMessageContent.self, from: data)
+            let msgtype = mmc.msgtype
+            
+            guard let codableType = messageTypes[msgtype]
+            else {
+                throw Matrix.Error("Cannot decode unknown message type \(msgtype)")
+            }
+            
+            let content = try decoder.decode(codableType.self, from: data)
+            return content
         }
         
+        throw Matrix.Error("Cannot decode unknown event type \(eventType)")
+    }
+    
+    public static func decodeEventContent(of eventType: String, from decoder: Decoder) throws -> Codable {
         let container = try decoder.container(keyedBy: MinimalEvent.CodingKeys.self)
+
+        if let codableType = eventTypes[eventType] {
+            let content = try container.decode(codableType.self, forKey: .content)
+            return content
+        }
+        
+        if eventType == M_ROOM_MESSAGE {
+            // Peek into the content struct to examine the `msgtype`
+            struct MinimalMessageContent: Codable {
+                var msgtype: String
+            }
+            let mmc = try container.decode(MinimalMessageContent.self, forKey: .content)
+            // Now use the msgtype to determine how we decode the content
+            guard let codableType = messageTypes[mmc.msgtype]
+            else {
+                throw Matrix.Error("Cannot decode unknown message type \(mmc.msgtype)")
+            }
+            let content = try container.decode(codableType.self, forKey: .content)
+            return content
+        }
+        
+        throw Matrix.Error("Cannot decode unknown event type \(eventType)")
+        
+        /*
             
         switch type {
         case .mRoomCanonicalAlias:
@@ -154,40 +170,33 @@ extension Matrix {
                 let content = try container.decode(mFileContent.self, forKey: .content)
                 return content
             }
-
         }
+         */
+
     }
     
-    public static func decodeAccountData(of dataType: Matrix.AccountDataType, from decoder: Decoder) throws -> Decodable {
-        let container = try decoder.container(keyedBy: MinimalEvent.CodingKeys.self)
+    public static func decodeAccountData(of dataType: String, from decoder: Decoder) throws -> Codable {
+        enum CodingKeys: String, CodingKey {
+            case content
+        }
+        let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        switch dataType {
-            
-        case .mIdentityServer:
-            throw Matrix.Error("Not implemented")
-            
-        case .mIgnoredUserList:
-            let content = try container.decode(IgnoredUserListContent.self, forKey: .content)
-            return content
-            
-        case .mFullyRead:
-            throw Matrix.Error("Not implemented")
-
-        case .mDirect:
-            let content = try container.decode(DirectContent.self, forKey: .content)
-            return content
-            
-        case .mPushRules:
-            let content = try container.decode(PushRulesContent.self, forKey: .content)
-            return content
-
-        case .mSecretStorageKey(let string):
-            throw Matrix.Error("Not implemented")
-
-        case .mTag:
-            let content = try container.decode(TagContent.self, forKey: .content)
+        if let codableType = accountDataTypes[dataType] {
+            let content = try container.decode(codableType.self, forKey: .content)
             return content
         }
+        
+        if dataType.starts(with: M_SECRET_STORAGE_KEY) {
+            guard let keyId = dataType.split(separator: ".").last
+            else {
+                let msg = "Couldn't get key id for \(M_SECRET_STORAGE_KEY)"
+                print(msg)
+                throw Matrix.Error(msg)
+            }
+            throw Matrix.Error("Not implemented")
+        }
+        
+        throw Matrix.Error("Cannot decode unknown account data type \(dataType)")
     }
 
     

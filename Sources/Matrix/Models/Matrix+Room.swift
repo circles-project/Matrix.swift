@@ -67,7 +67,7 @@ extension Matrix {
                 self.state[event.type] = d
             }
             
-            guard let creationEvent = state[.mRoomCreate]?[""],
+            guard let creationEvent = state[M_ROOM_CREATE]?[""],
                   let creationContent = creationEvent.content as? RoomCreateContent
             else {
                 throw Matrix.Error("No m.room.create event")
@@ -76,7 +76,7 @@ extension Matrix {
             self.version = creationContent.roomVersion ?? "1"
             self.predecessorRoomId = creationContent.predecessor?.roomId
             
-            if let tombstoneEvent = state[.mRoomTombstone]?[""],
+            if let tombstoneEvent = state[M_ROOM_TOMBSTONE]?[""],
                let tombstoneContent = tombstoneEvent.content as? RoomTombstoneContent
             {
                 self.tombstoneEventId = tombstoneEvent.eventId
@@ -86,25 +86,25 @@ extension Matrix {
                 self.successorRoomId = nil
             }
             
-            if let nameEvent = state[.mRoomName]?[""],
+            if let nameEvent = state[M_ROOM_NAME]?[""],
                let nameContent = nameEvent.content as? RoomNameContent
             {
                 self.name = nameContent.name
             }
             
-            if let avatarEvent = state[.mRoomAvatar]?[""],
+            if let avatarEvent = state[M_ROOM_AVATAR]?[""],
                let avatarContent = avatarEvent.content as? RoomAvatarContent
             {
                 self.avatarUrl = avatarContent.mxc
             }
             
-            if let topicEvent = state[.mRoomTopic]?[""],
+            if let topicEvent = state[M_ROOM_TOPIC]?[""],
                let topicContent = topicEvent.content as? RoomTopicContent
             {
                 self.topic = topicContent.topic
             }
             
-            for (memberKey, memberEvent) in state[.mRoomMember] ?? [:] {
+            for (memberKey, memberEvent) in state[M_ROOM_MEMBER] ?? [:] {
                 guard memberKey == memberEvent.stateKey,                           // Sanity check
                       let memberContent = memberEvent.content as? RoomMemberContent,
                       let memberUserId = UserId(memberKey)
@@ -127,16 +127,16 @@ extension Matrix {
                 }
             }
             
-            for (powerLevelsKey, powerLevelsEvent) in state[.mRoomPowerLevels] ?? [:]  {
+            for (powerLevelsKey, powerLevelsEvent) in state[M_ROOM_POWER_LEVELS] ?? [:]  {
                 guard powerLevelsEvent.content is RoomPowerLevelsContent
                 else {
-                    throw Matrix.Error("Couldn't parse \(EventType.mRoomPowerLevels) event for key \(powerLevelsKey)")
+                    throw Matrix.Error("Couldn't parse \(M_ROOM_POWER_LEVELS) event for key \(powerLevelsKey)")
                 }
                 // Do we need to *do* anything with the powerlevels for now?
                 // No?
             }
 
-            if let encryptionEvent = state[.mRoomEncryption]?[""],
+            if let encryptionEvent = state[M_ROOM_ENCRYPTION]?[""],
                let encryptionContent = encryptionEvent.content as? RoomEncryptionContent
             {
                 self.encryptionParams = encryptionContent
@@ -182,7 +182,7 @@ extension Matrix {
             
             switch event.type {
             
-            case .mRoomAvatar:
+            case M_ROOM_AVATAR:
                 guard let content = event.content as? RoomAvatarContent
                 else {
                     return
@@ -190,39 +190,30 @@ extension Matrix {
                 if self.avatarUrl != content.mxc {
                     await MainActor.run {
                         self.avatarUrl = content.mxc
+                        // FIXME: Also fetch the new avatar image
                     }
-                    needToSave = true
-                    // FIXME: Also fetch the new avatar image
-                }
-                
-            case .mRoomName:
-                guard let content = event.content as? RoomNameContent
-                else {
-                    return
-                }
-                needToSave = true
-                await MainActor.run {
+                    
+                case M_ROOM_NAME:
+                    guard let content = event.content as? RoomNameContent
+                    else {
+                        continue
+                    }
                     self.name = content.name
-                }
-                
-            case .mRoomTopic:
-                guard let content = event.content as? RoomTopicContent
-                else {
-                    return
-                }
-                needToSave = true
-                await MainActor.run {
+                    
+                case M_ROOM_TOPIC:
+                    guard let content = event.content as? RoomTopicContent
+                    else {
+                        continue
+                    }
                     self.topic = content.topic
-                }
-                
-            case .mRoomMember:
-                guard let content = event.content as? RoomMemberContent,
-                      let stateKey = event.stateKey,
-                      let userId = UserId(stateKey)
-                else {
-                    return
-                }
-                await MainActor.run {
+                    
+                case M_ROOM_MEMBER:
+                    guard let content = event.content as? RoomMemberContent,
+                          let stateKey = event.stateKey,
+                          let userId = UserId(stateKey)
+                    else {
+                        continue
+                    }
                     switch content.membership {
                     case .invite:
                         self.invitedMembers.insert(userId)
@@ -253,7 +244,7 @@ extension Matrix {
                     } // end switch content.membership
                 }
                 
-            case .mRoomEncryption:
+            case M_ROOM_ENCRYPTION:
                 guard let content = event.content as? RoomEncryptionContent
                 else {
                     return
@@ -319,8 +310,8 @@ extension Matrix {
                 .last
         }
         
-        public func setDisplayName(newName: String) async throws {
-            try await self.session.setDisplayName(roomId: self.roomId, name: newName)
+        public func setName(newName: String) async throws {
+            try await self.session.setRoomName(roomId: self.roomId, name: newName)
         }
         
         public func setAvatarImage(image: NativeImage) async throws {
@@ -363,7 +354,7 @@ extension Matrix {
         public func sendText(text: String) async throws -> EventId {
             if !self.isEncrypted {
                 let content = mTextContent(msgtype: .text, body: text)
-                return try await self.session.sendMessageEvent(to: self.roomId, type: .mRoomMessage, content: content)
+                return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             }
             else {
                 throw Matrix.Error("Not implemented")
@@ -381,7 +372,7 @@ extension Matrix {
                                       mimetype: "image/jpeg",
                                       size: jpegData.count)
                 let content = mImageContent(msgtype: .image, body: "\(mxc.mediaId).jpeg", info: info)
-                return try await self.session.sendMessageEvent(to: self.roomId, type: .mRoomMessage, content: content)
+                return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             }
             else {
                 throw Matrix.Error("Not implemented")
@@ -397,7 +388,7 @@ extension Matrix {
                 let content = mTextContent(msgtype: .text,
                                            body: text,
                                            relates_to: mRelatesTo(in_reply_to: .init(event_id: eventId)))
-                return try await self.session.sendMessageEvent(to: self.roomId, type: .mRoomMessage, content: content)
+                return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             }
             else {
                 throw Matrix.Error("Not implemented")
@@ -415,8 +406,7 @@ extension Matrix {
         public func sendReaction(_ reaction: String, to eventId: EventId) async throws -> EventId {
             // FIXME: What about encryption?
             let content = ReactionContent(eventId: eventId, reaction: reaction)
-            return try await self.session.sendMessageEvent(to: self.roomId, type: .mReaction, content: content)
+            return try await self.session.sendMessageEvent(to: self.roomId, type: M_REACTION, content: content)
         }
     }
-    
 }

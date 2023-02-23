@@ -96,152 +96,144 @@ extension Matrix {
         
         // MARK: Sync
         // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3sync
-        public func sync() async throws -> String? {
+        @Sendable
+        private func syncRequestTaskOperation() async throws -> String? {
+            var url = "/_matrix/client/v3/sync?timeout=\(self.syncRequestTimeout)"
+            if let token = syncToken {
+                url += "&since=\(token)"
+            }
+            let (data, response) = try await self.call(method: "GET", path: url)
             
-            // Stupid Swift compiler couldn't figure out that the operation's return type is actually `String?`,
-            // despite telling it multiple different ways.  Xcode seems to understand, but the compiler does not.
-            // Oh well fine.  We just break that code out into its own named function so we can be explicit about its type.
-            @Sendable
-            func syncTaskOperation() async throws -> String? {
-                var url = "/_matrix/client/v3/sync?timeout=\(self.syncRequestTimeout)"
-                if let token = syncToken {
-                    url += "&since=\(token)"
-                }
-                let (data, response) = try await self.call(method: "GET", path: url)
-                
-                let rawDataString = String(data: data, encoding: .utf8)
-                print("\n\n\(rawDataString!)\n\n")
-                
-                guard response.statusCode == 200 else {
-                    print("ERROR: /sync got HTTP \(response.statusCode) \(response.description)")
-                    //return self.syncToken
-                    return nil
-                }
-                
-                let decoder = JSONDecoder()
-                //decoder.keyDecodingStrategy = .convertFromSnakeCase
-                guard let responseBody = try? decoder.decode(SyncResponseBody.self, from: data)
-                else {
-                    self.syncRequestTask = nil
-                    throw Matrix.Error("Could not decode /sync response")
-                }
-                
-                // Process the sync response, updating local state
-                
-                // Handle invites
-                if let invitedRoomsDict = responseBody.rooms?.invite {
-                    print("/sync:\t\(invitedRoomsDict.count) invited rooms")
-                    for (roomId, info) in invitedRoomsDict {
-                        print("/sync:\tFound invited room \(roomId)")
-                        guard let events = info.inviteState?.events
-                        else {
-                            continue
-                        }
-                        //if self.invitations[roomId] == nil {
-                            let room = try InvitedRoom(session: self, roomId: roomId, stateEvents: events)
-                            self.invitations[roomId] = room
-                        //}
-                    }
-                } else {
-                    print("/sync:\tNo invited rooms")
-                }
-                
-                // Handle rooms where we're already joined
-                if let joinedRoomsDict = responseBody.rooms?.join {
-                    print("/sync:\t\(joinedRoomsDict.count) joined rooms")
-                    for (roomId, info) in joinedRoomsDict {
-                        print("/sync:\tFound joined room \(roomId)")
-                        /*
-                        let messages = info.timeline?.events.filter {
-                            $0.type == .mRoomMessage // FIXME: Encryption
-                        }
-                        */
-                        let stateEvents = info.state?.events ?? []
-                        let timelineEvents = info.timeline?.events ?? []
-
-                        if let room = self.rooms[roomId] {
-                            print("\tWe know this room already")
-                            print("\t\(stateEvents.count) new state events")
-                            print("\t\(timelineEvents.count) new events in the timeline")
-
-                            // Update the room with the latest data from `info`
-                            try await room.updateState(from: stateEvents)
-                            try await room.updateTimeline(from: timelineEvents)
-                            
-                            if let unread = info.unreadNotifications {
-                                print("\t\(unread.notificationCount) notifications")
-                                print("\t\(unread.highlightCount) highlights")
-                                room.notificationCount = unread.notificationCount
-                                room.highlightCount = unread.highlightCount
-                            }
-                            
-                        } else {
-                            print("\tThis is a new room")
-                            
-                            // Create the new Room object.  Also, remove the room id from the invites.
-                            invitations.removeValue(forKey: roomId)
-                            
-                            print("\t\(stateEvents.count) initial state events")
-                            print("\t\(timelineEvents.count) initial timeline events")
-                            
-                            guard let room = try? Room(roomId: roomId, session: self, initialState: stateEvents, initialTimeline: timelineEvents)
-                            else {
-                                print("Failed to create room \(roomId)")
-                                continue
-                            }
-                            self.rooms[roomId] = room
-                            
-                            if let unread = info.unreadNotifications {
-                                print("\t\(unread.notificationCount) notifications")
-                                print("\t\(unread.highlightCount) highlights")
-                                room.notificationCount = unread.notificationCount
-                                room.highlightCount = unread.highlightCount
-                            }
-                        }
-                        
-                        // Save events to the datastore
-                        if let store = self.dataStore {
-                            try await store.save(events: stateEvents, in: roomId)
-                            try await store.save(events: timelineEvents, in: roomId)
-                        }
-                        
-                    }
-                } else {
-                    print("/sync:\tNo joined rooms")
-                }
-                
-                // Handle rooms that we've left
-                if let leftRoomsDict = responseBody.rooms?.leave {
-                    print("/sync:\t\(leftRoomsDict.count) left rooms")
-                    for (roomId, info) in leftRoomsDict {
-                        print("/sync:\tFound left room \(roomId)")
-                        // TODO: What should we do here?
-                        // For now, just make sure these rooms are taken out of the other lists
-                        invitations.removeValue(forKey: roomId)
-                        rooms.removeValue(forKey: roomId)
-                    }
-                } else {
-                    print("/sync:\tNo left rooms")
-                }
-                
-                // FIXME: Do something with AccountData
-                
-                // FIXME: Handle to-device messages
-
-                print("/sync:\tUpdating sync token...  awaiting MainActor")
-                await MainActor.run {
-                    print("/sync:\tMainActor updating sync token")
-                    self.syncToken = responseBody.nextBatch
-                    self.syncRequestTask = nil
-                }
-
-                print("/sync:\tDone!")
-                return responseBody.nextBatch
+            let rawDataString = String(data: data, encoding: .utf8)
+            print("\n\n\(rawDataString!)\n\n")
             
+            guard response.statusCode == 200 else {
+                print("ERROR: /sync got HTTP \(response.statusCode) \(response.description)")
+
+                //return self.syncToken
+                return nil
             }
             
+            let decoder = JSONDecoder()
+            //decoder.keyDecodingStrategy = .convertFromSnakeCase
+            guard let responseBody = try? decoder.decode(SyncResponseBody.self, from: data)
+            else {
+                self.syncRequestTask = nil
+                throw Matrix.Error("Could not decode /sync response")
+            }
+            
+            // Process the sync response, updating local state
+            
+            // Handle invites
+            if let invitedRoomsDict = responseBody.rooms?.invite {
+                print("/sync:\t\(invitedRoomsDict.count) invited rooms")
+                for (roomId, info) in invitedRoomsDict {
+                    print("/sync:\tFound invited room \(roomId)")
+                    guard let events = info.inviteState?.events
+                    else {
+                        continue
+                    }
+                    //if self.invitations[roomId] == nil {
+                        let room = try InvitedRoom(session: self, roomId: roomId, stateEvents: events)
+                        self.invitations[roomId] = room
+                    //}
+                }
+            } else {
+                print("/sync:\tNo invited rooms")
+            }
+            
+            // Handle rooms where we're already joined
+            if let joinedRoomsDict = responseBody.rooms?.join {
+                print("/sync:\t\(joinedRoomsDict.count) joined rooms")
+                for (roomId, info) in joinedRoomsDict {
+                    print("/sync:\tFound joined room \(roomId)")
+                    let messages = info.timeline?.events.filter {
+                        $0.type == M_ROOM_MESSAGE // FIXME: Encryption
+                    }
+                    let stateEvents = info.state?.events
+
+                    if let room = self.rooms[roomId] {
+                        print("\tWe know this room already")
+                        print("\t\(stateEvents?.count ?? 0) new state events")
+                        print("\t\(messages?.count ?? 0) new messages")
+
+                        // Update the room with the latest data from `info`
+                        room.updateState(from: stateEvents ?? [])
+                        room.messages.formUnion(messages ?? [])
+                        
+                        if let unread = info.unreadNotifications {
+                            print("\t\(unread.notificationCount) notifications")
+                            print("\t\(unread.highlightCount) highlights")
+                            room.notificationCount = unread.notificationCount
+                            room.highlightCount = unread.highlightCount
+                        }
+                        
+                    } else {
+                        print("\tThis is a new room")
+                        
+                        // Create the new Room object.  Also, remove the room id from the invites.
+                        invitations.removeValue(forKey: roomId)
+                        
+                        guard let initialStateEvents = stateEvents
+                        else {
+                            print("Can't create a new room with no initial state (room id = \(roomId))")
+                            continue
+                        }
+                        print("\t\(initialStateEvents.count) initial state events")
+                        print("\t\(messages?.count ?? 0) initial messages")
+                        
+                        guard let room = try? Room(roomId: roomId, session: self, initialState: initialStateEvents, initialMessages: messages ?? [])
+                        else {
+                            print("Failed to create room \(roomId)")
+                            continue
+                        }
+                        self.rooms[roomId] = room
+                        
+                        if let unread = info.unreadNotifications {
+                            print("\t\(unread.notificationCount) notifications")
+                            print("\t\(unread.highlightCount) highlights")
+                            room.notificationCount = unread.notificationCount
+                            room.highlightCount = unread.highlightCount
+                        }
+                    }
+                }
+            } else {
+                print("/sync:\tNo joined rooms")
+            }
+            
+            // Handle rooms that we've left
+            if let leftRoomsDict = responseBody.rooms?.leave {
+                print("/sync:\t\(leftRoomsDict.count) left rooms")
+                for (roomId, info) in leftRoomsDict {
+                    print("/sync:\tFound left room \(roomId)")
+                    // TODO: What should we do here?
+                    // For now, just make sure these rooms are taken out of the other lists
+                    invitations.removeValue(forKey: roomId)
+                    rooms.removeValue(forKey: roomId)
+                }
+            } else {
+                print("/sync:\tNo left rooms")
+            }
+            
+            // FIXME: Do something with AccountData
+            
+            // FIXME: Handle to-device messages
+
+            print("/sync:\tUpdating sync token...  awaiting MainActor")
+            await MainActor.run {
+                print("/sync:\tMainActor updating sync token")
+                self.syncToken = responseBody.nextBatch
+                self.syncRequestTask = nil
+            }
+
+            print("/sync:\tDone!")
+            return responseBody.nextBatch
+        
+        }
+        public func sync() async throws -> String? {
+            
             // FIXME: Use a TaskGroup
-            syncRequestTask = syncRequestTask ?? .init(priority: .background, operation: syncTaskOperation)
+            syncRequestTask = syncRequestTask ?? .init(priority: .background, operation: syncRequestTaskOperation)
             
             guard let task = syncRequestTask else {
                 print("Error: /sync Failed to launch sync request task")

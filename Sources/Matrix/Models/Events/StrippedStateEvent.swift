@@ -6,13 +6,14 @@
 //
 
 import Foundation
+import AnyCodable
 
 // https://spec.matrix.org/v1.2/client-server-api/#stripped-state
 
 public struct StrippedStateEvent: Matrix.Event {
     public let sender: UserId
     public let stateKey: String
-    public let type: Matrix.EventType
+    public let type: String
     public let content: Codable
 
     public enum CodingKeys: String, CodingKey {
@@ -27,7 +28,7 @@ public struct StrippedStateEvent: Matrix.Event {
         
         self.sender = try container.decode(UserId.self, forKey: .sender)
         self.stateKey = try container.decode(String.self, forKey: .stateKey)
-        self.type = try container.decode(Matrix.EventType.self, forKey: .type)
+        self.type = try container.decode(String.self, forKey: .type)
         
         self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
     }
@@ -37,7 +38,7 @@ public struct StrippedStateEvent: Matrix.Event {
         try container.encode(sender, forKey: .sender)
         try container.encode(stateKey, forKey: .stateKey)
         try container.encode(type, forKey: .type)
-        try Matrix.encodeEventContent(content: content, of: type, to: encoder)
+        try container.encode(AnyCodable(content), forKey: .content)
     }
 }
 

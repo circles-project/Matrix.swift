@@ -28,7 +28,7 @@ extension Matrix {
         
         public var members: [UserId]
         
-        private var stateEventsCache: [EventType: [StrippedStateEvent]]  // From /sync
+        private var stateEventsCache: [String: [StrippedStateEvent]]  // From /sync
         
         public init(session: Session, roomId: RoomId, stateEvents: [StrippedStateEvent]) throws {
             
@@ -43,7 +43,7 @@ extension Matrix {
                 stateEventsCache[event.type] = cache
             }
             
-            guard let createEvent = stateEventsCache[.mRoomCreate]?.first,
+            guard let createEvent = stateEventsCache[M_ROOM_CREATE]?.first,
                   let createContent = createEvent.content as? RoomCreateContent
             else {
                 throw Matrix.Error("No creation event for invited room")
@@ -54,7 +54,7 @@ extension Matrix {
             self.predecessorRoomId = createContent.predecessor?.roomId
             
             // Need to parse the room member events to see who invited us
-            guard let myInviteEvent = stateEventsCache[.mRoomMember]?
+            guard let myInviteEvent = stateEventsCache[M_ROOM_MEMBER]?
                 .filter(
                     {
                         guard let content = $0.content as? RoomMemberContent else {
@@ -72,7 +72,7 @@ extension Matrix {
             }
             self.sender = myInviteEvent.sender
             
-            if let roomNameEvent = stateEventsCache[.mRoomName]?.last,
+            if let roomNameEvent = stateEventsCache[M_ROOM_NAME]?.last,
                let roomNameContent = roomNameEvent.content as? RoomNameContent
             {
                 self.name = roomNameContent.name
@@ -80,7 +80,7 @@ extension Matrix {
                 self.name = nil
             }
             
-            if let roomAvatarEvent = stateEventsCache[.mRoomAvatar]?.last,
+            if let roomAvatarEvent = stateEventsCache[M_ROOM_AVATAR]?.last,
                let roomAvatarContent = roomAvatarEvent.content as? RoomAvatarContent
             {
                 self.avatarUrl = roomAvatarContent.mxc
@@ -88,7 +88,7 @@ extension Matrix {
                 self.avatarUrl = nil
             }
             
-            if let roomTopicEvent = stateEventsCache[.mRoomTopic]?.last,
+            if let roomTopicEvent = stateEventsCache[M_ROOM_TOPIC]?.last,
                let roomTopicContent = roomTopicEvent.content as? RoomTopicContent
             {
                 self.topic = roomTopicContent.topic
@@ -96,7 +96,7 @@ extension Matrix {
                 self.topic = nil
             }
             
-            if let roomMemberEvents = stateEventsCache[.mRoomMember]
+            if let roomMemberEvents = stateEventsCache[M_ROOM_MEMBER]
             {
                 // For each room member event,
                 // - Check whether the member is in the 'join' state
@@ -116,7 +116,7 @@ extension Matrix {
                 self.members = []
             }
             
-            if let encryptionEvent = stateEventsCache[.mRoomEncryption]?.first,
+            if let encryptionEvent = stateEventsCache[M_ROOM_ENCRYPTION]?.first,
                let encryptionContent = encryptionEvent.content as? RoomEncryptionContent
             {
                 self.encrypted = true
