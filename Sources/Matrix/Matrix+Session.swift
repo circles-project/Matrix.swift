@@ -149,6 +149,11 @@ extension Matrix {
                     print("/sync:\tFound joined room \(roomId)")
                     let stateEvents = info.state?.events ?? []
                     let timelineEvents = info.timeline?.events ?? []
+                    
+                    if let store = self.dataStore {
+                        try await store.saveState(events: stateEvents, in: roomId)
+                        try await store.save(events: timelineEvents, in: roomId)
+                    }
 
                     if let room = self.rooms[roomId] {
                         print("\tWe know this room already")
@@ -167,27 +172,12 @@ extension Matrix {
                         }
                         
                     } else {
-                        print("\tThis is a new room")
+                        // New approach: Don't automatically allocate a Room object for every room we know about
+                        //               Let the application request them when it needs them.
+                        //               This should save us substantial RAM and CPU for users who are in a large number of rooms.
                         
-                        // Create the new Room object.  Also, remove the room id from the invites.
+                        // Nevertheless, we should still remove the room id from the invited rooms
                         invitations.removeValue(forKey: roomId)
-                        
-                        print("\t\(stateEvents.count) initial state events")
-                        print("\t\(timelineEvents.count) initial timeline events")
-                        
-                        guard let room = try? Room(roomId: roomId, session: self, initialState: stateEvents, initialTimeline: timelineEvents)
-                        else {
-                            print("Failed to create room \(roomId)")
-                            continue
-                        }
-                        self.rooms[roomId] = room
-                        
-                        if let unread = info.unreadNotifications {
-                            print("\t\(unread.notificationCount) notifications")
-                            print("\t\(unread.highlightCount) highlights")
-                            room.notificationCount = unread.notificationCount
-                            room.highlightCount = unread.highlightCount
-                        }
                     }
                 }
             } else {

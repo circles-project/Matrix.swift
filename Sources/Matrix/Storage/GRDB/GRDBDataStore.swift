@@ -198,8 +198,8 @@ public struct GRDBDataStore: DataStore {
         return events
     }
     
-    public func loadStateEvents(for roomId: RoomId,
-                                limit: Int = 25, offset: Int? = nil
+    public func loadState(for roomId: RoomId,
+                          limit: Int = 25, offset: Int? = nil
     ) async throws -> [ClientEvent] {
         let roomIdColumn = ClientEvent.Columns.roomId
         // let stateKeyColumn = ClientEvent.Columns.stateKey
@@ -214,10 +214,25 @@ public struct GRDBDataStore: DataStore {
         return events
     }
     
-    public func saveStateEvents(events: [ClientEventWithoutRoomId], in: RoomId) async throws {
-        let table = Table<ClientEvent>("state")
-        for event in events {
-            
+    public func saveState(events: [ClientEventWithoutRoomId], in roomId: RoomId) async throws {
+        let stateEvents = events.compactMap { event in
+            try? StateEventRecord(from: event, in: roomId)
+        }
+        try await dbQueue.write { db in
+            for stateEvent in stateEvents {
+                try stateEvent.save(db)
+            }
+        }
+    }
+    
+    public func saveState(events: [ClientEvent]) async throws {
+        let stateEvents = events.compactMap { event in
+            try? StateEventRecord(from: event)
+        }
+        try await dbQueue.write { db in
+            for stateEvent in stateEvents {
+                try stateEvent.save(db)
+            }
         }
     }
     
