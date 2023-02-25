@@ -30,4 +30,10 @@ public protocol DataStore {
     func loadState(for roomId: RoomId, limit: Int, offset: Int?) async throws -> [ClientEvent]
     
     // FIXME: Add all the other function prototypes that got built out in the GRDBDataStore
+    
+    func loadRooms(limit: Int, offset: Int?) async throws -> [Matrix.Room]
+    
+    func loadRooms(of type: String?, limit: Int, offset: Int?) async throws -> [Matrix.Room]
+    
+    func loadRoom(_ roomId: RoomId) async throws -> Matrix.Room?
 }

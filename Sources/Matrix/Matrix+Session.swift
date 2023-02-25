@@ -249,5 +249,43 @@ extension Matrix {
         public func whoAmI() async throws -> UserId {
             return self.creds.userId
         }
+        
+        public override func getRoomStateEvents(roomId: RoomId) async throws -> [ClientEventWithoutRoomId] {
+            let events = try await super.getRoomStateEvents(roomId: roomId)
+            if let store = self.dataStore {
+                try await store.saveState(events: events, in: roomId)
+            }
+            if let room = self.rooms[roomId] {
+                try await room.updateState(from: events)
+            }
+            return events
+        }
+        
+        public func getRoom(roomId: RoomId) async throws -> Matrix.Room? {
+            if let existingRoom = self.rooms[roomId] {
+                return existingRoom
+            }
+            
+            // Apparently we don't already have a Room object for this one
+            // Let's see if we can find the necessary data to construct it
+            
+            // Do we have this room in our data store?
+            if let store = self.dataStore {
+                return try await store.loadRoom(roomId)
+            }
+            
+            // Ok we didn't have anything cached locally
+            // Maybe the server knows about this room?
+            let events = try await getRoomStateEvents(roomId: roomId)
+            if let room = try? Matrix.Room(roomId: roomId, session: self, initialState: events, initialTimeline: []) {
+                await MainActor.run {
+                    self.rooms[roomId] = room
+                }
+                return room
+            }
+            
+            // Looks like we got nothing
+            return nil
+        }
     }
 }

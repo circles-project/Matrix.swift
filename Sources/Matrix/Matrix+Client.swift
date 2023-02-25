@@ -732,14 +732,17 @@ public class Client {
     }
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3roomsroomidstate
-    public func getRoomStateEvents(roomId: RoomId) async throws -> [ClientEvent] {
+    // FIXME This actually returns [ClientEvent] but we're returning the version without the roomid in order to match /sync
+    // It's possible that we're introducing a vulnerability here -- The server could return events from other rooms
+    // OTOH it can already do that when we call /sync, so what's new?
+    public func getRoomStateEvents(roomId: RoomId) async throws -> [ClientEventWithoutRoomId] {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/state"
         
         let (data, response) = try await call(method: "GET", path: path)
         
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let events = try decoder.decode([ClientEvent].self, from: data)
+        let events = try decoder.decode([ClientEventWithoutRoomId].self, from: data)
         return events
     }
     

@@ -249,8 +249,8 @@ public struct GRDBDataStore: DataStore {
         let rooms = try records.compactMap { rec in
             let decoder = JSONDecoder()
             let stateEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.minimalState)
-            let messageEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.latestMessages)
-            return try? Matrix.Room(roomId: rec.roomId, session: self.session, initialState: stateEvents, initialTimeline: messageEvents)
+            let timelineEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.latestMessages)
+            return try? Matrix.Room(roomId: rec.roomId, session: self.session, initialState: stateEvents, initialTimeline: timelineEvents)
         }
         return rooms
     }
@@ -268,10 +268,26 @@ public struct GRDBDataStore: DataStore {
         let rooms = try records.compactMap { rec in
             let decoder = JSONDecoder()
             let stateEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.minimalState)
-            let messageEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.latestMessages)
-            return try? Matrix.Room(roomId: rec.roomId, session: self.session, initialState: stateEvents, initialTimeline: messageEvents)
+            let timelineEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.latestMessages)
+            return try? Matrix.Room(roomId: rec.roomId, session: self.session, initialState: stateEvents, initialTimeline: timelineEvents)
         }
         return rooms
+    }
+    
+    public func loadRoom(_ roomId: RoomId) async throws -> Matrix.Room? {
+        let roomIdColumn = RoomRecord.Columns.roomId
+        guard let rec = try await dbQueue.read({ db -> RoomRecord? in
+            try RoomRecord
+                .filter(roomIdColumn == "\(roomId)")
+                .fetchOne(db)
+        })
+        else {
+            return nil
+        }
+        let decoder = JSONDecoder()
+        let stateEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.minimalState)
+        let timelineEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.latestMessages)
+        return try? Matrix.Room(roomId: rec.roomId, session: self.session, initialState: stateEvents, initialTimeline: timelineEvents)
     }
     
     public func saveRooms(_ rooms: [Matrix.Room]) async throws {
