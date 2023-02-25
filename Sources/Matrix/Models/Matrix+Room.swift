@@ -29,7 +29,7 @@ extension Matrix {
         @Published public var localEchoEvent: Event?
         //@Published var earliestMessage: MatrixMessage?
         //@Published var latestMessage: MatrixMessage?
-        private var state: [String: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
+        public var state: [String: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
         
         @Published public var highlightCount: Int = 0
         @Published public var notificationCount: Int = 0
@@ -177,9 +177,7 @@ extension Matrix {
                 throw Matrix.Error(msg)
                 //continue
             }
-            
-            var needToSave: Bool = false
-            
+
             switch event.type {
             
             case M_ROOM_AVATAR:
@@ -249,7 +247,6 @@ extension Matrix {
                 else {
                     return
                 }
-                needToSave = true
                 await MainActor.run {
                     self.encryptionParams = content
                 }
@@ -263,12 +260,6 @@ extension Matrix {
             var d = self.state[event.type] ?? [:]
             d[stateKey] = event
             self.state[event.type] = d
-            
-            // Do we need to save the room to local storage?
-            if needToSave {
-                // FIXME: TODO: Actually save the room to the DataStore
-            }
-            
         } // end func updateState()
         
         public func getState(type: String, stateKey: String) async throws -> Codable? {
