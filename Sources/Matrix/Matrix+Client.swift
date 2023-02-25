@@ -16,7 +16,7 @@ import AnyCodable
 
 extension Matrix {
     
-@available(macOS 12.0, *)
+@available(macOS 13.0, *)
 public class Client {
     public var creds: Matrix.Credentials
     public var baseUrl: URL
@@ -60,9 +60,18 @@ public class Client {
     
     // MARK: API Call
     
-    public func call(method: String, path: String, body: Codable? = nil, expectedStatuses: [Int] = [200]) async throws -> (Data, HTTPURLResponse) {
+    public func call(method: String,
+                     path: String,
+                     params: [String:String] = [:],
+                     body: Codable? = nil,
+                     expectedStatuses: [Int] = [200]
+    ) async throws -> (Data, HTTPURLResponse) {
         print("APICALL\tCalling \(method) \(path)")
-        let url = URL(string: path, relativeTo: baseUrl)!
+        let queryItems: [URLQueryItem] = params.map { (key,value) -> URLQueryItem in
+            URLQueryItem(name: key, value: value)
+        }
+        let url = URL(string: path, relativeTo: baseUrl)!.appending(queryItems: queryItems)
+        
         var request = URLRequest(url: url)
         request.httpMethod = method
         
@@ -678,24 +687,25 @@ public class Client {
     // Good news!  `from` is no longer required as of v1.3 (June 2022),
     // so we no longer have to call /sync before fetching messages.
     public func getMessages(roomId: RoomId,
-                         forward: Bool = false,
-                         from: String? = nil,
-                         limit: Int? = 25
+                            forward: Bool = false,
+                            from startToken: String? = nil,
+                            to endToken: String? = nil,
+                            limit: Int? = 25
     ) async throws -> [ClientEvent] {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/messages"
-        struct RequestBody: Codable {
-            enum Direction: String, Codable {
-                case forward = "f"
-                case backward = "b"
-            }
-            var dir: Direction
-            var filter: String?
-            var from: String?
-            var limit: Int?
-            var to: String?
+        var params: [String:String] = [
+            "dir" : forward ? "f" : "b",
+        ]
+        if let start = startToken {
+            params["from"] = start
         }
-        let body = RequestBody(dir: forward ? .forward : .backward, from: from, limit: limit)
-        let (data, response) = try await call(method: "GET", path: path, body: body)
+        if let end = endToken {
+            params["to"] = end
+        }
+        if let limit = limit {
+            params["limit"] = "\(limit)"
+        }
+        let (data, response) = try await call(method: "GET", path: path, params: params)
         
         struct ResponseBody: Codable {
             var chunk: [ClientEvent]
