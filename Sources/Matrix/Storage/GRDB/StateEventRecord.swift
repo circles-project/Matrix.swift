@@ -21,6 +21,17 @@ struct StateEventRecord: Codable {
     public let type: String
     public let unsigned: UnsignedData?
     
+    public enum Columns: String, ColumnExpression {
+        case content
+        case eventId = "event_id"
+        case originServerTS = "origin_server_ts"
+        case roomId = "room_id"
+        case sender
+        case stateKey = "state_key"
+        case type
+        case unsigned
+    }
+    
     public enum CodingKeys: String, CodingKey {
         case content
         case eventId = "event_id"

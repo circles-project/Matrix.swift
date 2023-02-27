@@ -31,10 +31,11 @@ public protocol DataStore {
     
     // FIXME: Add all the other function prototypes that got built out in the GRDBDataStore
     
-    func loadRooms(limit: Int, offset: Int?) async throws -> [Matrix.Room]
+    func getRecentRoomIds(limit: Int, offset: Int?) async throws -> [RoomId]
+    func getRoomIds(of roomType: String, limit: Int, offset: Int?) async throws -> [RoomId]
+    func getJoinedRoomIds(for userId: UserId, limit: Int, offset: Int?) async throws -> [RoomId]
     
     //func loadRooms(of type: String?, limit: Int, offset: Int?) async throws -> [Matrix.Room]
-    
     func loadRoom(_ roomId: RoomId) async throws -> Matrix.Room?
     
     func saveRoomTimestamp(roomId: RoomId, state: RoomMemberContent.Membership, timestamp: UInt64) async throws

@@ -234,7 +234,7 @@ public struct GRDBDataStore: DataStore {
     
     // MARK: Rooms
     
-    public func loadRooms(limit: Int=20, offset: Int? = nil) async throws -> [Matrix.Room] {
+    public func getRecentRoomIds(limit: Int=20, offset: Int? = nil) async throws -> [RoomId] {
         let timestampColumn = RoomRecord.Columns.timestamp
         let records = try await dbQueue.read { db -> [RoomRecord] in
             try RoomRecord
@@ -242,16 +242,44 @@ public struct GRDBDataStore: DataStore {
                 .limit(limit, offset: offset)
                 .fetchAll(db)
         }
-        var rooms = [Matrix.Room]()
-        for record in records {
-            let roomId = record.roomId
-            if let room = try await loadRoom(roomId) {
-                rooms.append(room)
-            }
-        }
-        return rooms
+        return records.map { $0.roomId }
     }
     
+    public func getRoomIds(of roomType: String, limit: Int=20, offset: Int?=nil) async throws -> [RoomId] {
+        let eventTypeColumn = StateEventRecord.Columns.type
+        let stateKeyColumn = StateEventRecord.Columns.stateKey
+        let records = try await dbQueue.read { db in
+            let baseQuery = StateEventRecord
+                .filter(eventTypeColumn == M_ROOM_CREATE)
+                .filter(stateKeyColumn == roomType)
+            let query = limit > 0 ? baseQuery.limit(limit, offset: offset) : baseQuery
+            return try query.fetchAll(db)
+        }
+        let roomIds = records.map { $0.roomId }
+        return roomIds
+    }
+    
+    public func getJoinedRoomIds(for userId: UserId, limit: Int=20, offset: Int?=nil) async throws -> [RoomId] {
+        let eventTypeColumn = StateEventRecord.Columns.type
+        let stateKeyColumn = StateEventRecord.Columns.stateKey
+        let records = try await dbQueue.read { db in
+            let baseQuery = StateEventRecord
+                .filter(eventTypeColumn == M_ROOM_MEMBER)
+                .filter(stateKeyColumn == "\(userId)")
+            let query = limit > 0 ? baseQuery.limit(limit, offset: offset) : baseQuery
+            return try query.fetchAll(db)
+        }
+        let roomIds = records.compactMap { record -> RoomId? in
+            // Is the membership state 'join' ???
+            guard let content = record.content as? RoomMemberContent,
+                  content.membership == .join
+            else {
+                return nil
+            }
+            return record.roomId
+        }
+        return roomIds
+    }
     
     public func loadRoom(_ roomId: RoomId) async throws -> Matrix.Room? {
         let stateEvents = try await loadState(for: roomId)
