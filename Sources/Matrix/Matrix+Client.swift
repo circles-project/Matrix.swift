@@ -16,7 +16,7 @@ import AnyCodable
 
 extension Matrix {
     
-@available(macOS 13.0, *)
+@available(macOS 12.0, *)
 public class Client {
     public var creds: Matrix.Credentials
     public var baseUrl: URL
@@ -70,7 +70,10 @@ public class Client {
         let queryItems: [URLQueryItem] = params.map { (key,value) -> URLQueryItem in
             URLQueryItem(name: key, value: value)
         }
-        let url = URL(string: path, relativeTo: baseUrl)!.appending(queryItems: queryItems)
+        //let url = URL(string: path, relativeTo: baseUrl)!.appending(queryItems: queryItems)
+        var components = URLComponents(url: URL(string: path, relativeTo: self.baseUrl)!, resolvingAgainstBaseURL: true)!
+        components.queryItems = queryItems
+        let url = components.url!
         
         var request = URLRequest(url: url)
         request.httpMethod = method
