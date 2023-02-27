@@ -29,6 +29,9 @@ public protocol DataStore {
     
     func loadState(for roomId: RoomId, limit: Int, offset: Int?) async throws -> [ClientEventWithoutRoomId]
     
+    func saveStrippedState(events: [StrippedStateEvent], roomId: RoomId) async throws
+
+    
     // FIXME: Add all the other function prototypes that got built out in the GRDBDataStore
     
     func getRecentRoomIds(limit: Int, offset: Int?) async throws -> [RoomId]

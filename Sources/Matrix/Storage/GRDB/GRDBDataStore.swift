@@ -232,6 +232,15 @@ public struct GRDBDataStore: DataStore {
         }
     }
     
+    public func saveStrippedState(events: [StrippedStateEvent], roomId: RoomId) async throws {
+        try await dbQueue.write { db in
+            for event in events {
+                let record = StrippedStateEventRecord(from: event, in: roomId)
+                try record.save(db)
+            }
+        }
+    }
+    
     // MARK: Rooms
     
     public func getRecentRoomIds(limit: Int=20, offset: Int? = nil) async throws -> [RoomId] {

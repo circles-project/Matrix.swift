@@ -133,6 +133,11 @@ extension Matrix {
                     else {
                         continue
                     }
+                    
+                    if let store = self.dataStore {
+                        try await store.saveStrippedState(events: events, roomId: roomId)
+                    }
+                    
                     //if self.invitations[roomId] == nil {
                         let room = try InvitedRoom(session: self, roomId: roomId, stateEvents: events)
                         self.invitations[roomId] = room
