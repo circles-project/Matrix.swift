@@ -273,10 +273,10 @@ extension Matrix {
         // e.g. for displaying the user's room list
         public var minimalState: [ClientEventWithoutRoomId] {
             return [
-                state[M_ROOM_CREATE]![""]!,                            // Room creation
-                state[M_ROOM_ENCRYPTION]?[""],                         // Encryption settings
+                state[M_ROOM_CREATE]![""]!,                             // Room creation
+                state[M_ROOM_ENCRYPTION]?[""],                          // Encryption settings
                 //state[.mRoomHistoryVisibility]?[""],                  // History visibility
-                state[M_ROOM_MEMBER]?["\(session.creds.userId)"],      // My membership in the room
+                state[M_ROOM_MEMBER]?["\(session.creds.userId)"],       // My membership in the room
                 state[M_ROOM_POWER_LEVELS]?["\(session.creds.userId)"], // My power level in the room
                 state[M_ROOM_NAME]?[""],
                 state[M_ROOM_AVATAR]?[""],

@@ -189,6 +189,13 @@ extension Matrix {
                         // Nevertheless, we should still remove the room id from the invited rooms
                         invitations.removeValue(forKey: roomId)
                     }
+                    
+                    // Save the room summary with the latest timestamp and info state
+                    if let timestamp = roomTimestamp {
+                        if let store = self.dataStore {
+                            try await store.saveRoomTimestamp(roomId: roomId, state: .join, timestamp: timestamp)
+                        }
+                    }
                 }
             } else {
                 print("/sync:\tNo joined rooms")

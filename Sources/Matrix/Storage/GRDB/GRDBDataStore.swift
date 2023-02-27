@@ -51,24 +51,12 @@ public struct GRDBDataStore: DataStore {
             
             try db.create(table: "rooms") { t in
                 t.column("roomId", .text).unique().notNull()
-                t.column("type", .text)
-                t.column("version", .text).notNull()
-                t.column("creator", .text).notNull()
                 
-                t.column("isEncrypted", .boolean).notNull()
-                
-                t.column("predecessorRoomId", .text)
-                t.column("successorRoomId", .text)
-                
-                t.column("name", .text)
-                t.column("avatarUrl", .text)
-                t.column("topic", .text)
+                t.column("joinState", .text).notNull()
                 
                 t.column("notificationCount", .integer).notNull()
                 t.column("highlightCount", .integer).notNull()
-                
-                t.column("minimalState", .blob).notNull()
-                t.column("latestMessages", .blob).notNull()
+
                 t.column("timestamp", .datetime).notNull()
                 
                 t.primaryKey(["roomId"])
@@ -199,17 +187,25 @@ public struct GRDBDataStore: DataStore {
     }
     
     public func loadState(for roomId: RoomId,
-                          limit: Int = 25, offset: Int? = nil
-    ) async throws -> [ClientEvent] {
+                          limit: Int = 0,
+                          offset: Int? = nil
+    ) async throws -> [ClientEventWithoutRoomId] {
         let roomIdColumn = ClientEvent.Columns.roomId
         // let stateKeyColumn = ClientEvent.Columns.stateKey
         let timestampColumn = ClientEvent.Columns.originServerTS
         let table = Table<ClientEvent>("state")
-        let request = table.filter(roomIdColumn == "\(roomId)")
-                           .order(timestampColumn.desc)
-                           .limit(limit, offset: offset)
-        let events = try await dbQueue.read { db -> [ClientEvent] in
+        let baseRequest = table.filter(roomIdColumn == "\(roomId)")
+                               .order(timestampColumn.desc)
+        let request = limit > 0 ? baseRequest.limit(limit, offset: offset) : baseRequest
+        let clientEvents = try await dbQueue.read { db -> [ClientEvent] in
             try request.fetchAll(db)
+        }
+        let events = clientEvents.compactMap {
+            try? ClientEventWithoutRoomId(content: $0.content,
+                                          eventId: $0.eventId,
+                                          originServerTS: $0.originServerTS,
+                                          sender: $0.sender,
+                                          type: $0.type)
         }
         return events
     }
@@ -238,7 +234,7 @@ public struct GRDBDataStore: DataStore {
     
     // MARK: Rooms
     
-    public func loadRooms(limit: Int=100, offset: Int? = nil) async throws -> [Matrix.Room] {
+    public func loadRooms(limit: Int=20, offset: Int? = nil) async throws -> [Matrix.Room] {
         let timestampColumn = RoomRecord.Columns.timestamp
         let records = try await dbQueue.read { db -> [RoomRecord] in
             try RoomRecord
@@ -246,79 +242,32 @@ public struct GRDBDataStore: DataStore {
                 .limit(limit, offset: offset)
                 .fetchAll(db)
         }
-        let rooms = try records.compactMap { rec in
-            let decoder = JSONDecoder()
-            let stateEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.minimalState)
-            let timelineEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.latestMessages)
-            return try? Matrix.Room(roomId: rec.roomId, session: self.session, initialState: stateEvents, initialTimeline: timelineEvents)
-        }
-        return rooms
-    }
-    
-    public func loadRooms(of type: String?, limit: Int=100, offset: Int?=nil) async throws -> [Matrix.Room] {
-        let timestampColumn = RoomRecord.Columns.timestamp
-        let typeColumn = RoomRecord.Columns.type
-        let records = try await dbQueue.read { db -> [RoomRecord] in
-            try RoomRecord
-                .filter(typeColumn == type)
-                .order(timestampColumn.desc)
-                .limit(limit, offset: offset)
-                .fetchAll(db)
-        }
-        let rooms = try records.compactMap { rec in
-            let decoder = JSONDecoder()
-            let stateEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.minimalState)
-            let timelineEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.latestMessages)
-            return try? Matrix.Room(roomId: rec.roomId, session: self.session, initialState: stateEvents, initialTimeline: timelineEvents)
-        }
-        return rooms
-    }
-    
-    public func loadRoom(_ roomId: RoomId) async throws -> Matrix.Room? {
-        let roomIdColumn = RoomRecord.Columns.roomId
-        guard let rec = try await dbQueue.read({ db -> RoomRecord? in
-            try RoomRecord
-                .filter(roomIdColumn == "\(roomId)")
-                .fetchOne(db)
-        })
-        else {
-            return nil
-        }
-        let decoder = JSONDecoder()
-        let stateEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.minimalState)
-        let timelineEvents = try decoder.decode([ClientEventWithoutRoomId].self, from: rec.latestMessages)
-        return try? Matrix.Room(roomId: rec.roomId, session: self.session, initialState: stateEvents, initialTimeline: timelineEvents)
-    }
-    
-    public func saveRooms(_ rooms: [Matrix.Room]) async throws {
-        let records = try rooms.map { room in
-            let encoder = JSONEncoder()
-            let stateData = try encoder.encode(room.minimalState)
-            let lastMessage = room.lastMessage
-            let messageData = try encoder.encode([lastMessage].compactMap({$0}))
-            
-            return RoomRecord(roomId: room.roomId,
-                       type: room.type,
-                       version: room.version,
-                       creator: room.creator,
-                       isEncrypted: room.isEncrypted,
-                       predecessorRoomId: room.predecessorRoomId,
-                       successorRoomId: room.successorRoomId,
-                       name: room.name,
-                       avatarUrl: room.avatarUrl,
-                       topic: room.topic,
-                       notificationCount: room.notificationCount,
-                       highlightCount: room.highlightCount,
-                       minimalState: stateData,
-                       latestMessages: messageData,
-                       timestamp: lastMessage?.originServerTS ?? 0)
-        }
-        try await dbQueue.write { db in
-            for record in records {
-                try record.save(db)
+        var rooms = [Matrix.Room]()
+        for record in records {
+            let roomId = record.roomId
+            if let room = try await loadRoom(roomId) {
+                rooms.append(room)
             }
         }
+        return rooms
     }
+    
+    
+    public func loadRoom(_ roomId: RoomId) async throws -> Matrix.Room? {
+        let stateEvents = try await loadState(for: roomId)
+        return try? Matrix.Room(roomId: roomId, session: self.session, initialState: stateEvents)
+    }
+    
+    public func saveRoomTimestamp(roomId: RoomId,
+                                  state: RoomMemberContent.Membership,
+                                  timestamp: UInt64
+    ) async throws {
+        try await dbQueue.write { db in
+            let rec = RoomRecord(roomId: roomId, joinState: state, timestamp: timestamp)
+            try rec.save(db)
+        }
+    }
+    
     
     // MARK: User profiles
     
