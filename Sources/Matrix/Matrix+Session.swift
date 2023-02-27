@@ -149,9 +149,19 @@ extension Matrix {
                     print("/sync:\tFound joined room \(roomId)")
                     let stateEvents = info.state?.events ?? []
                     let timelineEvents = info.timeline?.events ?? []
+                    let timelineStateEvents = timelineEvents.filter {
+                        $0.stateKey != nil
+                    }
+                    
+                    let roomTimestamp = timelineEvents.map { $0.originServerTS }.max()
                     
                     if let store = self.dataStore {
-                        try await store.saveState(events: stateEvents, in: roomId)
+                        // First save the state events from before this timeline
+                        // Then save the state events that came in during the timeline
+                        // We do both in a single call so it all happens in one transaction in the database
+                        try await store.saveState(events: stateEvents + timelineStateEvents,
+                                                  in: roomId)
+                        // Finally save the whole timeline so it can be displayed later
                         try await store.save(events: timelineEvents, in: roomId)
                     }
 
