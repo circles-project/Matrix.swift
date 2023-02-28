@@ -24,6 +24,14 @@ struct StrippedStateEventRecord: Codable {
         case content
     }
     
+    public enum Columns: String, ColumnExpression {
+        case roomId
+        case sender
+        case stateKey = "state_key"
+        case type
+        case content
+    }
+    
     public init(from event: StrippedStateEvent, in roomId: RoomId) {
         self.roomId = roomId
         self.sender = event.sender

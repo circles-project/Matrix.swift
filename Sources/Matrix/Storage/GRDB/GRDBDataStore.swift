@@ -266,6 +266,22 @@ public struct GRDBDataStore: DataStore {
         }
     }
     
+    public func loadStrippedState(for roomId: RoomId) async throws -> [StrippedStateEvent] {
+        let roomIdColumn = StrippedStateEventRecord.Columns.roomId
+        let records = try await dbQueue.read { db in
+            try StrippedStateEventRecord
+                    .filter(roomIdColumn == "\(roomId)")
+                    .fetchAll(db)
+        }
+        let events = records.map {
+            StrippedStateEvent(sender: $0.sender,
+                               stateKey: $0.stateKey,
+                               type: $0.type,
+                               content: $0.content)
+        }
+        return events
+    }
+    
     // MARK: Rooms
     
     public func getRecentRoomIds(limit: Int=20, offset: Int? = nil) async throws -> [RoomId] {

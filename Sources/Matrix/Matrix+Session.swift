@@ -317,5 +317,24 @@ extension Matrix {
             // Looks like we got nothing
             return nil
         }
+        
+        public func getInvitedRoom(roomId: RoomId) async throws -> Matrix.InvitedRoom? {
+            if let room = self.invitations[roomId] {
+                return room
+            }
+            
+            if let store = self.dataStore {
+                let events = try await store.loadStrippedState(for: roomId)
+                if let room = try? Matrix.InvitedRoom(session: self, roomId: roomId, stateEvents: events) {
+                    await MainActor.run {
+                        self.invitations[roomId] = room
+                    }
+                    return room
+                }
+            }
+            
+            // Whoops, looks like we couldn't find what we needed
+            return nil
+        }
     }
 }

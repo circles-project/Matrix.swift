@@ -30,6 +30,7 @@ public protocol DataStore {
     
     func loadState(for roomId: RoomId, limit: Int, offset: Int?) async throws -> [ClientEventWithoutRoomId]
     func loadEssentialState(for roomId: RoomId) async throws -> [ClientEventWithoutRoomId]
+    func loadStrippedState(for roomId: RoomId) async throws -> [StrippedStateEvent]
     
     func getRecentRoomIds(limit: Int, offset: Int?) async throws -> [RoomId]
     func getRoomIds(of roomType: String, limit: Int, offset: Int?) async throws -> [RoomId]
