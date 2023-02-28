@@ -151,8 +151,8 @@ public struct GRDBDataStore: DataStore {
         }
     }
     
-    public func loadEvents(for roomId: RoomId,
-                    limit: Int = 25, offset: Int? = nil
+    public func loadTimeline(for roomId: RoomId,
+                             limit: Int = 25, offset: Int? = nil
     ) async throws -> [ClientEvent] {
         let roomIdColumn = ClientEvent.Columns.roomId
         let timestampColumn = ClientEvent.Columns.originServerTS
@@ -208,6 +208,31 @@ public struct GRDBDataStore: DataStore {
                                           type: $0.type)
         }
         return events
+    }
+    
+    public func loadEssentialState(for roomId: RoomId) async throws -> [ClientEventWithoutRoomId] {
+        let roomIdColumn = ClientEvent.Columns.roomId
+        let eventTypes = [
+            M_ROOM_CREATE,
+            M_ROOM_TOMBSTONE,
+            M_ROOM_ENCRYPTION,
+            M_ROOM_POWER_LEVELS,
+            M_ROOM_NAME,
+            M_ROOM_AVATAR,
+            M_ROOM_TOPIC,
+        ]
+        let table = Table<ClientEvent>("state")
+        let request = table.filter(sql: "SELECT * FROM state WHERE roomId = \(roomId) AND type IN (\(eventTypes.joined(separator: ",")))")
+        let events = try await dbQueue.read { db in
+            try request.fetchAll(db)
+        }
+        return events.compactMap {
+            try? ClientEventWithoutRoomId(content: $0.content,
+                                          eventId: $0.eventId,
+                                          originServerTS: $0.originServerTS,
+                                          sender: $0.sender,
+                                          type: $0.type)
+        }
     }
     
     public func saveState(events: [ClientEventWithoutRoomId], in roomId: RoomId) async throws {
@@ -290,10 +315,12 @@ public struct GRDBDataStore: DataStore {
         return roomIds
     }
     
+    /* // Moving this up into the Session layer
     public func loadRoom(_ roomId: RoomId) async throws -> Matrix.Room? {
         let stateEvents = try await loadState(for: roomId)
         return try? Matrix.Room(roomId: roomId, session: self.session, initialState: stateEvents)
     }
+    */
     
     public func saveRoomTimestamp(roomId: RoomId,
                                   state: RoomMemberContent.Membership,

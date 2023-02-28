@@ -293,10 +293,18 @@ extension Matrix {
             
             // Do we have this room in our data store?
             if let store = self.dataStore {
-                return try await store.loadRoom(roomId)
+                let events = try await store.loadEssentialState(for: roomId)
+                if events.count > 0 {
+                    if let room = try? Matrix.Room(roomId: roomId, session: self, initialState: events) {
+                        await MainActor.run {
+                            self.rooms[roomId] = room
+                        }
+                        return room
+                    }
+                }
             }
             
-            // Ok we didn't have anything cached locally
+            // Ok we didn't have the room state cached locally
             // Maybe the server knows about this room?
             let events = try await getRoomStateEvents(roomId: roomId)
             if let room = try? Matrix.Room(roomId: roomId, session: self, initialState: events, initialTimeline: []) {
