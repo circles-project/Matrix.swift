@@ -52,7 +52,7 @@ public struct PushRulesContent: Codable {
             case setGenericTweak(tweak:String, value:String)
             
             public init(from decoder: Decoder) throws {
-                print("Decoding push rule action")
+                //Matrix.logger.debug("Decoding push rule action")
                                 
                 struct ActionDecodingError: Error {
                     var msg: String
@@ -70,7 +70,7 @@ public struct PushRulesContent: Codable {
                         self = .coalesce
                         return
                     default:
-                        print("Invalid string: [\(string)]")
+                        Matrix.logger.error("Invalid string: [\(string)]")
                         throw ActionDecodingError(msg: "Invalid string")
                     }
                 }
@@ -99,7 +99,7 @@ public struct PushRulesContent: Codable {
                 }
 
                 
-                print("Invalid action: Doesn't match either type (string or set_tweak)")
+                Matrix.logger.error("Invalid action: Doesn't match either type (string or set_tweak)")
                 throw ActionDecodingError(msg: "Doesn't match either type of action (string or set_tweak)")
             }
         }

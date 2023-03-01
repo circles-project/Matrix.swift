@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 #if !os(macOS)
 import UIKit
 #else
@@ -37,6 +38,8 @@ public enum Matrix {
     }
 
     // MARK: Utility Functions
+    
+    public static var logger = os.Logger(subsystem: Bundle.main.bundleIdentifier ?? "Matrix.swift", category: "matrix")
     
     // MARK: Well-Known
     
