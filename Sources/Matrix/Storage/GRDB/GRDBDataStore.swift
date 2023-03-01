@@ -36,7 +36,7 @@ public struct GRDBDataStore: DataStore {
             }
             
             // Room state events
-            // This is almost the same schema as `events`, except:
+            // This is almost the same schema as `timeline`, except:
             // * stateKey is NOT NULL
             // * primary key is (roomId, type, stateKey) instead of eventId
             try db.create(table: "state") { t in
@@ -145,7 +145,7 @@ public struct GRDBDataStore: DataStore {
     
     // MARK: Events
     
-    public func save(events: [ClientEvent]) async throws {
+    public func saveTimeline(events: [ClientEvent]) async throws {
         try await dbQueue.write { db in
             for event in events {
                 try event.save(db)
@@ -153,7 +153,7 @@ public struct GRDBDataStore: DataStore {
         }
     }
     
-    public func save(events: [ClientEventWithoutRoomId], in roomId: RoomId) async throws {
+    public func saveTimeline(events: [ClientEventWithoutRoomId], in roomId: RoomId) async throws {
         let clientEvents = try events.map {
             try ClientEvent(from: $0, roomId: roomId)
         }

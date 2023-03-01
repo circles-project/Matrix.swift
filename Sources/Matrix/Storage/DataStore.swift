@@ -19,8 +19,8 @@ public protocol DataStore {
     
     //init(userId: UserId, deviceId: String) async throws
     
-    func save(events: [ClientEvent]) async throws
-    func save(events: [ClientEventWithoutRoomId], in roomId: RoomId) async throws
+    func saveTimeline(events: [ClientEvent]) async throws
+    func saveTimeline(events: [ClientEventWithoutRoomId], in roomId: RoomId) async throws
     
     func saveState(events: [ClientEvent]) async throws
     func saveState(events: [ClientEventWithoutRoomId], in roomId: RoomId) async throws
