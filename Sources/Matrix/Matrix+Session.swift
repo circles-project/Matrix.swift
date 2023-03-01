@@ -77,7 +77,7 @@ extension Matrix {
 
             // Phase 1 init is done -- Now we can reference `self`
             
-            self.dataStore = try await GRDBDataStore(session: self, type: storageType)
+            self.dataStore = try await GRDBDataStore(userId: creds.userId, type: storageType)
 
             
             // Ok now we're initialized as a valid Matrix.Client (super class)

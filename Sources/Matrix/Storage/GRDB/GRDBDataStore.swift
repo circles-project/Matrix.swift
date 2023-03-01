@@ -13,9 +13,7 @@ public struct GRDBDataStore: DataStore {
     //let db: Database
     let dbQueue: DatabaseQueue
     var migrator: DatabaseMigrator
-    
-    public var session: Matrix.Session
-    
+        
     // MARK: Migrations
     
     private mutating func runMigrations() throws {
@@ -128,13 +126,12 @@ public struct GRDBDataStore: DataStore {
     
     // MARK: init()
     
-    public init(session: Matrix.Session, type: StorageType) async throws {
-        self.session = session
-        let path = NSHomeDirectory() + "/" + "\(session.creds.userId)" // FIXME
+    public init(userId: UserId, type: StorageType) async throws {
         switch type {
         case .inMemory:
             self.dbQueue = DatabaseQueue()
         case .persistent:
+            let path = NSHomeDirectory() + "/" + "\(userId)" // FIXME
             self.dbQueue = try DatabaseQueue(path: path)
         }
         

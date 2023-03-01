@@ -13,9 +13,8 @@ public enum StorageType: String {
 }
 
 public protocol DataStore {
-    var session: Matrix.Session { get }
     
-    init(session: Matrix.Session, type: StorageType) async throws
+    init(userId: UserId, type: StorageType) async throws
     
     //init(userId: UserId, deviceId: String) async throws
     
