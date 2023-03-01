@@ -18,16 +18,22 @@ struct RoomRecord: Codable {
 
     let timestamp: UInt64
     
+    enum CodingKeys: String, CodingKey {
+        case roomId = "room_id"
+        case joinState = "join_state"
+        case timestamp
+    }
+    
 }
 
 extension RoomRecord: FetchableRecord, TableRecord {
     static var databaseTableName = "rooms"
     
     enum Columns: String, ColumnExpression {
-        case roomId
-        case joinState
-        //case highlightCount
-        //case notificationCount
+        case roomId = "room_id"
+        case joinState = "join_state"
+        //case highlightCount = "highlight_count"
+        //case notificationCount = "notification_count"
         case timestamp
 
     }

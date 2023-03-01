@@ -8,11 +8,19 @@
 import Foundation
 import GRDB
 
-extension ClientEventWithoutRoomId: FetchableRecord {
+extension ClientEventWithoutRoomId: FetchableRecord, TableRecord {
     
     enum Columns: String, ColumnExpression {
-        case content, eventId, originServerTS, sender, stateKey, type
+        case content
+        case eventId = "event_id"
+        case originServerTS = "origin_server_ts"
+        case sender
+        case stateKey = "state_key"
+        case type
+        case unsigned
     }
+    
+    static public var databaseTableName: String = "timeline"
     
 }
 

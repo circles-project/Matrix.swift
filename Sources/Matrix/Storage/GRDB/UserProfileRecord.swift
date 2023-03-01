@@ -15,10 +15,12 @@ struct UserProfileRecord: Codable {
 }
 
 extension UserProfileRecord: FetchableRecord, TableRecord {
-    static var databaseTableName = "userProfiles"
+    static var databaseTableName = "user_profiles"
     
     enum Columns: String, ColumnExpression {
-        case userId, key, value
+        case userId = "user_id"
+        case key
+        case value
     }
 }
 

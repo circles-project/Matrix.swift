@@ -17,7 +17,7 @@ struct StrippedStateEventRecord: Codable {
     let content: Codable
 
     public enum CodingKeys: String, CodingKey {
-        case roomId
+        case roomId = "room_id"
         case sender
         case stateKey = "state_key"
         case type
@@ -25,7 +25,7 @@ struct StrippedStateEventRecord: Codable {
     }
     
     public enum Columns: String, ColumnExpression {
-        case roomId
+        case roomId = "room_id"
         case sender
         case stateKey = "state_key"
         case type

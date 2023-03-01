@@ -23,52 +23,63 @@ public struct GRDBDataStore: DataStore {
         migrator.registerMigration("Create Tables") { db in
             
             // Events database
-            try db.create(table: "events") { t in
-                t.column("eventId", .text).unique().notNull()
-                t.column("roomId", .text).notNull()
+            try db.create(table: "timeline") { t in
+                t.column("event_id", .text).unique().notNull()
+                t.column("room_id", .text).notNull()
                 t.column("sender", .text).notNull()
                 t.column("type", .text).notNull()
-                t.column("stateKey", .text)
-                t.column("originServerTS", .integer).notNull()
+                t.column("state_key", .text)
+                t.column("origin_server_ts", .integer).notNull()
                 t.column("content", .blob).notNull()
-                t.primaryKey(["eventId"])
+                t.column("unsigned", .blob)
+                t.primaryKey(["event_id"])
             }
             
             // Room state events
             // This is almost the same schema as `events`, except:
             // * stateKey is NOT NULL
             // * primary key is (roomId, type, stateKey) instead of eventId
-            try db.create(table: "roomState") { t in
-                t.column("eventId", .text).notNull()
-                t.column("roomId", .text).notNull()
+            try db.create(table: "state") { t in
+                t.column("event_id", .text).notNull()
+                t.column("room_id", .text).notNull()
                 t.column("sender", .text).notNull()
                 t.column("type", .text).notNull()
-                t.column("stateKey", .text).notNull()
-                t.column("originServerTS", .integer).notNull()
+                t.column("state_key", .text).notNull()
+                t.column("origin_server_ts", .integer).notNull()
                 t.column("content", .blob).notNull()
-                t.primaryKey(["roomId", "type", "stateKey"])
+                t.column("unsigned", .blob)
+                t.primaryKey(["room_id", "type", "state_key"])
+            }
+            
+            try db.create(table: "stripped_state") { t in
+                t.column("room_id", .text).notNull()
+                t.column("sender", .text).notNull()
+                t.column("state_key", .text).notNull()
+                t.column("type", .text).notNull()
+                t.column("content", .blob).notNull()
+                t.primaryKey(["room_id", "type", "state_key"])
             }
             
             try db.create(table: "rooms") { t in
-                t.column("roomId", .text).unique().notNull()
+                t.column("room_id", .text).unique().notNull()
                 
-                t.column("joinState", .text).notNull()
+                t.column("join_state", .text).notNull()
                 
-                t.column("notificationCount", .integer).notNull()
-                t.column("highlightCount", .integer).notNull()
+                //t.column("notification_count", .integer).notNull()
+                //t.column("highlight_count", .integer).notNull()
 
                 t.column("timestamp", .datetime).notNull()
                 
-                t.primaryKey(["roomId"])
+                t.primaryKey(["room_id"])
             }
             
             // User profiles are explicitly key-value stores in order to
             // support more flexible profiles in the future.
-            try db.create(table: "userProfiles") { t in
-                t.column("userId", .text).notNull()
+            try db.create(table: "user_profiles") { t in
+                t.column("user_id", .text).notNull()
                 t.column("key", .text).notNull()
                 t.column("value", .text).notNull()
-                t.primaryKey(["userId", "key"])
+                t.primaryKey(["user_id", "key"])
             }
             
             // We're cheating a little bit here, using the same table for
@@ -77,17 +88,18 @@ public struct GRDBDataStore: DataStore {
             // specific to any given room.
             // In the Swift code, we would use `nil`, but SQL doesn't
             // like to have NULLs in primary keys.
-            try db.create(table: "accountData") { t in
-                t.column("userId", .text).notNull()
-                t.column("roomId", .text).notNull()
+            try db.create(table: "account_data") { t in
+                t.column("user_id", .text).notNull()
+                t.column("room_id", .text).notNull()
                 t.column("type", .text).notNull()
                 t.column("content", .blob)
-                t.primaryKey(["userId", "roomId", "type"])
+                t.primaryKey(["user_id", "room_id", "type"])
             }
             
             // FIXME: Really this should move into a different type
             //        The existing data store is for all the stuff *inside* a session
             //        It has no notion of multiple sessions at all
+            /*
             try db.create(table: "sessions") { t in
                 t.column("userId", .text).notNull()
                 t.column("deviceId", .text).notNull()
@@ -108,6 +120,7 @@ public struct GRDBDataStore: DataStore {
                 
                 t.primaryKey(["userId"])
             }
+            */
         }
         
         try migrator.migrate(dbQueue)
