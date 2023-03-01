@@ -163,19 +163,22 @@ extension Matrix {
             }
         }
         
-        public func updateState(from events: [ClientEventWithoutRoomId]) async throws {
-            for event in events {
-                try await updateState(from: event)
+        public func updateState(from events: [ClientEventWithoutRoomId]) async {
+            await MainActor.run {
+                for event in events {
+                    updateState(from: event)
+                }
             }
         }
         
-        public func updateState(from event: ClientEventWithoutRoomId) async throws {
+        public func updateState(from event: ClientEventWithoutRoomId) {
             guard let stateKey = event.stateKey
             else {
                 let msg = "No state key for \"state\" event of type \(event.type)"
                 print("updateState:\t\(msg)")
-                throw Matrix.Error(msg)
+                //throw Matrix.Error(msg)
                 //continue
+                return
             }
 
             switch event.type {
@@ -183,27 +186,31 @@ extension Matrix {
             case M_ROOM_AVATAR:
                 guard let content = event.content as? RoomAvatarContent
                 else {
+                    print("Room:\tFailed to parse \(M_ROOM_AVATAR) event \(event.eventId)")
                     return
                 }
+                print("Room:\tSetting room avatar")
                 if self.avatarUrl != content.mxc {
-                    await MainActor.run {
-                        self.avatarUrl = content.mxc
-                        // FIXME: Also fetch the new avatar image
-                    }
+                    self.avatarUrl = content.mxc
+                    // FIXME: Also fetch the new avatar image
                 }
                     
                 case M_ROOM_NAME:
                     guard let content = event.content as? RoomNameContent
                     else {
+                        print("Room:\tFailed to parse \(M_ROOM_NAME) event \(event.eventId)")
                         return
                     }
+                    print("Room:\tSetting room name")
                     self.name = content.name
                     
                 case M_ROOM_TOPIC:
                     guard let content = event.content as? RoomTopicContent
                     else {
+                        print("\tRoom:\tFailed to parse \(M_ROOM_TOPIC) event \(event.eventId)")
                         return
                     }
+                    print("Room:\tSetting topic")
                     self.topic = content.topic
                     
                 case M_ROOM_MEMBER:
@@ -211,8 +218,10 @@ extension Matrix {
                           let stateKey = event.stateKey,
                           let userId = UserId(stateKey)
                     else {
+                        print("Room:\tFailed to parse \(M_ROOM_MEMBER) event \(event.eventId)")
                         return
                     }
+                    print("Room:\tUpdating membership for user \(stateKey)")
                     switch content.membership {
                     case .invite:
                         self.invitedMembers.insert(userId)
@@ -247,12 +256,10 @@ extension Matrix {
                 else {
                     return
                 }
-                await MainActor.run {
-                    self.encryptionParams = content
-                }
+                self.encryptionParams = content
                 
             default:
-                print("Not handling event of type \(event.type)")
+                print("Room:\tNot handling event of type \(event.type)")
                 
             } // end switch event.type
             
