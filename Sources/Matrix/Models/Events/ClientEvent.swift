@@ -45,7 +45,8 @@ public struct ClientEvent: Matrix.Event, Codable {
     public init(from: ClientEventWithoutRoomId, roomId: RoomId) throws {
         try self.init(content: from.content, eventId: from.eventId,
                       originServerTS: from.originServerTS, roomId: roomId,
-                      sender: from.sender, type: from.type)
+                      sender: from.sender, type: from.type,
+                      unsigned: from.unsigned)
     }
     
     public init(from decoder: Decoder) throws {
