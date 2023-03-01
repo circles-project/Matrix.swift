@@ -98,18 +98,22 @@ extension Matrix {
         // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3sync
         @Sendable
         private func syncRequestTaskOperation() async throws -> String? {
-            var url = "/_matrix/client/v3/sync?timeout=\(self.syncRequestTimeout)"
+            var url = "/_matrix/client/v3/sync"
+            var params = [
+                "timeout": "\(syncRequestTimeout)",
+            ]
             if let token = syncToken {
-                url += "&since=\(token)"
+                params["since"] = token
             }
-            let (data, response) = try await self.call(method: "GET", path: url)
+            print("/sync:\tCalling \(url)")
+            let (data, response) = try await self.call(method: "GET", path: url, params: params)
             
-            let rawDataString = String(data: data, encoding: .utf8)
-            print("\n\n\(rawDataString!)\n\n")
+            //let rawDataString = String(data: data, encoding: .utf8)
+            //print("\n\n\(rawDataString!)\n\n")
             
             guard response.statusCode == 200 else {
                 print("ERROR: /sync got HTTP \(response.statusCode) \(response.description)")
-
+                self.syncRequestTask = nil
                 //return self.syncToken
                 return nil
             }
@@ -119,10 +123,19 @@ extension Matrix {
             guard let responseBody = try? decoder.decode(SyncResponseBody.self, from: data)
             else {
                 self.syncRequestTask = nil
-                throw Matrix.Error("Could not decode /sync response")
+                let msg = "Could not decode /sync response"
+                logger.error("\(msg)")
+                throw Matrix.Error(msg)
             }
             
-            // Process the sync response, updating local state
+            // Process the sync response, updating local state if necessary
+            // First thing to check: Did our sync token actually change?
+            // Because if not, then we've already seen everything in this update
+            if responseBody.nextBatch == self.syncToken {
+                logger.debug("/sync:\tToken didn't change; Therefore no updates; Doing nothing")
+                self.syncRequestTask = nil
+                return syncToken
+            }
             
             // Handle invites
             if let invitedRoomsDict = responseBody.rooms?.invite {
@@ -164,10 +177,24 @@ extension Matrix {
                         // First save the state events from before this timeline
                         // Then save the state events that came in during the timeline
                         // We do both in a single call so it all happens in one transaction in the database
-                        try await store.saveState(events: stateEvents + timelineStateEvents,
-                                                  in: roomId)
-                        // Finally save the whole timeline so it can be displayed later
-                        try await store.save(events: timelineEvents, in: roomId)
+                        let allStateEvents = stateEvents + timelineStateEvents
+                        if !allStateEvents.isEmpty {
+                            print("/sync:\tSaving state for room \(roomId)")
+                            try await store.saveState(events: allStateEvents, in: roomId)
+                        }
+                        if !timelineEvents.isEmpty {
+                            // Save the whole timeline so it can be displayed later
+                            print("/sync:\tSaving timeline for room \(roomId)")
+                            try await store.saveTimeline(events: timelineEvents, in: roomId)
+                        }
+                        
+                        // Save the room summary with the latest timestamp
+                        if let timestamp = roomTimestamp {
+                            print("/sync:\tSaving timestamp for room \(roomId)")
+                            try await store.saveRoomTimestamp(roomId: roomId, state: .join, timestamp: timestamp)
+                        } else {
+                            print("/sync:\tNo update to timestamp for room \(roomId)")
+                        }
                     }
 
                     if let room = self.rooms[roomId] {
@@ -187,20 +214,21 @@ extension Matrix {
                         }
                         
                     } else {
-                        // New approach: Don't automatically allocate a Room object for every room we know about
-                        //               Let the application request them when it needs them.
-                        //               This should save us substantial RAM and CPU for users who are in a large number of rooms.
-                        
-                        // Nevertheless, we should still remove the room id from the invited rooms
+                        // Clearly the room is no longer in the 'invited' state
                         invitations.removeValue(forKey: roomId)
-                    }
-                    
-                    // Save the room summary with the latest timestamp and info state
-                    if let timestamp = roomTimestamp {
-                        if let store = self.dataStore {
-                            try await store.saveRoomTimestamp(roomId: roomId, state: .join, timestamp: timestamp)
+                        // FIXME Also purge any stripped state that we had been storing for this room
+                        
+                        if let room = try? Matrix.Room(roomId: roomId, session: self, initialState: stateEvents+timelineStateEvents, initialTimeline: timelineEvents) {
+                            print("/sync:\tInitialized new Room object for \(roomId)")
+                            await MainActor.run {
+                                self.rooms[roomId] = room
+                            }
+                        } else {
+                            print("/sync:\tError: Failed to initialize Room object for \(roomId)")
                         }
                     }
+                    
+
                 }
             } else {
                 print("/sync:\tNo joined rooms")
@@ -226,17 +254,20 @@ extension Matrix {
 
             print("/sync:\tUpdating sync token...  awaiting MainActor")
             await MainActor.run {
-                print("/sync:\tMainActor updating sync token")
+                print("/sync:\tMainActor updating sync token to \(responseBody.nextBatch)")
                 self.syncToken = responseBody.nextBatch
-                self.syncRequestTask = nil
             }
 
             print("/sync:\tDone!")
+            self.syncRequestTask = nil
             return responseBody.nextBatch
         
         }
+        
         public func sync() async throws -> String? {
+            print("/sync:\tStarting sync()")
             
+            /*
             // FIXME: Use a TaskGroup
             syncRequestTask = syncRequestTask ?? .init(priority: .background, operation: syncRequestTaskOperation)
             
@@ -244,7 +275,16 @@ extension Matrix {
                 print("Error: /sync Failed to launch sync request task")
                 return nil
             }
+            print("/sync:\tAwaiting result of sync task")
             return try await task.value
+            */
+            
+            if let task = syncRequestTask {
+                return try await task.value
+            } else {
+                syncRequestTask = .init(priority: .background, operation: syncRequestTaskOperation)
+                return try await syncRequestTask?.value
+            }
         }
 
         
