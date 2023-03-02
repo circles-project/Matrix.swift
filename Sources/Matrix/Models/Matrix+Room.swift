@@ -9,6 +9,8 @@ import Foundation
 
 extension Matrix {
     public class Room: ObservableObject {
+        public typealias HistoryVisibility = RoomHistoryVisibilityContent.HistoryVisibility
+
         public let roomId: RoomId
         public let session: Session
         private var dataStore: DataStore?
@@ -295,6 +297,20 @@ extension Matrix {
         
         public var creator: UserId {
             state[M_ROOM_CREATE]![""]!.sender
+        }
+        
+        public func getHistoryVisibility() async throws -> HistoryVisibility? {
+            // Do we already have this info cached?
+            if let event = self.state[M_ROOM_HISTORY_VISIBILITY]?[""],
+               let content = event.content as? RoomHistoryVisibilityContent
+            {
+                return content.historyVisibility
+            }
+            
+            // We don't have any history visibility info right now
+            // So we have to query our Matrix session
+            let content = try await self.session.getRoomState(roomId: roomId, eventType: M_ROOM_HISTORY_VISIBILITY) as? RoomHistoryVisibilityContent
+            return content?.historyVisibility
         }
         
         public var lastMessage: ClientEventWithoutRoomId? {

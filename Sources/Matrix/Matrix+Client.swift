@@ -694,7 +694,7 @@ public class Client {
                             from startToken: String? = nil,
                             to endToken: String? = nil,
                             limit: Int? = 25
-    ) async throws -> [ClientEvent] {
+    ) async throws -> [ClientEventWithoutRoomId] {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/messages"
         var params: [String:String] = [
             "dir" : forward ? "f" : "b",
@@ -711,10 +711,10 @@ public class Client {
         let (data, response) = try await call(method: "GET", path: path, params: params)
         
         struct ResponseBody: Codable {
-            var chunk: [ClientEvent]
+            var chunk: [ClientEventWithoutRoomId]
             var end: String?
             var start: String
-            var state: [ClientEvent]?
+            var state: [ClientEventWithoutRoomId]?
         }
         
         let decoder = JSONDecoder()

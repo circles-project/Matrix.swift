@@ -26,6 +26,7 @@ let package = Package(
         .package(url: "https://gitlab.futo.org/cvwright/BlindSaltSpeke.git", branch: "master"), //from: "0.3.0"),
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0"),
         .package(url: "https://gitlab.futo.org/circles/MatrixSDKCrypto.git", branch: "main"), //from: "0.1.5"),
+        .package(url: "https://github.com/iosdevzone/IDZSwiftCommonCrypto.git", from: "0.13.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -38,6 +39,7 @@ let package = Package(
                 .product(name: "AnyCodable", package: "anycodable"),
                 .product(name: "BlindSaltSpeke", package: "blindsaltspeke"),
                 .product(name: "MatrixSDKCrypto", package: "MatrixSDKCrypto"),
+                .product(name: "IDZSwiftCommonCrypto", package: "IDZSwiftCommonCrypto"),
             ]),
         .testTarget(
             name: "MatrixTests",
