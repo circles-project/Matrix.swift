@@ -57,7 +57,7 @@ extension Matrix {
                     syncToken: String? = nil, startSyncing: Bool = true,
                     displayname: String? = nil, avatarUrl: MXC? = nil, statusMessage: String? = nil,
                     recoverySecretKey: Data? = nil, recoveryTimestamp: Data? = nil,
-                    storageType: StorageType = .persistent
+                    storageType: StorageType = .persistent(preserve: true)
         ) async throws {
             self.rooms = [:]
             self.invitations = [:]
