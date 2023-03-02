@@ -25,7 +25,7 @@ let package = Package(
         .package(url: "https://github.com/Flight-School/AnyCodable", from: "0.6.0"),
         .package(url: "https://gitlab.futo.org/cvwright/BlindSaltSpeke.git", branch: "master"), //from: "0.3.0"),
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0"),
-        .package(url: "https://gitlab.futo.org/circles/MatrixSDKCrypto.git", branch: "main"), //from: "0.1.5"),
+        .package(url: "https://gitlab.futo.org/circles/MatrixSDKCrypto.git", from: "0.2.1"), //from: "0.1.5"),
         .package(url: "https://github.com/iosdevzone/IDZSwiftCommonCrypto.git", from: "0.13.0"),
     ],
     targets: [
