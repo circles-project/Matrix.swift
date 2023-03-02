@@ -96,10 +96,13 @@ public struct EncryptedEventContent: Codable {
     }
     
     public func encode(to encoder: Encoder) throws {
-        let container = encoder.container(keyedBy: CodingKeys.self)
-        // FIXME
-        // TODO
-        throw Matrix.Error("Not implemented")
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(algorithm, forKey: .algorithm)
+        try container.encode(senderKey, forKey: .senderKey)
+        try container.encode(deviceId, forKey: .deviceId)
+        try container.encode(sessionId, forKey: .sessionId)
+        try container.encode(ciphertext, forKey: .ciphertext)
     }
 }
 

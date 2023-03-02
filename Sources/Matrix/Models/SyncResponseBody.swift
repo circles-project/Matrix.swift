@@ -155,7 +155,7 @@ extension Matrix {
         public var accountData: AccountData?
         public var deviceLists: DeviceLists?
         public var deviceOneTimeKeysCount: OneTimeKeysCount?
-        public var deviceUnusedFallbackKeyTypes: [String]
+        public var deviceUnusedFallbackKeyTypes: [String]?
         public var nextBatch: String
         public var presence: Presence?
         public var rooms: Rooms?
@@ -186,7 +186,7 @@ extension Matrix {
             self.deviceOneTimeKeysCount = try container.decodeIfPresent(OneTimeKeysCount.self, forKey: .deviceOneTimeKeysCount)
             
             //logger.debug("\tDevice unused fallback key types")
-            self.deviceUnusedFallbackKeyTypes = try container.decode([String].self, forKey: .deviceUnusedFallbackKeyTypes)
+            self.deviceUnusedFallbackKeyTypes = try container.decodeIfPresent([String].self, forKey: .deviceUnusedFallbackKeyTypes)
             
             //logger.debug("\tNext batch")
             self.nextBatch = try container.decode(String.self, forKey: .nextBatch)

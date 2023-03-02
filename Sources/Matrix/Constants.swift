@@ -16,7 +16,7 @@ public let M_ROOM_POWER_LEVELS = "m.room.power_levels"
 public let M_ROOM_MESSAGE = "m.room.message"
 public let M_REACTION = "m.reaction"
 public let M_ROOM_ENCRYPTION = "m.room.encryption"
-public let M_ENCRYPTED = "m.encrypted"
+public let M_ROOM_ENCRYPTED = "m.room.encrypted"
 public let M_ROOM_TOMBSTONE = "m.room.tombstone"
 
 public let M_ROOM_NAME = "m.room.name"

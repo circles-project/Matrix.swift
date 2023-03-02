@@ -324,7 +324,7 @@ extension Matrix {
             let result = try self.crypto.receiveSyncChanges(events: eventsString,
                                                             deviceChanges: deviceLists,
                                                             keyCounts: responseBody.deviceOneTimeKeysCount ?? [:],
-                                                            unusedFallbackKeys: responseBody.deviceUnusedFallbackKeyTypes)
+                                                            unusedFallbackKeys: responseBody.deviceUnusedFallbackKeyTypes ?? [])
         }
 
         func sendCryptoRequest(request: Request) async throws {
@@ -408,7 +408,11 @@ extension Matrix {
                                                   response: responseBodyString)
                 
             case .roomMessage(requestId: let requestId, roomId: let roomId, eventType: let eventType, content: let content):
-                let requestBody = content.data(using: .utf8)!
+                logger.debug("Sending room message for the crypto SDK: type = \(eventType)")
+                // oof, looks like we need to decode the raw request string that the crypto sdk provided
+                // it's kind of a stupid round-trip through our decoders, but oh well...
+                let rawRequestData = content.data(using: .utf8)!
+                let requestBody = try Matrix.decodeEventContent(of: eventType, from: rawRequestData)
                 let urlPath = "/_matrix/client/v3/rooms/\(roomId)/send/\(eventType)/\(requestId)"
                 let (data, response) = try await self.call(method: "PUT",
                                                            path: urlPath,
@@ -626,10 +630,12 @@ extension Matrix {
             let encryptedString = try self.crypto.encrypt(roomId: roomId.description,
                                                           eventType: type,
                                                           content: stringContent)
+            print("Got encrypted string = [\(encryptedString)]")
             let encryptedData = encryptedString.data(using: .utf8)!
+            let encryptedContent = try Matrix.decodeEventContent(of: M_ROOM_ENCRYPTED, from: encryptedData)
             return try await super.sendMessageEvent(to: roomId,
-                                                    type: M_ENCRYPTED,
-                                                    content: encryptedData)
+                                                    type: M_ROOM_ENCRYPTED,
+                                                    content: encryptedContent)
         }
 
         // MARK: Encrypted Media
@@ -726,7 +732,7 @@ extension Matrix {
         ) -> [ClientEventWithoutRoomId] {
             events.compactMap { event in
                 switch event.type {
-                case M_ENCRYPTED:
+                case M_ROOM_ENCRYPTED:
                     // Try to decrypt any encrypted events in the timeline
                     let maybeDecrypted = try? self.decryptMessageEvent(event: event, in: roomId)
                     // But if we failed to decrypt, keep the encrypted event around

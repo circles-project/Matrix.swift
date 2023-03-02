@@ -69,16 +69,27 @@ extension Matrix {
     public struct mImageContent: Matrix.MessageContent {
         public var msgtype: Matrix.MessageType
         public var body: String
-        public var url: URL?
+        public var file: mEncryptedFile?
+        public var url: MXC?
         public var info: mImageInfo
         
-        public init(msgtype: Matrix.MessageType, body: String, url: URL? = nil, info: mImageInfo) {
+        public init(msgtype: Matrix.MessageType, body: String, url: MXC? = nil, info: mImageInfo) {
             self.msgtype = msgtype
             self.body = body
+            self.file = nil
             self.url = url
             self.info = info
         }
+
+        public init(msgtype: Matrix.MessageType, body: String, file: mEncryptedFile? = nil, info: mImageInfo) {
+            self.msgtype = msgtype
+            self.body = body
+            self.file = file
+            self.url = nil
+            self.info = info
+        }
     }
+
 
     public struct mImageInfo: Codable {
         public var h: Int
@@ -86,13 +97,13 @@ extension Matrix {
         public var mimetype: String
         public var size: Int
         public var file: mEncryptedFile?
-        public var thumbnail_url: URL?
+        public var thumbnail_url: MXC?
         public var thumbnail_file: mEncryptedFile?
         public var thumbnail_info: mThumbnailInfo?
         public var blurhash: String?
         
         public init(h: Int, w: Int, mimetype: String, size: Int, file: mEncryptedFile? = nil,
-                    thumbnail_url: URL? = nil, thumbnail_file: mEncryptedFile? = nil,
+                    thumbnail_url: MXC? = nil, thumbnail_file: mEncryptedFile? = nil,
                     thumbnail_info: mThumbnailInfo? = nil, blurhash: String? = nil) {
             self.h = h
             self.w = w
@@ -252,11 +263,11 @@ extension Matrix {
     }
 
     public struct mLocationInfo: Codable {
-        public var thumbnail_url: URL?
+        public var thumbnail_url: MXC?
         public var thumbnail_file: mEncryptedFile?
         public var thumbnail_info: mThumbnailInfo
         
-        public init(thumbnail_url: URL? = nil, thumbnail_file: mEncryptedFile? = nil,
+        public init(thumbnail_url: MXC? = nil, thumbnail_file: mEncryptedFile? = nil,
                     thumbnail_info: mThumbnailInfo) {
             self.thumbnail_url = thumbnail_url
             self.thumbnail_file = thumbnail_file
@@ -286,12 +297,12 @@ extension Matrix {
         public var w: UInt
         public var mimetype: String
         public var size: UInt
-        public var thumbnail_url: URL?
+        public var thumbnail_url: MXC?
         public var thumbnail_file: mEncryptedFile?
         public var thumbnail_info: mThumbnailInfo
         
         public init(duration: UInt, h: UInt, w: UInt, mimetype: String, size: UInt,
-                    thumbnail_url: URL? = nil, thumbnail_file: mEncryptedFile? = nil,
+                    thumbnail_url: MXC? = nil, thumbnail_file: mEncryptedFile? = nil,
                     thumbnail_info: mThumbnailInfo) {
             self.duration = duration
             self.h = h

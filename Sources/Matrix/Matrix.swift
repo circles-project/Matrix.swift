@@ -146,7 +146,7 @@ public enum Matrix {
         M_ROOM_TOMBSTONE : RoomTombstoneContent.self,
         M_TAG : TagContent.self,
         M_ROOM_ENCRYPTION : RoomEncryptionContent.self,
-        M_ENCRYPTED : EncryptedEventContent.self,
+        M_ROOM_ENCRYPTED : EncryptedEventContent.self,
         M_SPACE_CHILD : SpaceChildContent.self,
         M_SPACE_PARENT : SpaceParentContent.self,
         M_REACTION : ReactionContent.self,
