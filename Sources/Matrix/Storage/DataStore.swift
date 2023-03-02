@@ -7,9 +7,9 @@
 
 import Foundation
 
-public enum StorageType: String {
+public enum StorageType {
     case inMemory
-    case persistent
+    case persistent(preserve: Bool)
 }
 
 public protocol DataStore {
@@ -17,6 +17,8 @@ public protocol DataStore {
     init(userId: UserId, type: StorageType) async throws
     
     //init(userId: UserId, deviceId: String) async throws
+    
+    func close() async throws
     
     func saveTimeline(events: [ClientEvent]) async throws
     func saveTimeline(events: [ClientEventWithoutRoomId], in roomId: RoomId) async throws

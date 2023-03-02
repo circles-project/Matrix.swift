@@ -130,14 +130,38 @@ public struct GRDBDataStore: DataStore {
         switch type {
         case .inMemory:
             self.dbQueue = DatabaseQueue()
-        case .persistent:
-            let path = NSHomeDirectory() + "/" + "\(userId)" // FIXME
-            self.dbQueue = try DatabaseQueue(path: path)
+        case .persistent(let preserve):
+            let dirPath = [
+                NSHomeDirectory(),
+                ".matrix",
+                Bundle.main.infoDictionary?["CFBundleName"] as? String ?? Bundle.main.className,
+                "\(userId)"
+            ].joined(separator: "/")
+            let filePath = dirPath + "/matrix.sqlite3"
+            
+            if !preserve {
+                try FileManager.default.removeItem(atPath: filePath)
+            }
+            
+            Matrix.logger.debug("Trying to open database at [\(filePath)]")
+            if let queue = try? DatabaseQueue(path: filePath) {
+                self.dbQueue = queue
+            } else {
+                Matrix.logger.debug("Failed to open database.  Maybe it doesn't exist?  Trying to create the path now...")
+                let url = URL(fileURLWithPath: dirPath)
+                try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                Matrix.logger.debug("Now trying again to create database")
+                self.dbQueue = try DatabaseQueue(path: filePath)
+            }
         }
         
         self.migrator = DatabaseMigrator()
         try runMigrations()
         
+    }
+    
+    public func close() async throws {
+        try dbQueue.close()
     }
     
     // MARK: Events
