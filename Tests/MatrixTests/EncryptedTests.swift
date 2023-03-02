@@ -163,7 +163,12 @@ final class EncryptedTests: XCTestCase {
         print("✅ found event \(event.eventId) in the timeline")
         
         XCTAssert(event.type != M_ROOM_ENCRYPTED)
-        print("✅ event has type [\(event.type)]")
+        if event.type == M_ROOM_ENCRYPTED {
+            print("❌ event is still encrypted")
+            throw "Failed to decrypt"
+        } else {
+            print("✅ event has type [\(event.type)]")
+        }
     }
     
     func testUploadEncryptedMedia() async throws {
