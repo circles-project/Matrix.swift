@@ -16,10 +16,12 @@ final class GRDBDataStoreTests: XCTestCase {
     var logger = Matrix.logger
     
     override func setUp() async throws {
-        store = try await GRDBDataStore(userId: userId, type: .inMemory)
+        store = try await GRDBDataStore(userId: userId, type: .persistent(preserve: false))
     }
     
-
+    override func tearDown() async throws {
+        try await store?.close()
+    }
     
     func testSaveAndLoadTimeline() async throws {
         let roomId = RoomId.random()
