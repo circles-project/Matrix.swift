@@ -13,6 +13,7 @@ final class GRDBDataStoreTests: XCTestCase {
  
     var userId = UserId("@bob:example.com")!
     var store: GRDBDataStore?
+    var logger = Matrix.logger
     
     override func setUp() async throws {
         store = try await GRDBDataStore(userId: userId, type: .inMemory)
@@ -50,7 +51,7 @@ final class GRDBDataStoreTests: XCTestCase {
             else {
                 throw "Could not find a matching event for event \(originalEvent.eventId)"
             }
-            print("found loaded event for \(originalEvent.eventId)")
+            logger.debug("found loaded event for \(originalEvent.eventId)")
             XCTAssert(loadedEvent.type == originalEvent.type)
             XCTAssert(loadedEvent.stateKey == originalEvent.stateKey)
             XCTAssert(loadedEvent.originServerTS == originalEvent.originServerTS)
@@ -112,20 +113,55 @@ final class GRDBDataStoreTests: XCTestCase {
         let loadedEvents = try await store.loadState(for: roomId, limit: 1000)
         XCTAssert(loadedEvents.count == 3)
         print("✅ got the correct number of events")
+        /*
+        for loadedEvent in loadedEvents {
+            print("event\t\(loadedEvent.eventId)\ntype\t\(loadedEvent.type)\nstateKey\t\(loadedEvent.stateKey ?? "(none)")")
+        }
+        */
 
         for originalEvent in [creationEvent, nameEvent2, topicEvent1] {
-            print("Looking for an event of type \(originalEvent.type) ...")
+            logger.debug("Looking for an event of type \(originalEvent.type) ...")
             let e = loadedEvents.first(where: { $0.type == originalEvent.type && $0.stateKey == originalEvent.stateKey })
             XCTAssertNotNil(e)
             guard let loadedEvent = e
             else {
                 throw "No matching event for \(originalEvent.eventId) (\(originalEvent.type))"
             }
-            print("found loaded event for \(originalEvent.eventId)")
+            logger.debug("found loaded event for \(originalEvent.eventId)")
             XCTAssert(loadedEvent.type == originalEvent.type)
             XCTAssert(loadedEvent.stateKey == originalEvent.stateKey)
             XCTAssert(loadedEvent.originServerTS == originalEvent.originServerTS)
             XCTAssert(loadedEvent.sender == originalEvent.sender)
+            
+            switch originalEvent.type {
+            case M_ROOM_CREATE:
+                XCTAssertNotNil(originalEvent.content as? RoomCreateContent)
+                XCTAssertNotNil(loadedEvent.content as? RoomCreateContent)
+                let originalContent = originalEvent.content as! RoomCreateContent
+                let loadedContent = loadedEvent.content as! RoomCreateContent
+                XCTAssert(originalContent.roomVersion == loadedContent.roomVersion)
+                XCTAssert(originalContent.type == loadedContent.type)
+                XCTAssert(originalContent.creator == loadedContent.creator)
+                XCTAssert(originalContent.federate == loadedContent.federate)
+                XCTAssertNil(originalContent.predecessor)
+                XCTAssertNil(loadedContent.predecessor)
+            case M_ROOM_NAME:
+                XCTAssertNotNil(originalEvent.content as? RoomNameContent)
+                XCTAssertNotNil(loadedEvent.content as? RoomNameContent)
+                let originalContent = originalEvent.content as! RoomNameContent
+                let loadedContent = loadedEvent.content as! RoomNameContent
+                XCTAssert(originalContent.name == loadedContent.name)
+            case M_ROOM_TOPIC:
+                XCTAssertNotNil(originalEvent.content as? RoomTopicContent)
+                XCTAssertNotNil(loadedEvent.content as? RoomTopicContent)
+                let originalContent = originalEvent.content as! RoomTopicContent
+                let loadedContent = loadedEvent.content as! RoomTopicContent
+                XCTAssert(originalContent.topic == loadedContent.topic)
+            default:
+                logger.error("Got unexpected event type \(originalEvent.type)")
+                XCTAssert(false)
+            }
         }
+        print("✅ all events matched")
     }
 }
