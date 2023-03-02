@@ -8,7 +8,7 @@
 import Foundation
 import AnyCodable
 
-public struct ClientEvent: Matrix.Event {
+public struct ClientEvent: Matrix.Event, Codable {
     public let content: Codable
     public let eventId: String
     public let originServerTS: UInt64
@@ -16,17 +16,6 @@ public struct ClientEvent: Matrix.Event {
     public let sender: UserId
     public let stateKey: String?
     public let type: String
-    
-    public struct UnsignedData: Codable {
-        public let age: Int
-        // public let prevContent: Codable // Ugh how are we supposed to decode this???
-        // public let redactedBecause: ClientEvent? // Ugh wtf Matrix?  We can't have a recursive structure here...
-        public struct FakeClientEvent: Codable {
-            public var eventId: String
-        }
-        public let redactedBecause: FakeClientEvent?
-        public let transactionId: String?
-    }
     public let unsigned: UnsignedData?
     
     public enum CodingKeys: String, CodingKey {
@@ -38,6 +27,26 @@ public struct ClientEvent: Matrix.Event {
         case stateKey = "state_key"
         case type
         case unsigned
+    }
+    
+    public init(content: Codable, eventId: String, originServerTS: UInt64, roomId: RoomId,
+                sender: UserId, stateKey: String? = nil, type: String,
+                unsigned: UnsignedData? = nil) throws {
+        self.content = content
+        self.eventId = eventId
+        self.originServerTS = originServerTS
+        self.roomId = roomId
+        self.sender = sender
+        self.stateKey = stateKey
+        self.type = type
+        self.unsigned = unsigned
+    }
+    
+    public init(from: ClientEventWithoutRoomId, roomId: RoomId) throws {
+        try self.init(content: from.content, eventId: from.eventId,
+                      originServerTS: from.originServerTS, roomId: roomId,
+                      sender: from.sender, type: from.type,
+                      unsigned: from.unsigned)
     }
     
     public init(from decoder: Decoder) throws {

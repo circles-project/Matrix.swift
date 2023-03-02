@@ -60,9 +60,21 @@ public class Client {
     
     // MARK: API Call
     
-    public func call(method: String, path: String, body: Codable? = nil, expectedStatuses: [Int] = [200]) async throws -> (Data, HTTPURLResponse) {
+    public func call(method: String,
+                     path: String,
+                     params: [String:String] = [:],
+                     body: Codable? = nil,
+                     expectedStatuses: [Int] = [200]
+    ) async throws -> (Data, HTTPURLResponse) {
         print("APICALL\tCalling \(method) \(path)")
-        let url = URL(string: path, relativeTo: baseUrl)!
+        let queryItems: [URLQueryItem] = params.map { (key,value) -> URLQueryItem in
+            URLQueryItem(name: key, value: value)
+        }
+        //let url = URL(string: path, relativeTo: baseUrl)!.appending(queryItems: queryItems)
+        var components = URLComponents(url: URL(string: path, relativeTo: self.baseUrl)!, resolvingAgainstBaseURL: true)!
+        components.queryItems = queryItems
+        let url = components.url!
+        
         var request = URLRequest(url: url)
         request.httpMethod = method
         
@@ -678,24 +690,25 @@ public class Client {
     // Good news!  `from` is no longer required as of v1.3 (June 2022),
     // so we no longer have to call /sync before fetching messages.
     public func getMessages(roomId: RoomId,
-                         forward: Bool = false,
-                         from: String? = nil,
-                         limit: Int? = 25
+                            forward: Bool = false,
+                            from startToken: String? = nil,
+                            to endToken: String? = nil,
+                            limit: Int? = 25
     ) async throws -> [ClientEvent] {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/messages"
-        struct RequestBody: Codable {
-            enum Direction: String, Codable {
-                case forward = "f"
-                case backward = "b"
-            }
-            var dir: Direction
-            var filter: String?
-            var from: String?
-            var limit: Int?
-            var to: String?
+        var params: [String:String] = [
+            "dir" : forward ? "f" : "b",
+        ]
+        if let start = startToken {
+            params["from"] = start
         }
-        let body = RequestBody(dir: forward ? .forward : .backward, from: from, limit: limit)
-        let (data, response) = try await call(method: "GET", path: path, body: body)
+        if let end = endToken {
+            params["to"] = end
+        }
+        if let limit = limit {
+            params["limit"] = "\(limit)"
+        }
+        let (data, response) = try await call(method: "GET", path: path, params: params)
         
         struct ResponseBody: Codable {
             var chunk: [ClientEvent]
@@ -732,14 +745,17 @@ public class Client {
     }
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3roomsroomidstate
-    public func getRoomStateEvents(roomId: RoomId) async throws -> [ClientEvent] {
+    // FIXME This actually returns [ClientEvent] but we're returning the version without the roomid in order to match /sync
+    // It's possible that we're introducing a vulnerability here -- The server could return events from other rooms
+    // OTOH it can already do that when we call /sync, so what's new?
+    public func getRoomStateEvents(roomId: RoomId) async throws -> [ClientEventWithoutRoomId] {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/state"
         
         let (data, response) = try await call(method: "GET", path: path)
         
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let events = try decoder.decode([ClientEvent].self, from: data)
+        let events = try decoder.decode([ClientEventWithoutRoomId].self, from: data)
         return events
     }
     

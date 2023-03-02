@@ -11,6 +11,7 @@ extension Matrix {
     public class Room: ObservableObject {
         public let roomId: RoomId
         public let session: Session
+        private var dataStore: DataStore?
         
         public let type: String?
         public let version: String
@@ -24,11 +25,11 @@ extension Matrix {
         public let successorRoomId: RoomId?
         public let tombstoneEventId: EventId?
         
-        @Published public var messages: Set<ClientEventWithoutRoomId>
+        @Published public var timeline: Set<ClientEventWithoutRoomId>
         @Published public var localEchoEvent: Event?
         //@Published var earliestMessage: MatrixMessage?
         //@Published var latestMessage: MatrixMessage?
-        private var stateEventsCache: [String: [ClientEventWithoutRoomId]]
+        public var state: [String: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
         
         @Published public var highlightCount: Int = 0
         @Published public var notificationCount: Int = 0
@@ -41,19 +42,32 @@ extension Matrix {
 
         @Published public var encryptionParams: RoomEncryptionContent?
         
-        public init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialMessages: [ClientEventWithoutRoomId] = []) throws {
+        public init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialTimeline: [ClientEventWithoutRoomId] = []) throws {
             self.roomId = roomId
             self.session = session
-            self.messages = Set(initialMessages)
+            self.timeline = Set(initialTimeline)
             
-            self.stateEventsCache = [:]
-            for event in initialState {
-                var cache = stateEventsCache[event.type] ?? []
-                cache.append(event)
-                stateEventsCache[event.type] = cache
+            self.state = [:]
+            
+            // Ugh, sometimes all of our state is actually in the timeline.
+            // This can happen especially for an initial sync when there are new rooms and very few messages.
+            // See https://spec.matrix.org/v1.5/client-server-api/#syncing
+            // > In the case of an initial (since-less) sync, the state list represents the complete state
+            // > of the room at the start of the returned timeline (so in the case of a recently-created
+            // > room whose state fits entirely in the timeline, the state list will be empty).
+            let allInitialStateEvents = initialState + initialTimeline.filter { $0.stateKey != nil }
+            
+            for event in allInitialStateEvents {
+                guard let stateKey = event.stateKey
+                else {
+                    continue
+                }
+                var d = self.state[event.type] ?? [:]
+                d[stateKey] = event
+                self.state[event.type] = d
             }
             
-            guard let creationEvent = stateEventsCache[M_ROOM_CREATE]?.first,
+            guard let creationEvent = state[M_ROOM_CREATE]?[""],
                   let creationContent = creationEvent.content as? RoomCreateContent
             else {
                 throw Matrix.Error("No m.room.create event")
@@ -62,7 +76,7 @@ extension Matrix {
             self.version = creationContent.roomVersion ?? "1"
             self.predecessorRoomId = creationContent.predecessor?.roomId
             
-            if let tombstoneEvent = stateEventsCache[M_ROOM_TOMBSTONE]?.last,
+            if let tombstoneEvent = state[M_ROOM_TOMBSTONE]?[""],
                let tombstoneContent = tombstoneEvent.content as? RoomTombstoneContent
             {
                 self.tombstoneEventId = tombstoneEvent.eventId
@@ -72,55 +86,57 @@ extension Matrix {
                 self.successorRoomId = nil
             }
             
-            if let nameEvent = stateEventsCache[M_ROOM_NAME]?.last,
+            if let nameEvent = state[M_ROOM_NAME]?[""],
                let nameContent = nameEvent.content as? RoomNameContent
             {
                 self.name = nameContent.name
             }
             
-            if let avatarEvent = stateEventsCache[M_ROOM_AVATAR]?.last,
+            if let avatarEvent = state[M_ROOM_AVATAR]?[""],
                let avatarContent = avatarEvent.content as? RoomAvatarContent
             {
                 self.avatarUrl = avatarContent.mxc
             }
             
-            if let topicEvent = stateEventsCache[M_ROOM_TOPIC]?.last,
+            if let topicEvent = state[M_ROOM_TOPIC]?[""],
                let topicContent = topicEvent.content as? RoomTopicContent
             {
                 self.topic = topicContent.topic
             }
             
-            for memberEvent in stateEventsCache[M_ROOM_MEMBER] ?? [] {
-                if let memberContent = memberEvent.content as? RoomMemberContent,
-                   let stateKey = memberEvent.stateKey,
-                   let memberUserId = UserId(stateKey)
-                {
-                    switch memberContent.membership {
-                    case .join:
-                        joinedMembers.insert(memberUserId)
-                    case .invite:
-                        invitedMembers.insert(memberUserId)
-                    case .ban:
-                        bannedMembers.insert(memberUserId)
-                    case .knock:
-                        knockingMembers.insert(memberUserId)
-                    case .leave:
-                        leftMembers.insert(memberUserId)
-                    }
+            for (memberKey, memberEvent) in state[M_ROOM_MEMBER] ?? [:] {
+                guard memberKey == memberEvent.stateKey,                           // Sanity check
+                      let memberContent = memberEvent.content as? RoomMemberContent,
+                      let memberUserId = UserId(memberKey)
+                else {
+                    // continue
+                    throw Matrix.Error("Error processing \(M_ROOM_MEMBER) event for user \(memberKey)")
+                }
+                
+                switch memberContent.membership {
+                case .join:
+                    joinedMembers.insert(memberUserId)
+                case .invite:
+                    invitedMembers.insert(memberUserId)
+                case .ban:
+                    bannedMembers.insert(memberUserId)
+                case .knock:
+                    knockingMembers.insert(memberUserId)
+                case .leave:
+                    leftMembers.insert(memberUserId)
                 }
             }
             
-            let powerLevelsEvents = stateEventsCache[M_ROOM_POWER_LEVELS] ?? []
-            for powerLevelsEvent in powerLevelsEvents {
+            for (powerLevelsKey, powerLevelsEvent) in state[M_ROOM_POWER_LEVELS] ?? [:]  {
                 guard powerLevelsEvent.content is RoomPowerLevelsContent
                 else {
-                    throw Matrix.Error("Couldn't parse room power levels")
+                    throw Matrix.Error("Couldn't parse \(M_ROOM_POWER_LEVELS) event for key \(powerLevelsKey)")
                 }
+                // Do we need to *do* anything with the powerlevels for now?
+                // No?
             }
-            // Do we need to *do* anything with the powerlevels for now?
-            // No?
-            
-            if let encryptionEvent = stateEventsCache[M_ROOM_ENCRYPTION]?.last,
+
+            if let encryptionEvent = state[M_ROOM_ENCRYPTION]?[""],
                let encryptionContent = encryptionEvent.content as? RoomEncryptionContent
             {
                 self.encryptionParams = encryptionContent
@@ -128,35 +144,73 @@ extension Matrix {
                 self.encryptionParams = nil
             }
             
+            // Swift Phase 1 initialization complete
+            // See https://docs.swift.org/swift-book/documentation/the-swift-programming-language/initialization/#Two-Phase-Initialization
+            // Now we can call instance functions
         }
         
-        public func updateState(from events: [ClientEventWithoutRoomId]) {
+        public func updateTimeline(from events: [ClientEventWithoutRoomId]) async throws {
             for event in events {
-                
-                switch event.type {
-                
-                case M_ROOM_AVATAR:
-                    guard let content = event.content as? RoomAvatarContent
-                    else {
-                        continue
-                    }
-                    if self.avatarUrl != content.mxc {
-                        self.avatarUrl = content.mxc
-                        // FIXME: Also fetch the new avatar image
-                    }
+                // Is this a state event?
+                if event.stateKey != nil {
+                    // If so, update our local state
+                    try await updateState(from: event)
+                }
+                // And regardless, add the event to our timeline
+                await MainActor.run {
+                    self.timeline.insert(event)
+                }
+            }
+        }
+        
+        public func updateState(from events: [ClientEventWithoutRoomId]) async {
+            await MainActor.run {
+                for event in events {
+                    updateState(from: event)
+                }
+            }
+        }
+        
+        public func updateState(from event: ClientEventWithoutRoomId) {
+            guard let stateKey = event.stateKey
+            else {
+                let msg = "No state key for \"state\" event of type \(event.type)"
+                print("updateState:\t\(msg)")
+                //throw Matrix.Error(msg)
+                //continue
+                return
+            }
+
+            switch event.type {
+            
+            case M_ROOM_AVATAR:
+                guard let content = event.content as? RoomAvatarContent
+                else {
+                    print("Room:\tFailed to parse \(M_ROOM_AVATAR) event \(event.eventId)")
+                    return
+                }
+                print("Room:\tSetting room avatar")
+                if self.avatarUrl != content.mxc {
+                    self.avatarUrl = content.mxc
+                    // FIXME: Also fetch the new avatar image
+                }
                     
                 case M_ROOM_NAME:
                     guard let content = event.content as? RoomNameContent
                     else {
-                        continue
+                        print("Room:\tFailed to parse \(M_ROOM_NAME) event \(event.eventId)")
+                        return
                     }
+                    print("Room:\tSetting room name")
                     self.name = content.name
                     
                 case M_ROOM_TOPIC:
                     guard let content = event.content as? RoomTopicContent
                     else {
-                        continue
+                        print("\tRoom:\tFailed to parse \(M_ROOM_TOPIC) event \(event.eventId)")
+                        return
                     }
+                    print("Room:\tSetting topic")
                     self.topic = content.topic
                     
                 case M_ROOM_MEMBER:
@@ -164,8 +218,10 @@ extension Matrix {
                           let stateKey = event.stateKey,
                           let userId = UserId(stateKey)
                     else {
-                        continue
+                        print("Room:\tFailed to parse \(M_ROOM_MEMBER) event \(event.eventId)")
+                        return
                     }
+                    print("Room:\tUpdating membership for user \(stateKey)")
                     switch content.membership {
                     case .invite:
                         self.invitedMembers.insert(userId)
@@ -194,20 +250,62 @@ extension Matrix {
                         self.joinedMembers.remove(userId)
                         self.leftMembers.remove(userId)
                     } // end switch content.membership
-                    
-                case M_ROOM_ENCRYPTION:
-                    guard let content = event.content as? RoomEncryptionContent
-                    else {
-                        continue
-                    }
-                    self.encryptionParams = content
-                    
-                default:
-                    print("Not handling event of type \(event.type)")
-                    
-                } // end switch event.type
                 
-            } // end func updateState()
+            case M_ROOM_ENCRYPTION:
+                guard let content = event.content as? RoomEncryptionContent
+                else {
+                    return
+                }
+                self.encryptionParams = content
+                
+            default:
+                print("Room:\tNot handling event of type \(event.type)")
+                
+            } // end switch event.type
+            
+            // Finally, update our local copy of the state to include this event
+            var d = self.state[event.type] ?? [:]
+            d[stateKey] = event
+            self.state[event.type] = d
+        } // end func updateState()
+        
+        public func getState(type: String, stateKey: String) async throws -> Codable? {
+            if let event = self.state[type]?[stateKey] {
+                return event.content
+            }
+            return try await session.getRoomState(roomId: roomId, eventType: type, with: stateKey)
+        }
+        
+        // The minimal list of state events required to reconstitute the room into a useful state
+        // e.g. for displaying the user's room list
+        public var minimalState: [ClientEventWithoutRoomId] {
+            return [
+                state[M_ROOM_CREATE]![""]!,                             // Room creation
+                state[M_ROOM_ENCRYPTION]?[""],                          // Encryption settings
+                //state[.mRoomHistoryVisibility]?[""],                  // History visibility
+                state[M_ROOM_MEMBER]?["\(session.creds.userId)"],       // My membership in the room
+                state[M_ROOM_POWER_LEVELS]?["\(session.creds.userId)"], // My power level in the room
+                state[M_ROOM_NAME]?[""],
+                state[M_ROOM_AVATAR]?[""],
+                state[M_ROOM_TOPIC]?[""],
+                state[M_ROOM_TOMBSTONE]?[""],
+            ]
+            .compactMap{ $0 }
+        }
+        
+        public var creator: UserId {
+            state[M_ROOM_CREATE]![""]!.sender
+        }
+        
+        public var lastMessage: ClientEventWithoutRoomId? {
+            timeline
+                .filter {
+                    $0.stateKey == nil
+                }
+                .sorted {
+                    $0.originServerTS < $1.originServerTS
+                }
+                .last
         }
         
         public func setName(newName: String) async throws {

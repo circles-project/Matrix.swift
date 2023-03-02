@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 #if !os(macOS)
 import UIKit
 #else
@@ -37,6 +38,8 @@ public enum Matrix {
     }
 
     // MARK: Utility Functions
+    
+    public static var logger = os.Logger(subsystem: Bundle.main.bundleIdentifier ?? "Matrix.swift", category: "matrix")
     
     // MARK: Well-Known
     
@@ -188,7 +191,7 @@ public protocol _MatrixEvent: Codable {
 }
 
 // MARK: AccountDataType
-public enum _MatrixAccountDataType: Codable, Equatable {
+public enum _MatrixAccountDataType: Codable, Equatable, Hashable {
     case mIdentityServer // "m.identity_server"
     case mFullyRead // "m.fully_read"
     case mDirect // "m.direct"

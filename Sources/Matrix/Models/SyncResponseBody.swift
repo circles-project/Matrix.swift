@@ -19,11 +19,12 @@ extension Matrix {
         }
         
         public init(from decoder: Decoder) throws {
-            print("Decoding account data event")
+            //logger.debug("Decoding account data event")
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
-            self.type = try container.decode(String.self, forKey: .type)
-            print("\tGot type = \(self.type)")
+            let type = try container.decode(String.self, forKey: .type)
+            self.type = type
+            //logger.debug("\tGot type = \(type)")
             self.content = try Matrix.decodeAccountData(of: self.type, from: decoder)
         }
     }
@@ -170,28 +171,28 @@ extension Matrix {
         }
         
         public init(from decoder: Decoder) throws {
-            print("Decoding /sync response")
+            //logger.debug("Decoding /sync response")
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
-            print("\tAccount data")
+            //logger.debug("\tAccount data")
             self.accountData = try container.decodeIfPresent(AccountData.self, forKey: .accountData)
             
-            print("\tDevice lists")
+            //logger.debug("\tDevice lists")
             self.deviceLists = try container.decodeIfPresent(DeviceLists.self, forKey: .deviceLists)
             
-            print("\tDevice one-time keys count")
+            //logger.debug("\tDevice one-time keys count")
             self.deviceOneTimeKeysCount = try container.decodeIfPresent(OneTimeKeysCount.self, forKey: .deviceOneTimeKeysCount)
             
-            print("\tNext batch")
+            //logger.debug("\tNext batch")
             self.nextBatch = try container.decode(String.self, forKey: .nextBatch)
             
-            print("\tPresence")
+            //logger.debug("\tPresence")
             self.presence = try container.decodeIfPresent(Presence.self, forKey: .presence)
             
-            print("\tRooms")
+            //logger.debug("\tRooms")
             self.rooms = try container.decodeIfPresent(Rooms.self, forKey: .rooms)
             
-            print("\tTo-Device")
+            //logger.debug("\tTo-Device")
             self.toDevice = try container.decodeIfPresent(ToDevice.self, forKey: .toDevice)
         }
     }

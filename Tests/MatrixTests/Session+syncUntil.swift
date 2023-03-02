@@ -11,6 +11,7 @@ import Matrix
 
 extension Matrix.Session {
     
+    @discardableResult
     func syncUntil(_ f: () -> Bool, maxTries: Int = 10) async throws -> Bool {
         var tries: Int = 0
         while maxTries == 0 || tries < maxTries {

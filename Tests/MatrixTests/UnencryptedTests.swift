@@ -121,22 +121,44 @@ final class UnencryptedTests: XCTestCase {
         
         let creds = try await registerNewUser(domain: self.domain, homeserver: self.homeserver)
         
-        let session = try Matrix.Session(creds: creds, startSyncing: false)
+        let session = try await Matrix.Session(creds: creds, startSyncing: false)
         
         let roomId = try await createUnencryptedRoom(session: session, name: "testCreateUnencryptedRoom")
     }
     
-    func testSendUnencryptedMessage(_ message: String, to room: Matrix.Room) async throws -> EventId {
+    func testSendUnencryptedMessage() async throws {
         
         let creds = try await registerNewUser(domain: self.domain, homeserver: self.homeserver)
         
-        let session = try Matrix.Session(creds: creds, startSyncing: true)
+        let session = try await Matrix.Session(creds: creds, startSyncing: false)
         
         let roomId = try await createUnencryptedRoom(session: session, name: "testSendUnencryptedMessage")
+        print("✅ created room \(roomId)")
+
+        try await session.syncUntil {
+            session.rooms.keys.contains(roomId)
+        }
         
+        guard let room = session.rooms[roomId]
+        else {
+            throw "Failed to get Matrix room \(roomId)"
+        }
+        print("✅ got Room object for \(roomId)")
+
         let eventId = try await room.sendText(text: "test message for testSendUnencryptedRoom")
+        print("✅ event sent with id \(eventId)")
         
-        return eventId
+        print("Syncing until the event appears in our timeline")
+        try await session.syncUntil {
+            let event = room.timeline.first { $0.eventId == eventId }
+            return event != nil
+        }
+        
+        guard let event = room.timeline.first(where: { $0.eventId == eventId })
+        else {
+            throw "❌ event \(eventId) is not in our timeline"
+        }
+        print("✅ found event \(event.eventId) in the timeline")
     }
     
     func testUploadUnencryptedMedia() async throws {

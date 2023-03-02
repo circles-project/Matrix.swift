@@ -25,35 +25,60 @@ extension Matrix {
         
         @Published public var rooms: [RoomId: Matrix.Room]
         @Published public var invitations: [RoomId: Matrix.InvitedRoom]
+        
+        // cvw: Stuff that we need to add, but haven't got to yet
+        public var accountData: [Matrix.AccountDataType: Codable]
 
         // Need some private stuff that outside callers can't see
+        private var dataStore: DataStore?
         private var syncRequestTask: Task<String?,Swift.Error>? // FIXME Use a TaskGroup to make this subordinate to the backgroundSyncTask
         private var syncToken: String? = nil
         private var syncRequestTimeout: Int = 30_000
         private var keepSyncing: Bool
-        private var syncDelayNs: UInt64 = 30_000_000_000
+        private var syncDelayNS: UInt64 = 30_000_000_000
         private var backgroundSyncTask: Task<UInt,Swift.Error>? // FIXME use a TaskGroup
         
-        private var ignoreUserIds: Set<UserId>
+        // FIXME: Derive this from our account data???
+        // The type is `m.ignored_user_list` https://spec.matrix.org/v1.5/client-server-api/#mignored_user_list
+        private var ignoreUserIds: [UserId] {
+            guard let content = self.accountData[.mIgnoredUserList] as? IgnoredUserListContent
+            else {
+                return []
+            }
+            return content.ignoredUsers
+        }
 
         // We need to use the Matrix 'recovery' feature to back up crypto keys etc
         // This saves us from struggling with UISI errors and unverified devices
         private var recoverySecretKey: Data?
         private var recoveryTimestamp: Date?
         
-        public init(creds: Credentials, startSyncing: Bool = true) throws {
+        public init(creds: Credentials,
+                    syncToken: String? = nil, startSyncing: Bool = true,
+                    displayname: String? = nil, avatarUrl: MXC? = nil, statusMessage: String? = nil,
+                    recoverySecretKey: Data? = nil, recoveryTimestamp: Data? = nil,
+                    storageType: StorageType = .persistent(preserve: true)
+        ) async throws {
             self.rooms = [:]
             self.invitations = [:]
-            
-            self.ignoreUserIds = []
-            
+            self.accountData = [:]
+                        
             self.keepSyncing = startSyncing
             // Initialize the sync tasks to nil so we can run super.init()
             self.syncRequestTask = nil
             self.backgroundSyncTask = nil
             
+            // Another Swift annoyance.  It's hard (impossible) to have a hierarchy of objects that are all initialized together.
+            // So we have to make the DataStore an optional in order for it to get a pointer to us.
+            // And here we initialize it to nil so we can call super.init()
+            self.dataStore = nil
             
             try super.init(creds: creds)
+
+            // Phase 1 init is done -- Now we can reference `self`
+            
+            self.dataStore = try await GRDBDataStore(userId: creds.userId, type: storageType)
+
             
             // Ok now we're initialized as a valid Matrix.Client (super class)
             // Are we supposed to start syncing?
@@ -73,18 +98,22 @@ extension Matrix {
         // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3sync
         @Sendable
         private func syncRequestTaskOperation() async throws -> String? {
-            var url = "/_matrix/client/v3/sync?timeout=\(self.syncRequestTimeout)"
+            var url = "/_matrix/client/v3/sync"
+            var params = [
+                "timeout": "\(syncRequestTimeout)",
+            ]
             if let token = syncToken {
-                url += "&since=\(token)"
+                params["since"] = token
             }
-            let (data, response) = try await self.call(method: "GET", path: url)
+            print("/sync:\tCalling \(url)")
+            let (data, response) = try await self.call(method: "GET", path: url, params: params)
             
-            let rawDataString = String(data: data, encoding: .utf8)
-            print("\n\n\(rawDataString!)\n\n")
+            //let rawDataString = String(data: data, encoding: .utf8)
+            //print("\n\n\(rawDataString!)\n\n")
             
             guard response.statusCode == 200 else {
                 print("ERROR: /sync got HTTP \(response.statusCode) \(response.description)")
-
+                self.syncRequestTask = nil
                 //return self.syncToken
                 return nil
             }
@@ -94,10 +123,19 @@ extension Matrix {
             guard let responseBody = try? decoder.decode(SyncResponseBody.self, from: data)
             else {
                 self.syncRequestTask = nil
-                throw Matrix.Error("Could not decode /sync response")
+                let msg = "Could not decode /sync response"
+                logger.error("\(msg)")
+                throw Matrix.Error(msg)
             }
             
-            // Process the sync response, updating local state
+            // Process the sync response, updating local state if necessary
+            // First thing to check: Did our sync token actually change?
+            // Because if not, then we've already seen everything in this update
+            if responseBody.nextBatch == self.syncToken {
+                logger.debug("/sync:\tToken didn't change; Therefore no updates; Doing nothing")
+                self.syncRequestTask = nil
+                return syncToken
+            }
             
             // Handle invites
             if let invitedRoomsDict = responseBody.rooms?.invite {
@@ -108,6 +146,11 @@ extension Matrix {
                     else {
                         continue
                     }
+                    
+                    if let store = self.dataStore {
+                        try await store.saveStrippedState(events: events, roomId: roomId)
+                    }
+                    
                     //if self.invitations[roomId] == nil {
                         let room = try InvitedRoom(session: self, roomId: roomId, stateEvents: events)
                         self.invitations[roomId] = room
@@ -122,19 +165,46 @@ extension Matrix {
                 print("/sync:\t\(joinedRoomsDict.count) joined rooms")
                 for (roomId, info) in joinedRoomsDict {
                     print("/sync:\tFound joined room \(roomId)")
-                    let messages = info.timeline?.events.filter {
-                        $0.type == M_ROOM_MESSAGE // FIXME: Encryption
+                    let stateEvents = info.state?.events ?? []
+                    let timelineEvents = info.timeline?.events ?? []
+                    let timelineStateEvents = timelineEvents.filter {
+                        $0.stateKey != nil
                     }
-                    let stateEvents = info.state?.events
+                    
+                    let roomTimestamp = timelineEvents.map { $0.originServerTS }.max()
+                    
+                    if let store = self.dataStore {
+                        // First save the state events from before this timeline
+                        // Then save the state events that came in during the timeline
+                        // We do both in a single call so it all happens in one transaction in the database
+                        let allStateEvents = stateEvents + timelineStateEvents
+                        if !allStateEvents.isEmpty {
+                            print("/sync:\tSaving state for room \(roomId)")
+                            try await store.saveState(events: allStateEvents, in: roomId)
+                        }
+                        if !timelineEvents.isEmpty {
+                            // Save the whole timeline so it can be displayed later
+                            print("/sync:\tSaving timeline for room \(roomId)")
+                            try await store.saveTimeline(events: timelineEvents, in: roomId)
+                        }
+                        
+                        // Save the room summary with the latest timestamp
+                        if let timestamp = roomTimestamp {
+                            print("/sync:\tSaving timestamp for room \(roomId)")
+                            try await store.saveRoomTimestamp(roomId: roomId, state: .join, timestamp: timestamp)
+                        } else {
+                            print("/sync:\tNo update to timestamp for room \(roomId)")
+                        }
+                    }
 
                     if let room = self.rooms[roomId] {
                         print("\tWe know this room already")
-                        print("\t\(stateEvents?.count ?? 0) new state events")
-                        print("\t\(messages?.count ?? 0) new messages")
+                        print("\t\(stateEvents.count) new state events")
+                        print("\t\(timelineEvents.count) new timeline events")
 
                         // Update the room with the latest data from `info`
-                        room.updateState(from: stateEvents ?? [])
-                        room.messages.formUnion(messages ?? [])
+                        try await room.updateState(from: stateEvents)
+                        try await room.updateTimeline(from: timelineEvents)
                         
                         if let unread = info.unreadNotifications {
                             print("\t\(unread.notificationCount) notifications")
@@ -144,33 +214,21 @@ extension Matrix {
                         }
                         
                     } else {
-                        print("\tThis is a new room")
-                        
-                        // Create the new Room object.  Also, remove the room id from the invites.
+                        // Clearly the room is no longer in the 'invited' state
                         invitations.removeValue(forKey: roomId)
+                        // FIXME Also purge any stripped state that we had been storing for this room
                         
-                        guard let initialStateEvents = stateEvents
-                        else {
-                            print("Can't create a new room with no initial state (room id = \(roomId))")
-                            continue
-                        }
-                        print("\t\(initialStateEvents.count) initial state events")
-                        print("\t\(messages?.count ?? 0) initial messages")
-                        
-                        guard let room = try? Room(roomId: roomId, session: self, initialState: initialStateEvents, initialMessages: messages ?? [])
-                        else {
-                            print("Failed to create room \(roomId)")
-                            continue
-                        }
-                        self.rooms[roomId] = room
-                        
-                        if let unread = info.unreadNotifications {
-                            print("\t\(unread.notificationCount) notifications")
-                            print("\t\(unread.highlightCount) highlights")
-                            room.notificationCount = unread.notificationCount
-                            room.highlightCount = unread.highlightCount
+                        if let room = try? Matrix.Room(roomId: roomId, session: self, initialState: stateEvents+timelineStateEvents, initialTimeline: timelineEvents) {
+                            print("/sync:\tInitialized new Room object for \(roomId)")
+                            await MainActor.run {
+                                self.rooms[roomId] = room
+                            }
+                        } else {
+                            print("/sync:\tError: Failed to initialize Room object for \(roomId)")
                         }
                     }
+                    
+
                 }
             } else {
                 print("/sync:\tNo joined rooms")
@@ -196,17 +254,20 @@ extension Matrix {
 
             print("/sync:\tUpdating sync token...  awaiting MainActor")
             await MainActor.run {
-                print("/sync:\tMainActor updating sync token")
+                print("/sync:\tMainActor updating sync token to \(responseBody.nextBatch)")
                 self.syncToken = responseBody.nextBatch
-                self.syncRequestTask = nil
             }
 
             print("/sync:\tDone!")
+            self.syncRequestTask = nil
             return responseBody.nextBatch
         
         }
+        
         public func sync() async throws -> String? {
+            print("/sync:\tStarting sync()")
             
+            /*
             // FIXME: Use a TaskGroup
             syncRequestTask = syncRequestTask ?? .init(priority: .background, operation: syncRequestTaskOperation)
             
@@ -214,7 +275,16 @@ extension Matrix {
                 print("Error: /sync Failed to launch sync request task")
                 return nil
             }
+            print("/sync:\tAwaiting result of sync task")
             return try await task.value
+            */
+            
+            if let task = syncRequestTask {
+                return try await task.value
+            } else {
+                syncRequestTask = .init(priority: .background, operation: syncRequestTaskOperation)
+                return try await syncRequestTask?.value
+            }
         }
 
         
@@ -240,6 +310,71 @@ extension Matrix {
         
         public func whoAmI() async throws -> UserId {
             return self.creds.userId
+        }
+        
+        public override func getRoomStateEvents(roomId: RoomId) async throws -> [ClientEventWithoutRoomId] {
+            let events = try await super.getRoomStateEvents(roomId: roomId)
+            if let store = self.dataStore {
+                try await store.saveState(events: events, in: roomId)
+            }
+            if let room = self.rooms[roomId] {
+                try await room.updateState(from: events)
+            }
+            return events
+        }
+        
+        public func getRoom(roomId: RoomId) async throws -> Matrix.Room? {
+            if let existingRoom = self.rooms[roomId] {
+                return existingRoom
+            }
+            
+            // Apparently we don't already have a Room object for this one
+            // Let's see if we can find the necessary data to construct it
+            
+            // Do we have this room in our data store?
+            if let store = self.dataStore {
+                let events = try await store.loadEssentialState(for: roomId)
+                if events.count > 0 {
+                    if let room = try? Matrix.Room(roomId: roomId, session: self, initialState: events) {
+                        await MainActor.run {
+                            self.rooms[roomId] = room
+                        }
+                        return room
+                    }
+                }
+            }
+            
+            // Ok we didn't have the room state cached locally
+            // Maybe the server knows about this room?
+            let events = try await getRoomStateEvents(roomId: roomId)
+            if let room = try? Matrix.Room(roomId: roomId, session: self, initialState: events, initialTimeline: []) {
+                await MainActor.run {
+                    self.rooms[roomId] = room
+                }
+                return room
+            }
+            
+            // Looks like we got nothing
+            return nil
+        }
+        
+        public func getInvitedRoom(roomId: RoomId) async throws -> Matrix.InvitedRoom? {
+            if let room = self.invitations[roomId] {
+                return room
+            }
+            
+            if let store = self.dataStore {
+                let events = try await store.loadStrippedState(for: roomId)
+                if let room = try? Matrix.InvitedRoom(session: self, roomId: roomId, stateEvents: events) {
+                    await MainActor.run {
+                        self.invitations[roomId] = room
+                    }
+                    return room
+                }
+            }
+            
+            // Whoops, looks like we couldn't find what we needed
+            return nil
         }
     }
 }
