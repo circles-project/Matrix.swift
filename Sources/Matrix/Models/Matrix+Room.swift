@@ -300,16 +300,7 @@ extension Matrix {
         }
         
         public func getHistoryVisibility() async throws -> HistoryVisibility? {
-            // Do we already have this info cached?
-            if let event = self.state[M_ROOM_HISTORY_VISIBILITY]?[""],
-               let content = event.content as? RoomHistoryVisibilityContent
-            {
-                return content.historyVisibility
-            }
-            
-            // We don't have any history visibility info right now
-            // So we have to query our Matrix session
-            let content = try await self.session.getRoomState(roomId: roomId, eventType: M_ROOM_HISTORY_VISIBILITY) as? RoomHistoryVisibilityContent
+            let content = try await getState(type: M_ROOM_HISTORY_VISIBILITY, stateKey: "") as? RoomHistoryVisibilityContent
             return content?.historyVisibility
         }
         
@@ -366,32 +357,31 @@ extension Matrix {
         }
         
         public func sendText(text: String) async throws -> EventId {
-            if !self.isEncrypted {
                 let content = mTextContent(msgtype: .text, body: text)
                 return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
-            }
-            else {
-                throw Matrix.Error("Not implemented")
-            }
         }
         
         public func sendImage(image: NativeImage) async throws -> EventId {
+            guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
+                throw Matrix.Error("Couldn't create JPEG for image")
+            }
+            let info = mImageInfo(h: Int(image.size.height),
+                                  w: Int(image.size.width),
+                                  mimetype: "image/jpeg",
+                                  size: jpegData.count)
             if !self.isEncrypted {
-                guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
-                    throw Matrix.Error("Couldn't create JPEG for image")
-                }
                 let mxc = try await self.session.uploadData(data: jpegData, contentType: "image/jpeg")
-                let info = mImageInfo(h: Int(image.size.height),
-                                      w: Int(image.size.width),
-                                      mimetype: "image/jpeg",
-                                      size: jpegData.count)
-                let content = mImageContent(msgtype: .image, body: "\(mxc.mediaId).jpeg", info: info)
+                let content = mImageContent(msgtype: .image, body: "\(mxc.mediaId).jpeg", url: mxc, info: info)
                 return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             }
             else {
-                throw Matrix.Error("Not implemented")
+                let encryptedFile = try await self.session.encryptAndUploadData(plaintext: jpegData, contentType: "image/jpeg")
+                let content = mImageContent(msgtype: .image, body: "\(encryptedFile.url.mediaId).jpeg", file: encryptedFile, info: info)
+                return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             }
         }
+
+
         
         public func sendVideo(fileUrl: URL, thumbnail: NativeImage?) async throws -> EventId {
             throw Matrix.Error("Not implemented")
