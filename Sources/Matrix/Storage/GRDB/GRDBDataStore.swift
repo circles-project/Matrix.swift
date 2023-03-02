@@ -215,6 +215,7 @@ public struct GRDBDataStore: DataStore {
                                           eventId: $0.eventId,
                                           originServerTS: $0.originServerTS,
                                           sender: $0.sender,
+                                          stateKey: $0.stateKey,
                                           type: $0.type)
         }
         return events
@@ -241,6 +242,7 @@ public struct GRDBDataStore: DataStore {
                                           eventId: $0.eventId,
                                           originServerTS: $0.originServerTS,
                                           sender: $0.sender,
+                                          stateKey: $0.stateKey,
                                           type: $0.type)
         }
     }
