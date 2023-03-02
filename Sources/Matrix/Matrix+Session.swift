@@ -739,7 +739,7 @@ extension Matrix {
                 switch event.type {
                 case M_ROOM_ENCRYPTED:
                     // Try to decrypt any encrypted events in the timeline
-                    let maybeDecrypted = try? self.decryptMessageEvent(event: event, in: roomId)
+                    let maybeDecrypted = try? self.decryptMessageEvent(event, in: roomId)
                     // But if we failed to decrypt, keep the encrypted event around
                     // Maybe we didn't get the key the first time around
                     // We can always ask for it later
@@ -751,32 +751,38 @@ extension Matrix {
             }
         }
         
-        private func decryptMessageEvent(event: ClientEventWithoutRoomId,
+        private func decryptMessageEvent(_ encryptedEvent: ClientEventWithoutRoomId,
                                          in roomId: RoomId
         ) throws -> ClientEventWithoutRoomId {
-            logger.debug("Trying to decrypt event \(event.eventId)")
+            logger.debug("Trying to decrypt event \(encryptedEvent.eventId)")
             let encoder = JSONEncoder()
-            let eventData = try encoder.encode(event)
-            let eventString = String(data: eventData, encoding: .utf8)!
+            let encryptedData = try encoder.encode(encryptedEvent)
+            let encryptedString = String(data: encryptedData, encoding: .utf8)!
             //let contentData = try encoder.encode(event.content)
             //let contentString = String(data: contentData, encoding: .utf8)!
-            logger.debug("Encoded event string = \(eventString)")
+            logger.debug("Encoded event string = \(encryptedString)")
             //logger.debug("Encoded event content = \(contentString)")
             logger.debug("Trying to decrypt...")
-            guard let decryptedStruct = try? crypto.decryptRoomEvent(event: eventString, roomId: "\(roomId)", handleVerificatonEvents: true)
+            guard let decryptedStruct = try? crypto.decryptRoomEvent(event: encryptedString, roomId: "\(roomId)", handleVerificatonEvents: true)
             else {
-                logger.error("Failed to decrypt event \(event.eventId)")
+                logger.error("Failed to decrypt event \(encryptedEvent.eventId)")
                 throw Matrix.Error("Failed to decrypt")
             }
             let decryptedString = decryptedStruct.clearEvent
+            logger.debug("Decrypted event:\t\(decryptedString)")
             
             let decoder = JSONDecoder()
-            guard let decryptedClientEvent = try? decoder.decode(ClientEventWithoutRoomId.self, from: decryptedString.data(using: .utf8)!)
+            guard let decryptedMinimalEvent = try? decoder.decode(MinimalEvent.self, from: decryptedString.data(using: .utf8)!)
             else {
                 logger.error("Failed to decode decrypted event")
                 throw Matrix.Error("Failed to decode decrypted event")
             }
-            return decryptedClientEvent
+            return try ClientEventWithoutRoomId(content: decryptedMinimalEvent.content,
+                                            eventId: encryptedEvent.eventId,
+                                            originServerTS: encryptedEvent.originServerTS,
+                                            sender: encryptedEvent.sender,
+                                            // stateKey should be nil, since we decrypted something; must not be a state event.
+                                            type: decryptedMinimalEvent.type)
         }
         
 
