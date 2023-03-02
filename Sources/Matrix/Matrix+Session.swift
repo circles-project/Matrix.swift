@@ -222,7 +222,12 @@ extension Matrix {
 
                         // Update the room with the latest data from `info`
                         try await room.updateState(from: stateEvents)
-                        try await room.updateTimeline(from: timelineEvents)
+                        if room.isEncrypted {
+                            let decryptedEvents = tryToDecryptEvents(events: timelineEvents, in: roomId)
+                            try await room.updateTimeline(from: decryptedEvents)
+                        } else {
+                            try await room.updateTimeline(from: timelineEvents)
+                        }
                         
                         if let unread = info.unreadNotifications {
                             print("\t\(unread.notificationCount) notifications")
@@ -749,16 +754,28 @@ extension Matrix {
         private func decryptMessageEvent(event: ClientEventWithoutRoomId,
                                          in roomId: RoomId
         ) throws -> ClientEventWithoutRoomId {
+            logger.debug("Trying to decrypt event \(event.eventId)")
             let encoder = JSONEncoder()
             let eventData = try encoder.encode(event)
             let eventString = String(data: eventData, encoding: .utf8)!
-            let decryptedStruct = try crypto.decryptRoomEvent(event: eventString,
-                                                              roomId: roomId.description)
+            //let contentData = try encoder.encode(event.content)
+            //let contentString = String(data: contentData, encoding: .utf8)!
+            logger.debug("Encoded event string = \(eventString)")
+            //logger.debug("Encoded event content = \(contentString)")
+            logger.debug("Trying to decrypt...")
+            guard let decryptedStruct = try? crypto.decryptRoomEvent(event: eventString, roomId: "\(roomId)", handleVerificatonEvents: true)
+            else {
+                logger.error("Failed to decrypt event \(event.eventId)")
+                throw Matrix.Error("Failed to decrypt")
+            }
             let decryptedString = decryptedStruct.clearEvent
             
             let decoder = JSONDecoder()
-            let decryptedClientEvent = try decoder.decode(ClientEventWithoutRoomId.self,
-                                                          from: decryptedString.data(using: .utf8)!)
+            guard let decryptedClientEvent = try? decoder.decode(ClientEventWithoutRoomId.self, from: decryptedString.data(using: .utf8)!)
+            else {
+                logger.error("Failed to decode decrypted event")
+                throw Matrix.Error("Failed to decode decrypted event")
+            }
             return decryptedClientEvent
         }
         

@@ -161,9 +161,12 @@ final class EncryptedTests: XCTestCase {
             throw "❌ event \(eventId) is not in our timeline"
         }
         print("✅ found event \(event.eventId) in the timeline")
+        
+        XCTAssert(event.type != M_ROOM_ENCRYPTED)
+        print("✅ event has type [\(event.type)]")
     }
     
-    func testUploadUnencryptedMedia() async throws {
+    func testUploadEncryptedMedia() async throws {
         // TODO
         throw "Not implemented"
     }
