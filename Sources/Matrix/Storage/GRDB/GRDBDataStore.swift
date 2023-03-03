@@ -257,7 +257,7 @@ public struct GRDBDataStore: DataStore {
             M_ROOM_TOPIC,
         ]
         let table = Table<ClientEvent>("state")
-        let request = table.filter(sql: "SELECT * FROM state WHERE roomId = \(roomId) AND type IN (\(eventTypes.joined(separator: ",")))")
+        let request = table.filter(sql: "room_id='\(roomId)' AND type IN (\(eventTypes.map({"'\($0)'"}).joined(separator: ",")))")
         let events = try await dbQueue.read { db in
             try request.fetchAll(db)
         }
