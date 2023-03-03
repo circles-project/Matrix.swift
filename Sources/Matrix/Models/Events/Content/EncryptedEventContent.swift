@@ -51,12 +51,7 @@ public struct OlmCiphertext: MatrixCiphertext {
 }
 
 public struct EncryptedEventContent: Codable {
-    public enum Algorithm: String, Codable {
-        case olmV1 = "m.olm.v1.curve25519-aes-sha2"
-        case megolmV1 = "m.megolm.v1.aes-sha2"
-    }
-    
-    public let algorithm: Algorithm
+    public let algorithm: EncryptionAlgorithm
     public let senderKey: String
     public let deviceId: String
     public let sessionId: String
@@ -70,7 +65,7 @@ public struct EncryptedEventContent: Codable {
         case ciphertext
     }
     
-    public init(algorithm: Algorithm, senderKey: String, deviceId: String, sessionId: String,
+    public init(algorithm: EncryptionAlgorithm, senderKey: String, deviceId: String, sessionId: String,
                 ciphertext: MatrixCiphertext) {
         self.algorithm = algorithm
         self.senderKey = senderKey
@@ -82,7 +77,7 @@ public struct EncryptedEventContent: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
-        self.algorithm = try container.decode(Algorithm.self, forKey: .algorithm)
+        self.algorithm = try container.decode(EncryptionAlgorithm.self, forKey: .algorithm)
         self.senderKey = try container.decode(String.self, forKey: .senderKey)
         self.deviceId = try container.decode(String.self, forKey: .deviceId)
         self.sessionId = try container.decode(String.self, forKey: .sessionId)

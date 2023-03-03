@@ -150,6 +150,10 @@ public enum Matrix {
         M_SPACE_CHILD : SpaceChildContent.self,
         M_SPACE_PARENT : SpaceParentContent.self,
         M_REACTION : ReactionContent.self,
+        M_ROOM_KEY : RoomKeyContent.self,
+        M_ROOM_KEY_REQUEST : RoomKeyRequestContent.self,
+        M_FORWARDED_ROOM_KEY : ForwardedRoomKeyContent.self,
+        M_ROOM_KEY_WITHHELD : RoomKeyWithheldContent.self,
     ]
     static var messageTypes: [String: Codable.Type] = [
         M_TEXT : mTextContent.self,
@@ -168,6 +172,9 @@ public enum Matrix {
         M_IGNORED_USER_LIST : IgnoredUserListContent.self,
         M_PUSH_RULES : PushRulesContent.self,
         M_TAG : TagContent.self,
+    ]
+    static var cryptoKeyTypes: [String: Codable.Type] = [
+        : // FIXME
     ]
     
     public static func registerEventType(_ string: String, _ codable: Codable.Type) {
