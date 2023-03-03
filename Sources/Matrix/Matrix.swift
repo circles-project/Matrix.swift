@@ -31,6 +31,11 @@ public enum Matrix {
         }
     }
     
+    public struct ErrorResponse: Codable {
+        public var error: String
+        public var errcode: String
+    }
+    
     public struct RateLimitError: Swift.Error, Codable {
         public var errcode: String
         public var error: String?
