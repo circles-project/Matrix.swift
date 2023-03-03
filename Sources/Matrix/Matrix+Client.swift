@@ -59,33 +59,50 @@ public class Client {
     }
     
     // MARK: API Call
-    
     public func call(method: String,
                      path: String,
-                     params: [String:String] = [:],
+                     params: [String:String]? = nil,
                      body: Codable? = nil,
                      expectedStatuses: [Int] = [200]
     ) async throws -> (Data, HTTPURLResponse) {
-        print("APICALL\tCalling \(method) \(path)")
-        let queryItems: [URLQueryItem] = params.map { (key,value) -> URLQueryItem in
-            URLQueryItem(name: key, value: value)
-        }
-        //let url = URL(string: path, relativeTo: baseUrl)!.appending(queryItems: queryItems)
-        var components = URLComponents(url: URL(string: path, relativeTo: self.baseUrl)!, resolvingAgainstBaseURL: true)!
-        components.queryItems = queryItems
-        let url = components.url!
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        
-        if let codableBody = body {
+        if let stringBody = body as? String {
+            print("APICALL\tString request body = \n\(stringBody)")
+            let data = stringBody.data(using: .utf8)!
+            return try await call(method: method, path: path, params: params, bodyData: data, expectedStatuses: expectedStatuses)
+        } else if let codableBody = body {
             let encoder = JSONEncoder()
             encoder.keyEncodingStrategy = .convertToSnakeCase
             let encodedBody = try encoder.encode(AnyCodable(codableBody))
             print("APICALL\tRaw request body = \n\(String(decoding: encodedBody, as: UTF8.self))")
-            request.httpBody = encodedBody
+            return try await call(method: method, path: path, params: params, bodyData: encodedBody, expectedStatuses: expectedStatuses)
+        } else {
+            let noBody: Data? = nil
+            return try await call(method: method, path: path, params: params, bodyData: noBody, expectedStatuses: expectedStatuses)
         }
+
+    }
+    
+    public func call(method: String,
+                     path: String,
+                     params: [String:String]? = nil,
+                     bodyData: Data?=nil,
+                     expectedStatuses: [Int] = [200]
+    ) async throws -> (Data, HTTPURLResponse) {
+        print("APICALL\tCalling \(method) \(path)")
+
+        //let url = URL(string: path, relativeTo: baseUrl)!.appending(queryItems: queryItems)
+        var components = URLComponents(url: URL(string: path, relativeTo: self.baseUrl)!, resolvingAgainstBaseURL: true)!
+        if let urlParams = params {
+            let queryItems: [URLQueryItem] = urlParams.map { (key,value) -> URLQueryItem in
+                URLQueryItem(name: key, value: value)
+            }
+            components.queryItems = queryItems
+        }
+        let url = components.url!
         
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.httpBody = bodyData
                
         var slowDown = true
         var delayNs: UInt64 = 1_000_000_000
