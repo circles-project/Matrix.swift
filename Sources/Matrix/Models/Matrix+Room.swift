@@ -191,7 +191,7 @@ extension Matrix {
                     print("Room:\tFailed to parse \(M_ROOM_AVATAR) event \(event.eventId)")
                     return
                 }
-                print("Room:\tSetting room avatar")
+                //print("Room:\tSetting room avatar")
                 if self.avatarUrl != content.mxc {
                     self.avatarUrl = content.mxc
                     // FIXME: Also fetch the new avatar image
@@ -203,7 +203,7 @@ extension Matrix {
                         print("Room:\tFailed to parse \(M_ROOM_NAME) event \(event.eventId)")
                         return
                     }
-                    print("Room:\tSetting room name")
+                    //print("Room:\tSetting room name")
                     self.name = content.name
                     
                 case M_ROOM_TOPIC:
@@ -212,7 +212,7 @@ extension Matrix {
                         print("\tRoom:\tFailed to parse \(M_ROOM_TOPIC) event \(event.eventId)")
                         return
                     }
-                    print("Room:\tSetting topic")
+                    //print("Room:\tSetting topic")
                     self.topic = content.topic
                     
                 case M_ROOM_MEMBER:
@@ -261,7 +261,8 @@ extension Matrix {
                 self.encryptionParams = content
                 
             default:
-                print("Room:\tNot handling event of type \(event.type)")
+                let msg = "Room:\tNot handling event of type \(event.type)"
+                //print("\(msg)")
                 
             } // end switch event.type
             
