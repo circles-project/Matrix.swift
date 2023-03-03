@@ -139,8 +139,15 @@ public class Client {
                 slowDown = false
                 guard expectedStatuses.contains(httpResponse.statusCode)
                 else {
-                    let msg = "Matrix API call rejected with status \(httpResponse.statusCode)"
+                    let msg = "Matrix API call \(method) \(path) rejected with status \(httpResponse.statusCode)"
                     print("APICALL\t\(msg)")
+                    let decoder = JSONDecoder()
+                    if let errorResponse = try? decoder.decode(Matrix.ErrorResponse.self, from: data) {
+                        print("APICALL\terrcode = \(errorResponse.errcode)\terror = \(errorResponse.error)")
+                    } else {
+                        let errorString = String(decoding: data, as: UTF8.self)
+                        print("APICALL\tGot error response = \(errorString)")
+                    }
                     throw Matrix.Error(msg)
                 }
                 print("APICALL\tGot response with status \(httpResponse.statusCode)")
