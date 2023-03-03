@@ -62,7 +62,7 @@ struct StrippedStateEventRecord: Codable {
 }
 
 extension StrippedStateEventRecord: FetchableRecord, TableRecord {
-    static var databaseTableName: String = "strippedState"
+    static var databaseTableName: String = "stripped_state"
 }
 
 extension StrippedStateEventRecord: PersistableRecord { }
