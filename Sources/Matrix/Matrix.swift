@@ -46,6 +46,14 @@ public enum Matrix {
     
     public static var logger = os.Logger(subsystem: Bundle.main.bundleIdentifier ?? "Matrix.swift", category: "matrix")
     
+    public class CryptoLogger: MatrixSDKCrypto.Logger {
+        var logger = os.Logger(subsystem: "matrix", category: "crypto")
+        public func log(logLine: String) {
+            logger.info("\(logLine)")
+        }
+    }
+    public static var cryptoLogger = CryptoLogger()
+    
     // MARK: Well-Known
     
     public struct WellKnown: Codable {
