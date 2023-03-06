@@ -305,6 +305,10 @@ extension Matrix {
             return content?.historyVisibility
         }
         
+        public func getJoinedMembers() async throws -> [UserId] {
+            try await self.session.getJoinedMembers(roomId: roomId)
+        }
+        
         public var lastMessage: ClientEventWithoutRoomId? {
             timeline
                 .filter {
