@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 
 #if !os(macOS)
 import UIKit
@@ -15,7 +16,6 @@ import AppKit
 
 import IDZSwiftCommonCrypto
 import MatrixSDKCrypto
-
 
 extension Matrix {
     public class Session: Matrix.Client, ObservableObject {
@@ -41,6 +41,7 @@ extension Matrix {
         private var keepSyncing: Bool
         private var syncDelayNS: UInt64 = 30_000_000_000
         private var backgroundSyncTask: Task<UInt,Swift.Error>? // FIXME use a TaskGroup
+        private var backgroundSyncDelayMS: UInt64?
         
         // FIXME: Derive this from our account data???
         // The type is `m.ignored_user_list` https://spec.matrix.org/v1.5/client-server-api/#mignored_user_list
@@ -59,6 +60,9 @@ extension Matrix {
         
         // Matrix Rust crypto
         private var crypto: MatrixSDKCrypto.OlmMachine
+        private var cryptoQueue: TicketTaskQueue<Void>
+        
+        // MARK: init
         
         public init(creds: Credentials,
                     syncToken: String? = nil, startSyncing: Bool = true,
@@ -74,6 +78,7 @@ extension Matrix {
             // Initialize the sync tasks to nil so we can run super.init()
             self.syncRequestTask = nil
             self.backgroundSyncTask = nil
+            //self.backgroundSyncDelayMS = 1_000
             
             self.dataStore = try await GRDBDataStore(userId: creds.userId, type: storageType)
             
@@ -89,16 +94,19 @@ extension Matrix {
                                          deviceId: "\(creds.deviceId)",
                                          path: cryptoStorePath,
                                          passphrase: nil)
-            
+            self.cryptoQueue = TicketTaskQueue<Void>()
+
             try super.init(creds: creds)
 
             // --------------------------------------------------------------------------------------------------------
             // Phase 1 init is done -- Now we can reference `self`
             
-            let cryptoRequests = try crypto.outgoingRequests()
-            print("Session:\tSending initial crypto requests (\(cryptoRequests.count))")
-            for request in cryptoRequests {
-                try await sendCryptoRequest(request: request)
+            try await cryptoQueue.run {
+                let cryptoRequests = try self.crypto.outgoingRequests()
+                print("Session:\tSending initial crypto requests (\(cryptoRequests.count))")
+                for request in cryptoRequests {
+                    try await self.sendCryptoRequest(request: request)
+                }
             }
             
             // Ok now we're initialized as a valid Matrix.Client (super class)
@@ -122,14 +130,29 @@ extension Matrix {
                     let token = try await sync()
                     print("/sync:\t\(creds.userId) got new sync token \(token ?? "(none)")")
                     count += 1
+                    if let delay = self.backgroundSyncDelayMS {
+                        let nano = delay * 1000
+                        try await Task.sleep(nanoseconds: nano)
+                    }
                 }
                 return count
             }
         }
         
         // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3sync
+        // The Swift compiler couldn't figure this out when it was given in-line in the call below.
+        // So here we are defining its type explicitly.
         @Sendable
         private func syncRequestTaskOperation() async throws -> String? {
+            // Following the Rust Crypto SDK example https://github.com/matrix-org/matrix-rust-sdk/blob/8ac7f88d22e2fa0ca96eba7239ba7ec08658552c/crates/matrix-sdk-crypto/src/lib.rs#L540
+            // We first send any outbound messages from the crypto module before we actually call /sync
+            try await cryptoQueue.run {
+                let requests = try self.crypto.outgoingRequests()
+                for request in requests {
+                    try await self.sendCryptoRequest(request: request)
+                }
+            }
+            
             logger.debug("User \(self.creds.userId) syncing with token \(self.syncToken ?? "(none)")")
             let url = "/_matrix/client/v3/sync"
             var params = [
@@ -162,6 +185,7 @@ extension Matrix {
             }
             
             // Process the sync response, updating local state if necessary
+            
             // First thing to check: Did our sync token actually change?
             // Because if not, then we've already seen everything in this update
             if responseBody.nextBatch == self.syncToken {
@@ -170,9 +194,18 @@ extension Matrix {
                 return syncToken
             }
             
-            // Send updates to the Rust crypto module
-            print("/sync:\t\(self.creds.userId) Updating Rust crypto module")
-            try self.updateCryptoAfterSync(responseBody: responseBody)
+            try await cryptoQueue.run {
+                // Send updates to the Rust crypto module
+                print("/sync:\t\(self.creds.userId) Updating Rust crypto module")
+                try self.updateCryptoAfterSync(responseBody: responseBody)
+                // Send any requests from the crypto module
+                print("/sync:\t\(self.creds.userId) Querying crypto module for any new requests")
+                let cryptoRequests = try self.crypto.outgoingRequests()
+                print("/sync:\t\(self.creds.userId) Sending \(cryptoRequests.count) crypto requests")
+                for request in cryptoRequests {
+                    try await self.sendCryptoRequest(request: request)
+                }
+            }
             
             // Handle invites
             if let invitedRoomsDict = responseBody.rooms?.invite {
@@ -311,14 +344,7 @@ extension Matrix {
             // FIXME: Do something with AccountData
             
             // FIXME: Handle to-device messages
-            
-            // Send any requests from the crypto module
-            print("/sync:\t\(self.creds.userId) Querying crypto module for any new requests")
-            let cryptoRequests = try crypto.outgoingRequests()
-            print("/sync:\t\(self.creds.userId) Sending \(cryptoRequests.count) crypto requests")
-            for request in cryptoRequests {
-                try await sendCryptoRequest(request: request)
-            }
+
 
             //print("/sync:\tUpdating sync token...  awaiting MainActor")
             await MainActor.run {
@@ -326,14 +352,14 @@ extension Matrix {
                 self.syncToken = responseBody.nextBatch
             }
 
-            print("/sync:\t\(creds.userId) Done!")
+            //print("/sync:\t\(creds.userId) Done!")
             self.syncRequestTask = nil
             return responseBody.nextBatch
         
         }
         
         public func sync() async throws -> String? {
-            print("/sync:\t\(creds.userId) Starting sync()  -- token is \(syncToken ?? "(none)")")
+            //print("/sync:\t\(creds.userId) Starting sync()  -- token is \(syncToken ?? "(none)")")
             // FIXME: Use a TaskGroup
             if let task = syncRequestTask {
                 print("/sync:\t\(creds.userId) is already syncing..  awaiting on the result")
@@ -347,18 +373,27 @@ extension Matrix {
         // MARK: Crypto
         
         private func updateCryptoAfterSync(responseBody: SyncResponseBody) throws {
-            var eventsString = "[]"
+            var eventsListString = "[]"
             if let toDevice = responseBody.toDevice {
                 let events = toDevice.events
                 let encoder = JSONEncoder()
                 let eventsData = try encoder.encode(events)
-                eventsString = String(data: eventsData, encoding: .utf8)!
+                eventsListString = String(data: eventsData, encoding: .utf8)!
+                logger.debug("/sync:\t\(self.creds.userId) Sending \(events.count) to-device event to Rust crypto module:   \(eventsListString)")
             }
+            let eventsString = "{\"events\": \(eventsListString)}"
             // Ugh we have to translate the device lists back to raw String's
             var deviceLists = MatrixSDKCrypto.DeviceLists(
                 changed: responseBody.deviceLists?.changed?.map { $0.description } ?? [],
                 left: responseBody.deviceLists?.left?.map { $0.description } ?? []
             )
+            logger.debug("/sync:\t\(self.creds.userId) \(deviceLists.changed.count) Changed devices")
+            logger.debug("/sync:\t\(self.creds.userId) \(deviceLists.left.count) Left devices")
+            logger.debug("/sync:\t\(self.creds.userId) \(responseBody.deviceOneTimeKeysCount?.keys.count ?? 0) device one-time keys")
+            if let dotkc = responseBody.deviceOneTimeKeysCount {
+                logger.debug("/sync\t\(self.creds.userId)\t\(dotkc)")
+            }
+            logger.debug("/sync:\t\(self.creds.userId) \(responseBody.deviceUnusedFallbackKeyTypes?.count ?? 0) unused fallback keys")
 
             let result = try self.crypto.receiveSyncChanges(events: eventsString,
                                                             deviceChanges: deviceLists,
@@ -371,7 +406,7 @@ extension Matrix {
             switch request {
                 
             case .toDevice(requestId: let requestId, eventType: let eventType, body: let messagesString):
-                print("CRYPTO:\tHandling to-device request")
+                print("CRYPTO:\t\(creds.userId) Handling to-device request")
                 let bodyString = "{\"messages\": \(messagesString)}"         // Redneck JSON encoding 🤘
                 let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
                 //let txnId = "\(UInt8.random(in: UInt8.min...UInt8.max))"
@@ -383,12 +418,13 @@ extension Matrix {
                 else {
                     throw Matrix.Error("Couldn't process /sendToDevice response")
                 }
+                print("CRYPTO:\t\(creds.userId) Marking to-device request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .toDevice,
                                                   response: responseBodyString)
                 
             case .keysUpload(requestId: let requestId, body: let bodyString):
-                print("CRYPTO:\tHandling keys upload request")
+                print("CRYPTO:\t\(creds.userId) Handling keys upload request")
                 let (data, response) = try await self.call(method: "POST",
                                                            path: "/_matrix/client/v3/keys/upload",
                                                            body: bodyString)
@@ -396,17 +432,18 @@ extension Matrix {
                 else {
                     throw Matrix.Error("Couldn't process /keys/upload response")
                 }
+                print("CRYPTO:\t\(creds.userId) Marking keys upload request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .keysUpload,
                                                   response: responseBodyString)
             
             case .keysQuery(requestId: let requestId, users: let users):
-                print("CRYPTO:\tHandling keys query request")
+                print("CRYPTO:\t\(creds.userId) Handling keys query request")
                 // poljar says the Rust code intentionally ignores the timeout and device id's here
                 // weird but ok whatever
                 var deviceKeys: [String: [String]] = .init()
                 for user in users {
-                    print("CRYPTO:\t\tIncluding user \(user) in keys query")
+                    print("CRYPTO:\t\(creds.userId) Including user \(user) in keys query")
                     deviceKeys[user] = []
                 }
                 struct KeysQueryRequestBody: Codable {
@@ -426,11 +463,13 @@ extension Matrix {
                 else {
                     throw Matrix.Error("Couldn't process /keys/query response body")
                 }
+                print("CRYPTO:\t\(creds.userId) Marking /keys/query response as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .keysQuery,
                                                   response: responseBodyString)
                 
             case .keysClaim(requestId: let requestId, oneTimeKeys: let oneTimeKeys):
+                print("CRYPTO:\t\(creds.userId) Handling keys claim request")
                 let (data, response) = try await self.call(method: "POST",
                                                            path: "/_matrix/client/v3/keys/claim",
                                                            body: [
@@ -440,12 +479,13 @@ extension Matrix {
                 else {
                     throw Matrix.Error("Couldn't process /keys/claim response")
                 }
+                print("CRYPTO:\t\(creds.userId) Marking /keys/claim response as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .keysClaim,
                                                   response: responseBodyString)
                 
             case .keysBackup(requestId: let requestId, version: let backupVersion, rooms: let rooms):
-                print("CRYPTO:\tHandling keys backup request")
+                print("CRYPTO:\t\(creds.userId) Handling keys backup request")
                 let path = "/_matrix/client/v3/room_keys/keys"
                 let params = [
                     "version": "\(backupVersion)"
@@ -460,12 +500,13 @@ extension Matrix {
                 else {
                     throw Matrix.Error("Couldn't process /room_keys/keys response")
                 }
+                print("CRYPTO:\t\(creds.userId) Marking keys backup request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .keysBackup,
                                                   response: responseBodyString)
                 
             case .roomMessage(requestId: let requestId, roomId: let roomId, eventType: let eventType, content: let content):
-                logger.debug("Sending room message for the crypto SDK: type = \(eventType)")
+                print("CRYPTO:\t\(creds.userId) Sending room message for the crypto SDK: type = \(eventType)")
                 // oof, looks like we need to decode the raw request string that the crypto sdk provided
                 // it's kind of a stupid round-trip through our decoders, but oh well...
                 let rawRequestData = content.data(using: .utf8)!
@@ -478,12 +519,13 @@ extension Matrix {
                 else {
                     throw Matrix.Error("Couldn't process /send/\(eventType) response")
                 }
+                print("CRYPTO:\t\(creds.userId) Marking room message request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .roomMessage,
                                                   response: responseBodyString)
                 
             case .signatureUpload(requestId: let requestId, body: let requestBody):
-                print("CRYPTO:\tHandling signature upload request")
+                print("CRYPTO:\t\(creds.userId) Handling signature upload request")
                 let (data, response) = try await self.call(method: "POST",
                                                            path: "/_matrix/client/v3/keys/signatures/upload",
                                                            body: requestBody)
@@ -491,6 +533,7 @@ extension Matrix {
                 else {
                     throw Matrix.Error("Couldn't process /keys/signatures/upload response")
                 }
+                print("CRYPTO:\t\(creds.userId) Marking signature upload request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .signatureUpload,
                                                   response: responseBodyString)
@@ -501,7 +544,7 @@ extension Matrix {
         public func pause() async throws {
             // pause() doesn't actually make any API calls
             // It just tells our own local sync task to take a break
-            throw Matrix.Error("Not implemented yet")
+            self.keepSyncing = false
         }
         
         public func close() async throws {
@@ -637,14 +680,19 @@ extension Matrix {
             /// there's some changes in the room membership or in the list of devices a
             /// member has.
             
+            /*
             let users: [String] = room.joinedMembers.map {
                 $0.description
             }
-            print("sendMessage:\tFound \(users.count) users in the room: \(users)")
-            if let missingSessionsRequest = try self.crypto.getMissingSessions(users: users) {
-                // Send the missing sessions request
-                print("sendMessage:\tSending missing sessions request")
-                try await self.sendCryptoRequest(request: missingSessionsRequest)
+            */
+            let users: [String] = try await room.getJoinedMembers().map { $0.description }
+            print("CRYPTO:\t\(creds.userId) Found \(users.count) users in the room: \(users)")
+            try await cryptoQueue.run {
+                if let missingSessionsRequest = try self.crypto.getMissingSessions(users: users) {
+                    // Send the missing sessions request
+                    print("CRYPTO:\t\(self.creds.userId) Sending missing sessions request")
+                    try await self.sendCryptoRequest(request: missingSessionsRequest)
+                }
             }
             
             // FIXME: WhereTF do we get the "only allow trusted devices" setting?
@@ -676,11 +724,15 @@ extension Matrix {
                                               historyVisibility: translate(roomHistoryVisibility),
                                               onlyAllowTrustedDevices: onlyTrusted)
                     
-            let shareRoomKeyRequests = try self.crypto.shareRoomKey(roomId: roomId.description,
-                                                                    users: users,
-                                                                    settings: settings)
-            for request in shareRoomKeyRequests {
-                try await self.sendCryptoRequest(request: request)
+            try await cryptoQueue.run {
+                print("CRYPTO:\t\(self.creds.userId) Computing room key sharing")
+                let shareRoomKeyRequests = try self.crypto.shareRoomKey(roomId: roomId.description,
+                                                                        users: users,
+                                                                        settings: settings)
+                print("CRYPTO:\t\(self.creds.userId) Sending \(shareRoomKeyRequests.count) share room key requests")
+                for request in shareRoomKeyRequests {
+                    try await self.sendCryptoRequest(request: request)
+                }
             }
             
             let encoder = JSONEncoder()
@@ -808,7 +860,7 @@ extension Matrix {
         private func decryptMessageEvent(_ encryptedEvent: ClientEventWithoutRoomId,
                                          in roomId: RoomId
         ) throws -> ClientEventWithoutRoomId {
-            logger.debug("Trying to decrypt event \(encryptedEvent.eventId)")
+            logger.debug("\(self.creds.userId) Trying to decrypt event \(encryptedEvent.eventId)")
             let encoder = JSONEncoder()
             let encryptedData = try encoder.encode(encryptedEvent)
             let encryptedString = String(data: encryptedData, encoding: .utf8)!
@@ -819,7 +871,7 @@ extension Matrix {
             //logger.debug("Trying to decrypt...")
             guard let decryptedStruct = try? crypto.decryptRoomEvent(event: encryptedString, roomId: "\(roomId)", handleVerificatonEvents: true)
             else {
-                logger.error("Failed to decrypt event \(encryptedEvent.eventId)")
+                logger.error("\(self.creds.userId) Failed to decrypt event \(encryptedEvent.eventId)")
                 throw Matrix.Error("Failed to decrypt")
             }
             let decryptedString = decryptedStruct.clearEvent
@@ -828,7 +880,7 @@ extension Matrix {
             let decoder = JSONDecoder()
             guard let decryptedMinimalEvent = try? decoder.decode(MinimalEvent.self, from: decryptedString.data(using: .utf8)!)
             else {
-                logger.error("Failed to decode decrypted event")
+                logger.error("\(self.creds.userId) Failed to decode decrypted event")
                 throw Matrix.Error("Failed to decode decrypted event")
             }
             return try ClientEventWithoutRoomId(content: decryptedMinimalEvent.content,

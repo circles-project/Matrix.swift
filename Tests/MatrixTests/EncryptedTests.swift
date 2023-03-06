@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 
 import XCTest
 import Yams
@@ -13,6 +14,7 @@ import Yams
 //@testable import Matrix
 // Not using @testable since we are validating public-facing API
 import Matrix
+import MatrixSDKCrypto
 
 final class EncryptedTests: XCTestCase {
     
@@ -22,9 +24,11 @@ final class EncryptedTests: XCTestCase {
     let domain = "localhost:6167"
     //let homeserver = URL(string: "http://localhost:8080")!
     //let domain = "localhost:8480"
-    
+    var registerLogger = os.Logger(subsystem: "EncryptedTests", category: "register")
     
     func registerNewUser(name: String, domain: String, homeserver: URL) async throws -> Matrix.Credentials {
+        
+        var logger = registerLogger
         
         let supportedAuthTypes = [
             AUTH_TYPE_TERMS,
@@ -33,9 +37,9 @@ final class EncryptedTests: XCTestCase {
         
         let r = Int.random(in: 0..<5000)
         let username = String(format: "\(name)_%04d", r)
-        print("Username: \(username)")
+        //logger.debug("Username: \(username)")
         let password = String(format: "%0llx", UInt64.random(in: UInt64.min...UInt64.max))
-        print("Password: \(password)")
+        //logger.debug("Password: \(password)")
         let session = try await SignupSession(domain: domain, homeserver: homeserver, username: username, password: password)
         try await session.connect()
         XCTAssertNotNil(session.sessionState)
@@ -44,7 +48,7 @@ final class EncryptedTests: XCTestCase {
         
         let flows = uiaState.flows
         for flow in flows {
-            print("\tFlow: ", flow.stages)
+            //logger.debug("\tFlow: ", flow.stages)
         }
         
         let maybeFlow = flows.filter(
@@ -60,18 +64,18 @@ final class EncryptedTests: XCTestCase {
         XCTAssertNotNil(maybeFlow)
                 
         let flow = maybeFlow!
-        print("Found a flow that we can do: ", flow.stages)
+        //logger.debug("Found a flow that we can do: ", flow.stages)
         await session.selectFlow(flow: flow)
         
         for stage in flow.stages {
-            print("Working on stage [\(stage)]")
+            //logger.debug("Working on stage [\(stage)]")
             switch stage {
             case AUTH_TYPE_DUMMY:
                 try await session.doDummyAuthStage()
             case AUTH_TYPE_TERMS:
                 try await session.doTermsStage()
             default:
-                print("Unknown stage [\(stage)]")
+                //logger.debug("Unknown stage [\(stage)]")
                 throw "Unknown stage [\(stage)]"
             }
         }
@@ -81,10 +85,10 @@ final class EncryptedTests: XCTestCase {
             throw "UIA is not finished"
         }
         
-        print("Got credentials:")
-        print("\tUser id: \(creds.userId)")
-        print("\tDevice id: \(creds.deviceId)")
-        print("\tAccess token: \(creds.accessToken)")
+        //logger.debug("Got credentials:")
+        //logger.debug("\tUser id: \(creds.userId)")
+        //logger.debug("\tDevice id: \(creds.deviceId)")
+        //logger.debug("\tAccess token: \(creds.accessToken)")
         
         if creds.wellKnown != nil {
             return creds
@@ -176,6 +180,8 @@ final class EncryptedTests: XCTestCase {
     }
     
     func testEncryptedConversation() async throws {
+        MatrixSDKCrypto.setLogger(logger: Matrix.cryptoLogger)
+
         let aliceCreds = try await registerNewUser(name: "alice", domain: self.domain, homeserver: self.homeserver)
         print("✅ registered Alice as \(aliceCreds.userId)")
         let aliceSession = try await Matrix.Session(creds: aliceCreds, startSyncing: true)
@@ -271,12 +277,16 @@ final class EncryptedTests: XCTestCase {
             }
         }
         print("✅ Alice sees Bob in joined state")
-        
 
+        let millisecs = UInt64(30_000)
+        try await Task.sleep(nanoseconds: millisecs * 1_000_000)
         
         let message1text = "Message 1"
         let eventId1 = try await aliceRoom.sendText(text: message1text)
         print("✅ Alice sent message 1")
+        
+        //print("❗️ Alice stopping syncing to make debugging easier")
+        //try await aliceSession.pause()
 
         print("Waiting until Alice sees the message")
         try await aliceSession.waitUntil {
