@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct TimeoutDictionary<K,V> where K: Hashable {
+class TimeoutDictionary<K,V> where K: Hashable {
     let timeout: TimeInterval
     var timestamp: Date
     var storage: [K:(Date,V)]
@@ -38,9 +38,13 @@ struct TimeoutDictionary<K,V> where K: Hashable {
         }
         
         set(newValue) {
-            let now = Date()
-            storage[index] = (now, newValue)
-            timestamp = now
+            if let v = newValue {
+                let now = Date()
+                storage[index] = (now, v)
+                timestamp = now
+            } else {
+                storage[index] = nil
+            }
         }
     }
 }
