@@ -325,7 +325,52 @@ final class EncryptedTests: XCTestCase {
             throw "Bob failed to decrypt"
         }
         print("✅ Bob decrypted successfully")
+        
+        // Message 2 ---------------------------------------------------------------------------------
+        
+        
+        let message2text = "Message 2"
+        let eventId2 = try await bobRoom.sendText(text: message1text)
+        print("✅ Bob sent message 2")
+        
+        print("Waiting until Bob sees Message 2")
+        try await bobSession.waitUntil {
+            bobRoom.timeline.first(where: {$0.eventId == eventId2}) != nil
+        }
+        guard let bobMessage2 = bobRoom.timeline.first(where: {$0.eventId == eventId2})
+        else {
+            print("❌ Bob doesn't have message 2")
+            throw "Bob doesn't have message 2"
+        }
+        print("✅ Bob sees message 2 of type \(bobMessage2.type)")
+        XCTAssert(bobMessage2.type == M_ROOM_MESSAGE)
+        guard let bobContent2 = bobMessage2.content as? Matrix.mTextContent,
+              bobContent1.body == message1text
+        else {
+            print("❌ Bob failed to decrypt message 2")
+            throw "Bob failed to decrypt message 2"
+        }
+        print("✅ Bob decrypted Message 2 successfully")
 
+        
+        print("Waiting until Alice sees Bob's message")
+        try await aliceSession.waitUntil {
+            aliceRoom.timeline.first(where: {$0.eventId == eventId2}) != nil
+        }
+        guard let aliceMessage2 = aliceRoom.timeline.first(where: {$0.eventId == eventId2})
+        else {
+            print("❌ Alice doesn't have message 2")
+            throw "Alice doesn't have message 2"
+        }
+        print("✅ Alice sees message 2 of type \(aliceMessage2.type)")
+        XCTAssert(aliceMessage2.type == M_ROOM_MESSAGE)
+        guard let aliceContent2 = aliceMessage2.content as? Matrix.mTextContent,
+              aliceContent2.body == message1text
+        else {
+            print("❌ Alice failed to decrypt")
+            throw "Alice failed to decrypt"
+        }
+        print("✅ Alice decrypted Message 2 successfully")
     }
     
     func testUploadEncryptedMedia() async throws {
