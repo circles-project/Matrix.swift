@@ -13,8 +13,8 @@ public struct RoomEncryptionContent: Codable {
         case megolmV1AesSha2 = "m.megolm.v1.aes-sha2"
     }
     public let algorithm: Algorithm
-    public let rotationPeriodMs: Int
-    public let rotationPeriodMsgs: Int
+    public let rotationPeriodMs: UInt64
+    public let rotationPeriodMsgs: UInt64
     
     public init() {
         algorithm = .megolmV1AesSha2
@@ -22,7 +22,7 @@ public struct RoomEncryptionContent: Codable {
         rotationPeriodMsgs = 100
     }
     
-    public init(algorithm: Algorithm, rotationPeriodMs: Int, rotationPeriodMsgs: Int) {
+    public init(algorithm: Algorithm, rotationPeriodMs: UInt64, rotationPeriodMsgs: UInt64) {
         self.algorithm = algorithm
         self.rotationPeriodMs = rotationPeriodMs
         self.rotationPeriodMsgs = rotationPeriodMsgs

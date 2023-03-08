@@ -59,33 +59,50 @@ public class Client {
     }
     
     // MARK: API Call
-    
     public func call(method: String,
                      path: String,
-                     params: [String:String] = [:],
+                     params: [String:String]? = nil,
                      body: Codable? = nil,
                      expectedStatuses: [Int] = [200]
     ) async throws -> (Data, HTTPURLResponse) {
-        print("APICALL\tCalling \(method) \(path)")
-        let queryItems: [URLQueryItem] = params.map { (key,value) -> URLQueryItem in
-            URLQueryItem(name: key, value: value)
+        if let stringBody = body as? String {
+            print("APICALL\t\(self.creds.userId) String request body = \n\(stringBody)")
+            let data = stringBody.data(using: .utf8)!
+            return try await call(method: method, path: path, params: params, bodyData: data, expectedStatuses: expectedStatuses)
+        } else if let codableBody = body {
+            let encoder = JSONEncoder()
+            encoder.keyEncodingStrategy = .convertToSnakeCase
+            let encodedBody = try encoder.encode(AnyCodable(codableBody))
+            print("APICALL\t\(self.creds.userId) Raw request body = \n\(String(decoding: encodedBody, as: UTF8.self))")
+            return try await call(method: method, path: path, params: params, bodyData: encodedBody, expectedStatuses: expectedStatuses)
+        } else {
+            let noBody: Data? = nil
+            return try await call(method: method, path: path, params: params, bodyData: noBody, expectedStatuses: expectedStatuses)
         }
+
+    }
+    
+    public func call(method: String,
+                     path: String,
+                     params: [String:String]? = nil,
+                     bodyData: Data?=nil,
+                     expectedStatuses: [Int] = [200]
+    ) async throws -> (Data, HTTPURLResponse) {
+        print("APICALL\t\(self.creds.userId) Calling \(method) \(path)")
+
         //let url = URL(string: path, relativeTo: baseUrl)!.appending(queryItems: queryItems)
         var components = URLComponents(url: URL(string: path, relativeTo: self.baseUrl)!, resolvingAgainstBaseURL: true)!
-        components.queryItems = queryItems
+        if let urlParams = params {
+            let queryItems: [URLQueryItem] = urlParams.map { (key,value) -> URLQueryItem in
+                URLQueryItem(name: key, value: value)
+            }
+            components.queryItems = queryItems
+        }
         let url = components.url!
         
         var request = URLRequest(url: url)
         request.httpMethod = method
-        
-        if let codableBody = body {
-            let encoder = JSONEncoder()
-            encoder.keyEncodingStrategy = .convertToSnakeCase
-            let encodedBody = try encoder.encode(AnyCodable(codableBody))
-            print("APICALL\tRaw request body = \n\(String(decoding: encodedBody, as: UTF8.self))")
-            request.httpBody = encodedBody
-        }
-        
+        request.httpBody = bodyData
                
         var slowDown = true
         var delayNs: UInt64 = 1_000_000_000
@@ -97,7 +114,7 @@ public class Client {
             guard let httpResponse = response as? HTTPURLResponse
             else {
                 let msg = "Couldn't handle HTTP response"
-                print("APICALL\t\(msg)")
+                print("APICALL\t\(self.creds.userId) \(msg)")
                 throw Matrix.Error(msg)
             }
             
@@ -114,7 +131,7 @@ public class Client {
                     delayNs *= 2
                 }
                 
-                print("APICALL\tGot 429 error...  Waiting \(delayNs) nanosecs and then retrying")
+                print("APICALL\t\(self.creds.userId) Got 429 error...  Waiting \(delayNs) nanosecs and then retrying")
                 try await Task.sleep(nanoseconds: delayNs)
                 
                 count += 1
@@ -122,8 +139,15 @@ public class Client {
                 slowDown = false
                 guard expectedStatuses.contains(httpResponse.statusCode)
                 else {
-                    let msg = "Matrix API call rejected with status \(httpResponse.statusCode)"
-                    print("APICALL\t\(msg)")
+                    let msg = "Matrix API call \(method) \(path) rejected with status \(httpResponse.statusCode)"
+                    print("APICALL\t\(self.creds.userId) \(msg)")
+                    let decoder = JSONDecoder()
+                    if let errorResponse = try? decoder.decode(Matrix.ErrorResponse.self, from: data) {
+                        print("APICALL\terrcode = \(errorResponse.errcode)\terror = \(errorResponse.error)")
+                    } else {
+                        let errorString = String(decoding: data, as: UTF8.self)
+                        print("APICALL\tGot error response = \(errorString)")
+                    }
                     throw Matrix.Error(msg)
                 }
                 print("APICALL\tGot response with status \(httpResponse.statusCode)")
@@ -694,7 +718,7 @@ public class Client {
                             from startToken: String? = nil,
                             to endToken: String? = nil,
                             limit: Int? = 25
-    ) async throws -> [ClientEvent] {
+    ) async throws -> [ClientEventWithoutRoomId] {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/messages"
         var params: [String:String] = [
             "dir" : forward ? "f" : "b",
@@ -711,10 +735,10 @@ public class Client {
         let (data, response) = try await call(method: "GET", path: path, params: params)
         
         struct ResponseBody: Codable {
-            var chunk: [ClientEvent]
+            var chunk: [ClientEventWithoutRoomId]
             var end: String?
             var start: String
-            var state: [ClientEvent]?
+            var state: [ClientEventWithoutRoomId]?
         }
         
         let decoder = JSONDecoder()
@@ -729,18 +753,25 @@ public class Client {
     public func getJoinedMembers(roomId: RoomId) async throws -> [UserId] {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/joined_members"
         let (data, response) = try await call(method: "GET", path: path)
+        let string = String(decoding: data, as: UTF8.self)
+        print("getJoinedMembers:\t\(self.creds.userId) Got response = \(string)")
         
-        
-        struct RoomMember: Codable {
-            var avatarUrl: String
-            var displayName: String
+        struct ResponseBody: Codable {
+            struct RoomMember: Codable {
+                var avatarUrl: String?
+                var displayName: String?
+                enum CodingKeys: String, CodingKey {
+                    case avatarUrl = "avatar_url"
+                    case displayName = "displayname"
+                }
+            }
+            var joined: [UserId: RoomMember]
         }
-        typealias ResponseBody = [UserId: RoomMember]
         
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        //decoder.keyDecodingStrategy = .convertFromSnakeCase
         let responseBody = try decoder.decode(ResponseBody.self, from: data)
-        let users = [UserId](responseBody.keys)
+        let users = [UserId](responseBody.joined.keys)
         return users
     }
     

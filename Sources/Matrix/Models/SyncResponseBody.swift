@@ -150,11 +150,12 @@ extension Matrix {
             public var left: [UserId]?
         }
         
-        public typealias OneTimeKeysCount = [String : Int]
+        public typealias OneTimeKeysCount = [String : Int32]
         
         public var accountData: AccountData?
         public var deviceLists: DeviceLists?
         public var deviceOneTimeKeysCount: OneTimeKeysCount?
+        public var deviceUnusedFallbackKeyTypes: [String]?
         public var nextBatch: String
         public var presence: Presence?
         public var rooms: Rooms?
@@ -164,6 +165,7 @@ extension Matrix {
             case accountData = "account_data"
             case deviceLists = "device_lists"
             case deviceOneTimeKeysCount = "device_one_time_keys_count"
+            case deviceUnusedFallbackKeyTypes = "device_unused_fallback_key_types"
             case nextBatch = "next_batch"
             case presence
             case rooms
@@ -182,6 +184,9 @@ extension Matrix {
             
             //logger.debug("\tDevice one-time keys count")
             self.deviceOneTimeKeysCount = try container.decodeIfPresent(OneTimeKeysCount.self, forKey: .deviceOneTimeKeysCount)
+            
+            //logger.debug("\tDevice unused fallback key types")
+            self.deviceUnusedFallbackKeyTypes = try container.decodeIfPresent([String].self, forKey: .deviceUnusedFallbackKeyTypes)
             
             //logger.debug("\tNext batch")
             self.nextBatch = try container.decode(String.self, forKey: .nextBatch)

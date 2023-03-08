@@ -32,4 +32,18 @@ extension Matrix.Session {
         }
         return false
     }
+    
+    @discardableResult
+    func waitUntil(_ f: ()->Bool, delay: UInt64 = 5_000_000_000) async throws -> Bool {
+        var counter = 0
+        while counter < 10 {
+            counter += 1
+            if f() {
+                return true
+            }
+            print("waitUntil: Try #\(counter) failed.  Sleeping...")
+            try await Task.sleep(nanoseconds: delay)
+        }
+        return false
+    }
 }

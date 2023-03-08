@@ -71,9 +71,9 @@ public struct ClientEventWithoutRoomId: Matrix.Event, Codable {
         try container.encode(eventId, forKey: .eventId)
         try container.encode(originServerTS, forKey: .originServerTS)
         try container.encode(sender, forKey: .sender)
-        try container.encode(stateKey, forKey: .stateKey)
+        try container.encodeIfPresent(stateKey, forKey: .stateKey)
         try container.encode(type, forKey: .type)
-        try container.encode(unsigned, forKey: .unsigned)
+        try container.encodeIfPresent(unsigned, forKey: .unsigned)
         try container.encode(AnyCodable(content), forKey: .content)
     }
 }

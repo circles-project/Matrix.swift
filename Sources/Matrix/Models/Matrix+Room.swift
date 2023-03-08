@@ -9,6 +9,8 @@ import Foundation
 
 extension Matrix {
     public class Room: ObservableObject {
+        public typealias HistoryVisibility = RoomHistoryVisibilityContent.HistoryVisibility
+
         public let roomId: RoomId
         public let session: Session
         private var dataStore: DataStore?
@@ -189,7 +191,7 @@ extension Matrix {
                     print("Room:\tFailed to parse \(M_ROOM_AVATAR) event \(event.eventId)")
                     return
                 }
-                print("Room:\tSetting room avatar")
+                //print("Room:\tSetting room avatar")
                 if self.avatarUrl != content.mxc {
                     self.avatarUrl = content.mxc
                     // FIXME: Also fetch the new avatar image
@@ -201,7 +203,7 @@ extension Matrix {
                         print("Room:\tFailed to parse \(M_ROOM_NAME) event \(event.eventId)")
                         return
                     }
-                    print("Room:\tSetting room name")
+                    //print("Room:\tSetting room name")
                     self.name = content.name
                     
                 case M_ROOM_TOPIC:
@@ -210,7 +212,7 @@ extension Matrix {
                         print("\tRoom:\tFailed to parse \(M_ROOM_TOPIC) event \(event.eventId)")
                         return
                     }
-                    print("Room:\tSetting topic")
+                    //print("Room:\tSetting topic")
                     self.topic = content.topic
                     
                 case M_ROOM_MEMBER:
@@ -259,7 +261,8 @@ extension Matrix {
                 self.encryptionParams = content
                 
             default:
-                print("Room:\tNot handling event of type \(event.type)")
+                let msg = "Room:\tNot handling event of type \(event.type)"
+                //print("\(msg)")
                 
             } // end switch event.type
             
@@ -295,6 +298,15 @@ extension Matrix {
         
         public var creator: UserId {
             state[M_ROOM_CREATE]![""]!.sender
+        }
+        
+        public func getHistoryVisibility() async throws -> HistoryVisibility? {
+            let content = try await getState(type: M_ROOM_HISTORY_VISIBILITY, stateKey: "") as? RoomHistoryVisibilityContent
+            return content?.historyVisibility
+        }
+        
+        public func getJoinedMembers() async throws -> [UserId] {
+            try await self.session.getJoinedMembers(roomId: roomId)
         }
         
         public var lastMessage: ClientEventWithoutRoomId? {
@@ -350,32 +362,31 @@ extension Matrix {
         }
         
         public func sendText(text: String) async throws -> EventId {
-            if !self.isEncrypted {
                 let content = mTextContent(msgtype: .text, body: text)
                 return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
-            }
-            else {
-                throw Matrix.Error("Not implemented")
-            }
         }
         
         public func sendImage(image: NativeImage) async throws -> EventId {
+            guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
+                throw Matrix.Error("Couldn't create JPEG for image")
+            }
+            let info = mImageInfo(h: Int(image.size.height),
+                                  w: Int(image.size.width),
+                                  mimetype: "image/jpeg",
+                                  size: jpegData.count)
             if !self.isEncrypted {
-                guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
-                    throw Matrix.Error("Couldn't create JPEG for image")
-                }
                 let mxc = try await self.session.uploadData(data: jpegData, contentType: "image/jpeg")
-                let info = mImageInfo(h: Int(image.size.height),
-                                      w: Int(image.size.width),
-                                      mimetype: "image/jpeg",
-                                      size: jpegData.count)
-                let content = mImageContent(msgtype: .image, body: "\(mxc.mediaId).jpeg", info: info)
+                let content = mImageContent(msgtype: .image, body: "\(mxc.mediaId).jpeg", url: mxc, info: info)
                 return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             }
             else {
-                throw Matrix.Error("Not implemented")
+                let encryptedFile = try await self.session.encryptAndUploadData(plaintext: jpegData, contentType: "image/jpeg")
+                let content = mImageContent(msgtype: .image, body: "\(encryptedFile.url.mediaId).jpeg", file: encryptedFile, info: info)
+                return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             }
         }
+
+
         
         public func sendVideo(fileUrl: URL, thumbnail: NativeImage?) async throws -> EventId {
             throw Matrix.Error("Not implemented")

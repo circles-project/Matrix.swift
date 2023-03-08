@@ -31,6 +31,11 @@ public enum Matrix {
         }
     }
     
+    public struct ErrorResponse: Codable {
+        public var error: String
+        public var errcode: String
+    }
+    
     public struct RateLimitError: Swift.Error, Codable {
         public var errcode: String
         public var error: String?
@@ -40,6 +45,14 @@ public enum Matrix {
     // MARK: Utility Functions
     
     public static var logger = os.Logger(subsystem: Bundle.main.bundleIdentifier ?? "Matrix.swift", category: "matrix")
+    
+    public class CryptoLogger: MatrixSDKCrypto.Logger {
+        var logger = os.Logger(subsystem: "matrix", category: "crypto")
+        public func log(logLine: String) {
+            logger.info("\(logLine)")
+        }
+    }
+    public static var cryptoLogger = CryptoLogger()
     
     // MARK: Well-Known
     
@@ -146,10 +159,14 @@ public enum Matrix {
         M_ROOM_TOMBSTONE : RoomTombstoneContent.self,
         M_TAG : TagContent.self,
         M_ROOM_ENCRYPTION : RoomEncryptionContent.self,
-        M_ENCRYPTED : EncryptedEventContent.self,
+        M_ROOM_ENCRYPTED : EncryptedEventContent.self,
         M_SPACE_CHILD : SpaceChildContent.self,
         M_SPACE_PARENT : SpaceParentContent.self,
         M_REACTION : ReactionContent.self,
+        M_ROOM_KEY : RoomKeyContent.self,
+        M_ROOM_KEY_REQUEST : RoomKeyRequestContent.self,
+        M_FORWARDED_ROOM_KEY : ForwardedRoomKeyContent.self,
+        M_ROOM_KEY_WITHHELD : RoomKeyWithheldContent.self,
     ]
     static var messageTypes: [String: Codable.Type] = [
         M_TEXT : mTextContent.self,
@@ -168,6 +185,9 @@ public enum Matrix {
         M_IGNORED_USER_LIST : IgnoredUserListContent.self,
         M_PUSH_RULES : PushRulesContent.self,
         M_TAG : TagContent.self,
+    ]
+    static var cryptoKeyTypes: [String: Codable.Type] = [
+        : // FIXME
     ]
     
     public static func registerEventType(_ string: String, _ codable: Codable.Type) {

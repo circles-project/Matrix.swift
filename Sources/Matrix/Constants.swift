@@ -16,7 +16,7 @@ public let M_ROOM_POWER_LEVELS = "m.room.power_levels"
 public let M_ROOM_MESSAGE = "m.room.message"
 public let M_REACTION = "m.reaction"
 public let M_ROOM_ENCRYPTION = "m.room.encryption"
-public let M_ENCRYPTED = "m.encrypted"
+public let M_ROOM_ENCRYPTED = "m.room.encrypted"
 public let M_ROOM_TOMBSTONE = "m.room.tombstone"
 
 public let M_ROOM_NAME = "m.room.name"
@@ -33,6 +33,12 @@ public let M_TAG = "m.tag"
 
 public let M_SPACE_CHILD = "m.space.child"
 public let M_SPACE_PARENT = "m.space.parent"
+
+// MARK: E2EE Event Types
+public let M_ROOM_KEY = "m.room_key"
+public let M_ROOM_KEY_REQUEST = "m.room_key_request"
+public let M_FORWARDED_ROOM_KEY = "m.forwarded_room_key"
+public let M_ROOM_KEY_WITHHELD = "m.room_key.withheld"
 
 // Add types for extensible events here
 
@@ -56,3 +62,4 @@ public let M_IGNORED_USER_LIST = "m.ignored_user_list"
 public let M_PUSH_RULES = "m.push_rules"
 public let M_SECRET_STORAGE_KEY = "m.secret_storage_key" // Ugh this one is FUBAR.  The actual format is "m.secret_storage.key.[key ID]"
 // We already have M_TAG = "m.tag"
+
