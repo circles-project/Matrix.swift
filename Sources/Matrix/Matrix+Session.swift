@@ -198,6 +198,7 @@ extension Matrix {
                 return syncToken
             }
             
+            // Track whether this sync was successful.  If not, we shouldn't advance the token.
             var success = true
             
             try await cryptoQueue.run {
@@ -303,7 +304,9 @@ extension Matrix {
                     }
                     if !newUsers.isEmpty {
                         logger.debug("\t\(self.creds.userId) Updating crypto state with \(newUsers.count) potentially-new users")
-                        try crypto.updateTrackedUsers(users: newUsers)
+                        try await cryptoQueue.run {
+                            try self.crypto.updateTrackedUsers(users: newUsers)
+                        }
                     }
 
 
@@ -313,7 +316,7 @@ extension Matrix {
                         print("\t\(timelineEvents.count) new timeline events")
 
                         // Update the room with the latest data from `info`
-                        try await room.updateState(from: stateEvents)
+                        await room.updateState(from: stateEvents)
                         if room.isEncrypted {
                             let decryptedEvents = tryToDecryptEvents(events: timelineEvents, in: roomId)
                             try await room.updateTimeline(from: decryptedEvents)
@@ -366,16 +369,19 @@ extension Matrix {
             // FIXME: Handle to-device messages
 
 
-            //print("/sync:\tUpdating sync token...  awaiting MainActor")
-            await MainActor.run {
-                //print("/sync:\tMainActor updating sync token to \(responseBody.nextBatch)")
-                self.syncToken = responseBody.nextBatch
+            if success {
+                //print("/sync:\tUpdating sync token...  awaiting MainActor")
+                await MainActor.run {
+                    //print("/sync:\tMainActor updating sync token to \(responseBody.nextBatch)")
+                    self.syncToken = responseBody.nextBatch
+                }
+                
+                //print("/sync:\t\(creds.userId) Done!")
+                self.syncRequestTask = nil
+                return responseBody.nextBatch
+            } else {
+                return self.syncToken
             }
-
-            //print("/sync:\t\(creds.userId) Done!")
-            self.syncRequestTask = nil
-            return responseBody.nextBatch
-        
         }
         
         public func sync() async throws -> String? {
