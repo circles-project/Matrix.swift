@@ -573,6 +573,16 @@ public class Client {
         return responseBody.eventId
     }
     
+    // "m.reaction relationships are not currently specified, but are shown here for their conceptual place in a threaded DAG. They are currently proposed as MSC2677."
+    // See MSC2677: https://github.com/matrix-org/matrix-spec-proposals/pull/2677
+    public func addReaction(reaction: String,
+                            to eventId: EventId,
+                            in roomId: RoomId
+    ) async throws -> EventId {
+        let content = ReactionContent(eventId: eventId, reaction: reaction)
+        return try await sendMessageEvent(to: roomId, type: M_REACTION, content: content)
+    }
+    
     public func sendRedactionEvent(to roomId: RoomId,
                             for eventId: EventId,
                             reason: String? = nil

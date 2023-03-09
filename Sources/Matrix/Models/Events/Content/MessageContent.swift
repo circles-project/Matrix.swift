@@ -10,21 +10,23 @@ import Foundation
 extension Matrix {
 
     public struct mInReplyTo: Codable {
-        public var event_id: String
-        
-        public init(event_id: String) {
-            self.event_id = event_id
+        public var eventId: EventId
+        enum CodingKeys: String, CodingKey {
+            case eventId = "event_id"
+        }
+        public init(eventId: EventId) {
+            self.eventId = eventId
         }
     }
     public struct mRelatesTo: Codable {
-        public var in_reply_to: mInReplyTo?
+        public var inReplyTo: mInReplyTo?
 
-        public init(in_reply_to: mInReplyTo? = nil) {
-            self.in_reply_to = in_reply_to
+        public init(inReplyTo: mInReplyTo? = nil) {
+            self.inReplyTo = inReplyTo
         }
         
         public enum CodingKeys: String, CodingKey {
-            case in_reply_to = "m.in_reply_to"
+            case inReplyTo = "m.in_reply_to"
         }
     }
 

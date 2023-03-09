@@ -396,7 +396,7 @@ extension Matrix {
             if !self.isEncrypted {
                 let content = mTextContent(msgtype: .text,
                                            body: text,
-                                           relates_to: mRelatesTo(in_reply_to: .init(event_id: eventId)))
+                                           relates_to: mRelatesTo(inReplyTo: .init(eventId: eventId)))
                 return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             }
             else {
@@ -412,10 +412,9 @@ extension Matrix {
             try await self.session.sendReport(for: eventId, in: self.roomId, score: score, reason: reason)
         }
         
-        public func sendReaction(_ reaction: String, to eventId: EventId) async throws -> EventId {
+        public func addReaction(_ reaction: String, to eventId: EventId) async throws -> EventId {
             // FIXME: What about encryption?
-            let content = ReactionContent(eventId: eventId, reaction: reaction)
-            return try await self.session.sendMessageEvent(to: self.roomId, type: M_REACTION, content: content)
+            try await self.session.addReaction(reaction: reaction, to: eventId, in: self.roomId)
         }
     }
 }
