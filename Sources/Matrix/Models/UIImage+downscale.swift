@@ -8,6 +8,7 @@
 import Foundation
 
 #if !os(macOS)
+import UIKit
 
 extension UIImage {
     public func downscale(to maxSize: CGSize) -> UIImage? {
