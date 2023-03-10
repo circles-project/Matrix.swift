@@ -8,7 +8,7 @@
 import Foundation
 import AnyCodable
 
-public class LoginSession: UIAuthSession {
+public class LoginSession: UIAuthSession<Matrix.Credentials> {
     public let userId: UserId
     
     public struct LoginRequestBody: Codable {

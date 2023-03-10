@@ -107,6 +107,8 @@ extension Matrix {
                 for request in cryptoRequests {
                     try await self.sendCryptoRequest(request: request)
                 }
+                let uia = try await self.setupCrossSigning()
+                // Hopefully uia is nil -- Meaning we don't have to re-authenticate so soon 
             }
             
             // Ok now we're initialized as a valid Matrix.Client (super class)
@@ -922,7 +924,43 @@ extension Matrix {
                                             type: decryptedMinimalEvent.type)
         }
         
-
+        // MARK: Cross Signing
         
+        public func setupCrossSigning() async throws -> UIAuthSession<EmptyStruct>? {
+            let status = self.crypto.crossSigningStatus()
+            if status.hasMaster && status.hasSelfSigning && status.hasUserSigning {
+                // Nothing more to be done here
+                return nil
+            }
+            
+            // If we're still here, then we need to bootstrap our cross signing
+            
+            let result = try self.crypto.bootstrapCrossSigning()
+            
+            // Upload the signing key
+            let decoder = JSONDecoder()
+            let masterKey = try decoder.decode(CrossSigningKey.self, from: result.uploadSigningKeysRequest.userSigningKey.data(using: .utf8)!)
+            let selfSigningKey = try decoder.decode(CrossSigningKey.self, from: result.uploadSigningKeysRequest.selfSigningKey.data(using: .utf8)!)
+            let userSigningKey = try decoder.decode(CrossSigningKey.self, from: result.uploadSigningKeysRequest.userSigningKey.data(using: .utf8)!)
+
+            let path = "/_matrix/client/v3/keys/device_signing/upload"
+            let url = URL(string: path, relativeTo: self.baseUrl)!
+            
+            // WARNING: This endpoint uses the user-interactive auth, so unless we call it *immediately* after login, we should expect to receive a new UIA session that must be completed before the request can take effect
+            
+            let uia = UIAuthSession<EmptyStruct>(method: "POST", url: url, requestDict: [
+                "master_key": masterKey,
+                "self_signing_key": selfSigningKey,
+                "user_signing_key": userSigningKey,
+            ])
+            try await uia.connect()
+            if case let .finished(creds) = uia.state {
+                // Got it in one!  The server did not require us to re-authenticate.
+                return nil
+            } else {
+                return uia
+            }
+            
+        }
     }
 }
