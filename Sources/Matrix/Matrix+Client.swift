@@ -363,7 +363,7 @@ public class Client {
     
     // https://spec.matrix.org/v1.3/client-server-api/#delete_matrixclientv3devicesdeviceid
     // FIXME This must support UIA.  Return a UIAASession???
-    public func deleteDevice(deviceId: String) async throws -> UIAuthSession? {
+    public func deleteDevice(deviceId: String) async throws -> UIAuthSession<EmptyStruct>? {
         let path = "/_matrix/client/\(version)/devices/\(deviceId)"
         let (data, response) = try await call(method: "DELETE",
                                               path: path,
@@ -384,7 +384,7 @@ public class Client {
                 print("API\t\(msg)")
                 throw Matrix.Error(msg)
             }
-            let uiaSession = UIAuthSession(method: "DELETE", url: URL(string: path, relativeTo: baseUrl)!, credentials: creds, requestDict: [:])
+            let uiaSession = UIAuthSession<EmptyStruct>(method: "DELETE", url: URL(string: path, relativeTo: baseUrl)!, credentials: creds, requestDict: [:])
             uiaSession.state = .connected(uiaState)
             
             return uiaSession

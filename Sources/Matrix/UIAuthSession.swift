@@ -11,9 +11,11 @@ import BlindSaltSpeke
 
 @available(macOS 12.0, *)
 public protocol UIASession {
+    associatedtype T: Codable
+    
     var url: URL { get }
     
-    var state: UIAuthSession.State { get }
+    var state: UIAuthSession<T>.State { get }
     
     var sessionId: String? { get }
     
@@ -42,13 +44,13 @@ public let AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN = "m.login.email.request_token"
 public let AUTH_TYPE_LOGIN_EMAIL_SUBMIT_TOKEN = "m.login.email.submit_token"
 
 @available(macOS 12.0, *)
-public class UIAuthSession: UIASession, ObservableObject {
+public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         
     public enum State {
         case notConnected
         case connected(UIAA.SessionState)
         case inProgress(UIAA.SessionState,[String])
-        case finished(Matrix.Credentials)
+        case finished(T)
     }
     
     public let url: URL
@@ -169,6 +171,14 @@ public class UIAuthSession: UIASession, ObservableObject {
             throw Matrix.Error(msg)
         }
         print("\(tag)\tParsed HTTP response")
+        
+        if httpResponse.statusCode == 200 {
+            let decoder = JSONDecoder()
+            let t: T = try decoder.decode(T.self, from: data)
+            await MainActor.run {
+                self.state = .finished(t)
+            }
+        }
         
         guard httpResponse.statusCode == 401 else {
             let msg = "Got unexpected HTTP response code (\(httpResponse.statusCode))"
@@ -322,14 +332,14 @@ public class UIAuthSession: UIASession, ObservableObject {
             print("\(tag)\tAll done!")
             let decoder = JSONDecoder()
             
-            guard let newCreds = try? decoder.decode(Matrix.Credentials.self, from: data)
+            guard let t = try? decoder.decode(T.self, from: data)
             else {
                 let msg = "Couldn't decode Matrix credentials"
                 print("\(tag)\tError: \(msg)")
                 throw Matrix.Error(msg)
             }
             await MainActor.run {
-                state = .finished(newCreds)
+                state = .finished(t)
             }
             return
         }

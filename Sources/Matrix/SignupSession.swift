@@ -18,7 +18,7 @@ public let AUTH_TYPE_APPLE_SUBSCRIPTION = "org.futo.subscriptions.apple"
 public let AUTH_TYPE_LEGACY_EMAIL = "m.login.email.identity"
 
 
-public class SignupSession: UIAuthSession {
+public class SignupSession: UIAuthSession<Matrix.Credentials> {
     public let domain: String
     //public let deviceId: String?
     //public let initialDeviceDisplayName: String?
