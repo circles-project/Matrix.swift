@@ -418,3 +418,21 @@ extension Matrix {
         }
     }
 }
+
+extension Matrix.Room: Identifiable {
+    public var id: String {
+        "\(self.roomId)"
+    }
+}
+
+extension Matrix.Room: Equatable {
+    public static func == (lhs: Matrix.Room, rhs: Matrix.Room) -> Bool {
+        lhs.roomId == rhs.roomId
+    }
+}
+
+extension Matrix.Room: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        self.roomId.hash(into: &hasher)
+    }
+}
