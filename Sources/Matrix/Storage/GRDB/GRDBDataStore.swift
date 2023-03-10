@@ -255,6 +255,8 @@ public struct GRDBDataStore: DataStore {
             M_ROOM_NAME,
             M_ROOM_AVATAR,
             M_ROOM_TOPIC,
+            M_SPACE_CHILD,
+            M_SPACE_PARENT,
         ]
         let table = Table<ClientEvent>("state")
         let request = table.filter(sql: "room_id='\(roomId)' AND type IN (\(eventTypes.map({"'\($0)'"}).joined(separator: ",")))")

@@ -63,3 +63,5 @@ public let M_PUSH_RULES = "m.push_rules"
 public let M_SECRET_STORAGE_KEY = "m.secret_storage_key" // Ugh this one is FUBAR.  The actual format is "m.secret_storage.key.[key ID]"
 // We already have M_TAG = "m.tag"
 
+// MARK: Room types
+public let M_SPACE = "m.space"
