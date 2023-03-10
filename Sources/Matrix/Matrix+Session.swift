@@ -85,7 +85,7 @@ extension Matrix {
             let cryptoStorePath = [
                 NSHomeDirectory(),
                 ".matrix",
-                Bundle.main.infoDictionary?["CFBundleName"] as? String ?? Bundle.main.className,
+                Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift",
                 "\(creds.userId)",
                 "\(creds.deviceId)",
                 "crypto"
