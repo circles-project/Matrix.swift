@@ -134,7 +134,7 @@ public struct GRDBDataStore: DataStore {
             let dirPath = [
                 NSHomeDirectory(),
                 ".matrix",
-                Bundle.main.infoDictionary?["CFBundleName"] as? String ?? Bundle.main.className,
+                Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift",
                 "\(userId)"
             ].joined(separator: "/")
             let filePath = dirPath + "/matrix.sqlite3"
