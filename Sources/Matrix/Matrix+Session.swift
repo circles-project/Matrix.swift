@@ -644,8 +644,8 @@ extension Matrix {
             return nil
         }
         
-        public func getSpace(roomId: RoomId) async throws -> Matrix.Space? {
-            if let existingSpace = self.rooms[roomId] as? Matrix.Space {
+        public func getSpaceRoom(roomId: RoomId) async throws -> Matrix.SpaceRoom? {
+            if let existingSpace = self.rooms[roomId] as? Matrix.SpaceRoom {
                 return existingSpace
             }
             
@@ -656,11 +656,7 @@ extension Matrix {
             if let store = self.dataStore {
                 let events = try await store.loadEssentialState(for: roomId)
                 if events.count > 0 {
-                    // Check: Is this really an m.space room?
-                    if let createEvent = events.filter({$0.type == M_ROOM_CREATE}).first,
-                       let content = createEvent.content as? RoomCreateContent,
-                       content.type == M_SPACE,
-                       let space = try? Matrix.Space(roomId: roomId, session: self, initialState: events)
+                    if let space = try? Matrix.SpaceRoom(roomId: roomId, session: self, initialState: events)
                     {
                         await MainActor.run {
                             self.rooms[roomId] = space
@@ -673,14 +669,7 @@ extension Matrix {
             // Ok we didn't have the room state cached locally
             // Maybe the server knows about this room?
             let events = try await getRoomStateEvents(roomId: roomId)
-            // Make sure it's really an m.space room
-            guard let creationEvent = events.filter({$0.type == M_ROOM_CREATE}).first,
-                  let content = creationEvent.content as? RoomCreateContent,
-                  content.type == M_SPACE
-            else {
-                return nil
-            }
-            if let space = try? Matrix.Space(roomId: roomId, session: self, initialState: events) {
+            if let space = try? Matrix.SpaceRoom(roomId: roomId, session: self, initialState: events) {
                 await MainActor.run {
                     self.rooms[roomId] = space
                 }
