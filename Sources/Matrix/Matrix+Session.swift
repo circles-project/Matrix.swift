@@ -290,6 +290,27 @@ extension Matrix {
                         }
                     }
                     
+                    // Did we have any users leave, or get kicked or banned?
+                    // If so, we need to create a new Megolm session with a new chain of keys before we can send anything else
+                    // The first step towards that is to invalidate the current session
+                    let leftUsers = allStateEvents.filter {
+                        guard $0.type == M_ROOM_MEMBER,
+                              let content = $0.content as? RoomMemberContent,
+                              content.membership == .leave || content.membership == .ban
+                        else {
+                            return false
+                        }
+                        return true
+                    }.compactMap {
+                        $0.stateKey
+                    }
+                    if !leftUsers.isEmpty {
+                        logger.debug("CRYPTO:\t\(self.creds.userId) Discarding/invalidating old Megolm session for room \(roomId) because \(leftUsers.count) users have left")
+                        try await cryptoQueue.run {
+                            try self.crypto.discardRoomKey(roomId: "\(roomId)")
+                        }
+                    }
+                    
                     // Update the crypto module about any new users
                     let newUsers = allStateEvents.filter {
                         // Find all of the room member events that represent a joined member of the room
