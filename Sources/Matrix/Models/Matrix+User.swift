@@ -43,3 +43,15 @@ extension Matrix.User: Identifiable {
         "\(self.userId)"
     }
 }
+
+extension Matrix.User: Equatable {
+    public static func == (lhs: Matrix.User, rhs: Matrix.User) -> Bool {
+        lhs.userId == rhs.userId
+    }
+}
+
+extension Matrix.User: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        self.userId.hash(into: &hasher)
+    }
+}
