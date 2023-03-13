@@ -9,8 +9,8 @@ import Foundation
 
 extension Matrix {
     public class SpaceRoom: Room {
-        @Published var children: Set<RoomId>
-        @Published var parents: Set<RoomId>
+        @Published public var children: Set<RoomId>
+        @Published public var parents: Set<RoomId>
         
         public init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId]) throws {
             self.children = []
