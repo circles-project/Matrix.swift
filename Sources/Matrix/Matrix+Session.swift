@@ -30,6 +30,8 @@ extension Matrix {
         @Published public var rooms: [RoomId: Matrix.Room]
         @Published public var invitations: [RoomId: Matrix.InvitedRoom]
         
+        private var users: [UserId: Matrix.User]
+        
         // cvw: Stuff that we need to add, but haven't got to yet
         public var accountData: [Matrix.AccountDataType: Codable]
 
@@ -72,6 +74,7 @@ extension Matrix {
         ) async throws {
             self.rooms = [:]
             self.invitations = [:]
+            self.users = [:]
             self.accountData = [:]
                         
             self.keepSyncing = startSyncing
@@ -594,6 +597,7 @@ extension Matrix {
             } // end case request
         } // end sendCryptoRequests()
 
+        // MARK: Session state management
         
         public func pause() async throws {
             // pause() doesn't actually make any API calls
@@ -607,6 +611,8 @@ extension Matrix {
             throw Matrix.Error("Not implemented yet")
         }
         
+        // MARK: Recovery
+        
         public func createRecovery(privateKey: Data) async throws {
             throw Matrix.Error("Not implemented yet")
         }
@@ -619,6 +625,8 @@ extension Matrix {
             return self.creds.userId
         }
         
+        // MARK: Rooms
+        
         public override func getRoomStateEvents(roomId: RoomId) async throws -> [ClientEventWithoutRoomId] {
             let events = try await super.getRoomStateEvents(roomId: roomId)
             if let store = self.dataStore {
@@ -629,6 +637,7 @@ extension Matrix {
             }
             return events
         }
+        
         
         public func getRoom(roomId: RoomId) async throws -> Matrix.Room? {
             if let existingRoom = self.rooms[roomId] {
@@ -718,6 +727,18 @@ extension Matrix {
             
             // Whoops, looks like we couldn't find what we needed
             return nil
+        }
+        
+        // MARK: Users
+        
+        public func getUser(userId: UserId) async throws -> Matrix.User? {
+            if let existingUser = self.users[userId] {
+                return existingUser
+            }
+            
+            let user = Matrix.User(userId: userId, session: self)
+            self.users[userId] = user
+            return user
         }
         
         
@@ -984,11 +1005,20 @@ extension Matrix {
         // MARK: Cross Signing
         
         public func setupCrossSigning() async throws -> UIAuthSession<EmptyStruct>? {
+            // First thing to check: Do we already have all of our cross-signing keys?
             let status = self.crypto.crossSigningStatus()
             if status.hasMaster && status.hasSelfSigning && status.hasUserSigning {
                 // Nothing more to be done here
                 return nil
             }
+            
+            // If we don't have our keys, maybe they are on the server
+            // (Maybe we created them on another device and uploaded them)
+            //
+            // FIXME: Until we check for this, we can't have multiple devices per account
+            //
+            
+            
             
             // If we're still here, then we need to bootstrap our cross signing
             
@@ -1011,13 +1041,16 @@ extension Matrix {
                 "user_signing_key": userSigningKey,
             ])
             try await uia.connect()
-            if case let .finished(creds) = uia.state {
-                // Got it in one!  The server did not require us to re-authenticate.
+            switch uia.state {
+            case .finished(_):
+                // Yay, got it in one!  The server did not require us to authenticate again.
                 return nil
-            } else {
+            default:
+                // The caller will have to complete UIA before the request can go through
                 return uia
             }
-            
+
+            // FIXME: Also upload the signature request in `result.signatureRequest`
         }
     }
 }
