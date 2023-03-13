@@ -320,6 +320,10 @@ extension Matrix {
                 .last
         }
         
+        public var timestamp: UInt64 {
+            self.lastMessage?.originServerTS ?? self.state[M_ROOM_CREATE]![""]!.originServerTS
+        }
+        
         public func setName(newName: String) async throws {
             try await self.session.setRoomName(roomId: self.roomId, name: newName)
         }
