@@ -51,6 +51,10 @@ extension Matrix {
                 }
             }
         }
+        
+        public func getChildRoomIds() async throws -> [RoomId] {
+            try await self.session.getSpaceChildren(self.roomId)
+        }
 
     }
 }
