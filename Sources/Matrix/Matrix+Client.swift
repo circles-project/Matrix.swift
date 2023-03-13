@@ -261,13 +261,13 @@ public class Client {
     }
 
     
-    public func getProfileInfo(userId: UserId) async throws -> (String?,String?) {
+    public func getProfileInfo(userId: UserId) async throws -> (String?,MXC?) {
                
         let (data, response) = try await call(method: "GET", path: "/_matrix/client/\(version)/profile/\(userId)")
         
         struct UserProfileInfo: Codable {
             let displayName: String?
-            let avatarUrl: String?
+            let avatarUrl: MXC?
             
         }
         

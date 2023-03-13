@@ -8,16 +8,16 @@
 import Foundation
 
 extension Matrix {
-    public class User: ObservableObject, Identifiable {
-        public let id: UserId // For Identifiable
+    public class User: ObservableObject {
+        public let userId: UserId
         public var session: Session
         @Published public var displayName: String?
-        @Published public var avatarUrl: String?
+        @Published public var avatarUrl: MXC?
         @Published public var avatar: NativeImage?
         @Published public var statusMessage: String?
                 
         public init(userId: UserId, session: Session) {
-            self.id = userId
+            self.userId = userId
             self.session = session
             
             _ = Task {
@@ -26,7 +26,20 @@ extension Matrix {
         }
         
         public func refreshProfile() async throws {
-            (self.displayName, self.avatarUrl) = try await self.session.getProfileInfo(userId: self.id)
+            let newDisplayName: String?
+            let newAvatarUrl: MXC?
+            
+            (newDisplayName, newAvatarUrl) = try await self.session.getProfileInfo(userId: userId)
+            await MainActor.run {
+                self.displayName = newDisplayName
+                self.avatarUrl = newAvatarUrl
+            }
         }
+    }
+}
+
+extension Matrix.User: Identifiable {
+    public var id: String {
+        "\(self.userId)"
     }
 }
