@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct RoomId: LosslessStringConvertible, Codable, Equatable, Hashable, CodingKey {
+public struct RoomId: LosslessStringConvertible, Codable, Identifiable, Equatable, Hashable, CodingKey {
     public let opaqueId: String
     public let domain: String
     public let port: UInt16?
@@ -80,6 +80,10 @@ public struct RoomId: LosslessStringConvertible, Codable, Equatable, Hashable, C
         } else {
             return "!\(opaqueId):\(domain)"
         }
+    }
+    
+    public var id: String {
+        description
     }
 
     public static func == (lhs: RoomId, rhs: RoomId) -> Bool {

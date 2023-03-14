@@ -7,7 +7,7 @@
 
 import Foundation
     
-public struct UserId: LosslessStringConvertible, Codable, Equatable, Hashable, CodingKey {
+public struct UserId: LosslessStringConvertible, Codable, Identifiable, Equatable, Hashable, CodingKey {
     
     public let username: String
     public let domain: String
@@ -99,6 +99,10 @@ public struct UserId: LosslessStringConvertible, Codable, Equatable, Hashable, C
             return "\(username):\(domain)"
         }
             
+    }
+    
+    public var id: String {
+        description
     }
     
     public static func == (lhs: UserId, rhs: UserId) -> Bool {
