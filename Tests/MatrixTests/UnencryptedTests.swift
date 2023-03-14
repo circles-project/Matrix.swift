@@ -150,11 +150,11 @@ final class UnencryptedTests: XCTestCase {
         
         print("Syncing until the event appears in our timeline")
         try await session.syncUntil {
-            let event = room.timeline.first { $0.eventId == eventId }
+            let event = room.timeline.values.first { $0.eventId == eventId }
             return event != nil
         }
         
-        guard let event = room.timeline.first(where: { $0.eventId == eventId })
+        guard let event = room.timeline.values.first(where: { $0.eventId == eventId })
         else {
             throw "❌ event \(eventId) is not in our timeline"
         }

@@ -7,7 +7,7 @@
 
 import Foundation
 //import Collections // Maybe one day we will get a SortedSet implementation for Swift...
-
+import OrderedCollections
 
 extension Matrix {
     public class Room: ObservableObject {
@@ -29,7 +29,7 @@ extension Matrix {
         public let successorRoomId: RoomId?
         public let tombstoneEventId: EventId?
         
-        @Published public var timeline: [ClientEventWithoutRoomId]
+        @Published public var timeline: OrderedDictionary<EventId,ClientEventWithoutRoomId> //[ClientEventWithoutRoomId]
         @Published public var localEchoEvent: Event?
         //@Published var earliestMessage: MatrixMessage?
         //@Published var latestMessage: MatrixMessage?
@@ -52,7 +52,12 @@ extension Matrix {
         public init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialTimeline: [ClientEventWithoutRoomId] = []) throws {
             self.roomId = roomId
             self.session = session
-            self.timeline = initialTimeline
+            self.timeline = .init(uniqueKeysWithValues: initialTimeline
+                .sorted()
+                .map {
+                    ($0.eventId, $0)
+                }
+            )
             
             self.state = [:]
             
@@ -157,16 +162,34 @@ extension Matrix {
         }
         
         public func updateTimeline(from events: [ClientEventWithoutRoomId]) async throws {
-            for event in events {
-                // Is this a state event?
-                if event.stateKey != nil {
-                    // If so, update our local state
-                    updateState(from: event)
-                }
+
+            guard !events.isEmpty
+            else {
+                // No new events.  All done!
+                return
             }
-            // And regardless, add the events to our timeline
+            
+            let newKeysAndValues = events.map {
+                ($0.eventId, $0)
+            }
+            
+            guard !self.timeline.isEmpty
+            else {
+                // No old events.  Start from scratch with the new stuff.
+                await MainActor.run {
+                    self.timeline = .init(uniqueKeysWithValues: newKeysAndValues)
+                }
+                return
+            }
+            
+            var tmpTimeline = self.timeline.merging(newKeysAndValues, uniquingKeysWith: { e1,e2 -> ClientEventWithoutRoomId in
+                e1
+            })
+            tmpTimeline.sort()
+            let newTimeline = tmpTimeline
+            
             await MainActor.run {
-                self.timeline.append(contentsOf: events)
+                self.timeline = newTimeline
             }
         }
         
@@ -281,10 +304,8 @@ extension Matrix {
         public func paginate(limit: UInt?=nil) async throws {
             let response = try await self.session.getMessages(roomId: roomId, forward: false, from: self.backwardToken, limit: limit)
             // The timeline messages are in the "chunk" piece of the response
-            await MainActor.run {
-                self.timeline = response.chunk + self.timeline
-                self.backwardToken = response.end ?? self.backwardToken
-            }
+            try await self.updateTimeline(from: response.chunk)
+            self.backwardToken = response.end ?? self.backwardToken
         }
         
         public func getState(type: String, stateKey: String) async throws -> Codable? {
@@ -326,11 +347,9 @@ extension Matrix {
         
         public var lastMessage: ClientEventWithoutRoomId? {
             timeline
+                .values
                 .filter {
                     $0.stateKey == nil
-                }
-                .sorted {
-                    $0.originServerTS < $1.originServerTS
                 }
                 .last
         }

@@ -159,11 +159,11 @@ final class EncryptedTests: XCTestCase {
         
         print("Syncing until the event appears in our timeline")
         try await session.waitUntil {
-            let event = room.timeline.first { $0.eventId == eventId }
+            let event = room.timeline.values.first { $0.eventId == eventId }
             return event != nil
         }
         
-        guard let event = room.timeline.first(where: { $0.eventId == eventId })
+        guard let event = room.timeline.values.first(where: { $0.eventId == eventId })
         else {
             print("❌ event \(eventId) is not in our timeline")
             throw "❌ event \(eventId) is not in our timeline"
@@ -290,9 +290,9 @@ final class EncryptedTests: XCTestCase {
 
         print("Waiting until Alice sees the message")
         try await aliceSession.waitUntil {
-            aliceRoom.timeline.first(where: {$0.eventId == eventId1}) != nil
+            aliceRoom.timeline.values.first(where: {$0.eventId == eventId1}) != nil
         }
-        guard let aliceMessage1 = aliceRoom.timeline.first(where: {$0.eventId == eventId1})
+        guard let aliceMessage1 = aliceRoom.timeline.values.first(where: {$0.eventId == eventId1})
         else {
             print("❌ Alice doesn't have message 1")
             throw "Alice doesn't have message 1"
@@ -309,9 +309,9 @@ final class EncryptedTests: XCTestCase {
 
         print("Waiting until Bob sees the message")
         try await bobSession.waitUntil {
-            bobRoom.timeline.first(where: {$0.eventId == eventId1}) != nil
+            bobRoom.timeline.values.first(where: {$0.eventId == eventId1}) != nil
         }
-        guard let bobMessage1 = bobRoom.timeline.first(where: {$0.eventId == eventId1})
+        guard let bobMessage1 = bobRoom.timeline.values.first(where: {$0.eventId == eventId1})
         else {
             print("❌ Bob doesn't have message 1")
             throw "Bob doesn't have message 1"
@@ -335,9 +335,9 @@ final class EncryptedTests: XCTestCase {
         
         print("Waiting until Bob sees Message 2")
         try await bobSession.waitUntil {
-            bobRoom.timeline.first(where: {$0.eventId == eventId2}) != nil
+            bobRoom.timeline.values.first(where: {$0.eventId == eventId2}) != nil
         }
-        guard let bobMessage2 = bobRoom.timeline.first(where: {$0.eventId == eventId2})
+        guard let bobMessage2 = bobRoom.timeline.values.first(where: {$0.eventId == eventId2})
         else {
             print("❌ Bob doesn't have message 2")
             throw "Bob doesn't have message 2"
@@ -355,9 +355,9 @@ final class EncryptedTests: XCTestCase {
         
         print("Waiting until Alice sees Bob's message")
         try await aliceSession.waitUntil {
-            aliceRoom.timeline.first(where: {$0.eventId == eventId2}) != nil
+            aliceRoom.timeline.values.first(where: {$0.eventId == eventId2}) != nil
         }
-        guard let aliceMessage2 = aliceRoom.timeline.first(where: {$0.eventId == eventId2})
+        guard let aliceMessage2 = aliceRoom.timeline.values.first(where: {$0.eventId == eventId2})
         else {
             print("❌ Alice doesn't have message 2")
             throw "Alice doesn't have message 2"
