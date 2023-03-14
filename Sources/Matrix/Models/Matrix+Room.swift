@@ -321,7 +321,7 @@ extension Matrix {
             return [
                 state[M_ROOM_CREATE]![""]!,                             // Room creation
                 state[M_ROOM_ENCRYPTION]?[""],                          // Encryption settings
-                //state[.mRoomHistoryVisibility]?[""],                  // History visibility
+                state[M_ROOM_HISTORY_VISIBILITY]?[""],                  // History visibility
                 state[M_ROOM_MEMBER]?["\(session.creds.userId)"],       // My membership in the room
                 state[M_ROOM_POWER_LEVELS]?["\(session.creds.userId)"], // My power level in the room
                 state[M_ROOM_NAME]?[""],
