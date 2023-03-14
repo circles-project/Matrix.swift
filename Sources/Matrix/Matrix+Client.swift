@@ -727,9 +727,9 @@ public class Client {
                             forward: Bool = false,
                             from startToken: String? = nil,
                             to endToken: String? = nil,
-                            limit: Int? = 25
-    ) async throws -> [ClientEventWithoutRoomId] {
-        let path = "/_matrix/client/\(version)/rooms/\(roomId)/messages"
+                            limit: UInt? = 25
+    ) async throws -> RoomMessagesResponseBody {
+        let path = "/_matrix/client/v3/rooms/\(roomId)/messages"
         var params: [String:String] = [
             "dir" : forward ? "f" : "b",
         ]
@@ -744,19 +744,11 @@ public class Client {
         }
         let (data, response) = try await call(method: "GET", path: path, params: params)
         
-        struct ResponseBody: Codable {
-            var chunk: [ClientEventWithoutRoomId]
-            var end: String?
-            var start: String
-            var state: [ClientEventWithoutRoomId]?
-        }
-        
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         
-        let responseBody = try decoder.decode(ResponseBody.self, from: data)
+        let responseBody = try decoder.decode(RoomMessagesResponseBody.self, from: data)
         
-        return responseBody.chunk
+        return responseBody
     }
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3roomsroomidjoined_members

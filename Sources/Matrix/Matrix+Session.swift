@@ -941,10 +941,18 @@ extension Matrix {
                                          forward: Bool = false,
                                          from startToken: String? = nil,
                                          to endToken: String? = nil,
-                                         limit: Int? = 25
-        ) async throws -> [ClientEventWithoutRoomId] {
-            let events = try await super.getMessages(roomId: roomId, forward: forward, from: startToken, to: endToken, limit: limit)
-            return self.tryToDecryptEvents(events: events, in: roomId)
+                                         limit: UInt? = 25
+        ) async throws -> RoomMessagesResponseBody {
+            var responseBody = try await super.getMessages(roomId: roomId, forward: forward, from: startToken, to: endToken, limit: limit)
+            
+            if let store = dataStore {
+                // Don't save state here, because it could be way out of date
+                // But do save the timeline events for offline use
+                try await store.saveTimeline(events: responseBody.chunk, in: roomId)
+            }
+            
+            responseBody.chunk = self.tryToDecryptEvents(events: responseBody.chunk, in: roomId)
+            return responseBody
         }
         
         // MARK: Decrypting Messsages

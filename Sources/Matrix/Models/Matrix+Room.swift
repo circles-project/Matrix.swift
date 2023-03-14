@@ -6,6 +6,8 @@
 //
 
 import Foundation
+//import Collections // Maybe one day we will get a SortedSet implementation for Swift...
+
 
 extension Matrix {
     public class Room: ObservableObject {
@@ -27,7 +29,7 @@ extension Matrix {
         public let successorRoomId: RoomId?
         public let tombstoneEventId: EventId?
         
-        @Published public var timeline: Set<ClientEventWithoutRoomId>
+        @Published public var timeline: [ClientEventWithoutRoomId]
         @Published public var localEchoEvent: Event?
         //@Published var earliestMessage: MatrixMessage?
         //@Published var latestMessage: MatrixMessage?
@@ -44,10 +46,13 @@ extension Matrix {
 
         @Published public var encryptionParams: RoomEncryptionContent?
         
+        private var backwardToken: String?
+        private var forwardToken: String?
+        
         public init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialTimeline: [ClientEventWithoutRoomId] = []) throws {
             self.roomId = roomId
             self.session = session
-            self.timeline = Set(initialTimeline)
+            self.timeline = initialTimeline
             
             self.state = [:]
             
@@ -156,12 +161,12 @@ extension Matrix {
                 // Is this a state event?
                 if event.stateKey != nil {
                     // If so, update our local state
-                    try await updateState(from: event)
+                    updateState(from: event)
                 }
-                // And regardless, add the event to our timeline
-                await MainActor.run {
-                    self.timeline.insert(event)
-                }
+            }
+            // And regardless, add the events to our timeline
+            await MainActor.run {
+                self.timeline.append(contentsOf: events)
             }
         }
         
@@ -271,6 +276,16 @@ extension Matrix {
             d[stateKey] = event
             self.state[event.type] = d
         } // end func updateState()
+        
+        
+        public func paginate(limit: UInt?=nil) async throws {
+            let response = try await self.session.getMessages(roomId: roomId, forward: false, from: self.backwardToken, limit: limit)
+            // The timeline messages are in the "chunk" piece of the response
+            await MainActor.run {
+                self.timeline = response.chunk + self.timeline
+                self.backwardToken = response.end ?? self.backwardToken
+            }
+        }
         
         public func getState(type: String, stateKey: String) async throws -> Codable? {
             if let event = self.state[type]?[stateKey] {

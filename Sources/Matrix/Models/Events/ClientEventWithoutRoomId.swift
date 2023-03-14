@@ -78,12 +78,20 @@ public struct ClientEventWithoutRoomId: Matrix.Event, Codable {
     }
 }
 
-extension ClientEventWithoutRoomId: Hashable {
+extension ClientEventWithoutRoomId: Equatable {
     public static func == (lhs: ClientEventWithoutRoomId, rhs: ClientEventWithoutRoomId) -> Bool {
         lhs.eventId == rhs.eventId
     }
-    
+}
+
+extension ClientEventWithoutRoomId: Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(eventId)
     }    
+}
+
+extension ClientEventWithoutRoomId: Comparable {
+    public static func < (lhs: ClientEventWithoutRoomId, rhs: ClientEventWithoutRoomId) -> Bool {
+        lhs.originServerTS < rhs.originServerTS
+    }
 }
