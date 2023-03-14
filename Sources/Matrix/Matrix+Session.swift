@@ -30,7 +30,7 @@ extension Matrix {
         @Published public var rooms: [RoomId: Matrix.Room]
         @Published public var invitations: [RoomId: Matrix.InvitedRoom]
         
-        private var users: [UserId: Matrix.User]
+        public private(set) var users: [UserId: Matrix.User]
         
         // cvw: Stuff that we need to add, but haven't got to yet
         public var accountData: [Matrix.AccountDataType: Codable]
