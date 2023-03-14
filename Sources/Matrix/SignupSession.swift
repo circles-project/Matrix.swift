@@ -14,6 +14,7 @@ import BlindSaltSpeke
 
 public let AUTH_TYPE_ENROLL_USERNAME = "m.enroll.username"
 public let AUTH_TYPE_REGISTRATION_TOKEN = "m.login.registration_token"
+public let AUTH_TYPE_MSC3231_TOKEN = "org.matrix.msc3231.login.registration_token"
 public let AUTH_TYPE_APPLE_SUBSCRIPTION = "org.futo.subscriptions.apple"
 public let AUTH_TYPE_LEGACY_EMAIL = "m.login.email.identity"
 
