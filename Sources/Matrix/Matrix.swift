@@ -286,4 +286,10 @@ public enum _MatrixMessageType: String, Codable {
 public protocol _MatrixMessageContent: Codable {
     var body: String {get}
     var msgtype: Matrix.MessageType {get}
+    
+    var mimetype: String? {get}
+    
+    var thumbnail_info: Matrix.mThumbnailInfo? {get}
+    var thumbnail_file: Matrix.mEncryptedFile? {get}
+    var thumbnail_url: MXC? {get}
 }

@@ -57,6 +57,22 @@ extension Matrix {
             case formatted_body
             case relates_to = "m.relates_to"
         }
+        
+        public var mimetype: String? {
+            nil
+        }
+        
+        public var thumbnail_info: Matrix.mThumbnailInfo? {
+            nil
+        }
+        
+        public var thumbnail_file: Matrix.mEncryptedFile? {
+            nil
+        }
+        
+        public var thumbnail_url: MXC? {
+            nil
+        }
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-emote
@@ -89,6 +105,22 @@ extension Matrix {
             self.file = file
             self.url = nil
             self.info = info
+        }
+        
+        public var mimetype: String? {
+            info.mimetype
+        }
+        
+        public var thumbnail_info: Matrix.mThumbnailInfo? {
+            info.thumbnail_info
+        }
+        
+        public var thumbnail_file: Matrix.mEncryptedFile? {
+            info.thumbnail_file
+        }
+        
+        public var thumbnail_url: MXC? {
+            info.thumbnail_url
         }
     }
 
@@ -149,13 +181,30 @@ extension Matrix {
             self.info = info
             self.file = file
         }
+        
+        public var mimetype: String? {
+            info.mimetype
+        }
+        
+        public var thumbnail_info: Matrix.mThumbnailInfo? {
+            info.thumbnail_info
+        }
+        
+        public var thumbnail_file: Matrix.mEncryptedFile? {
+            info.thumbnail_file
+        }
+        
+        public var thumbnail_url: MXC? {
+            info.thumbnail_url
+        }
     }
 
     public struct mFileInfo: Codable {
         public var mimetype: String
         public var size: UInt
-        public var thumbnail_file: mEncryptedFile
+        public var thumbnail_file: mEncryptedFile?
         public var thumbnail_info: mThumbnailInfo
+        public var thumbnail_url: MXC?
         
         public init(mimetype: String, size: UInt, thumbnail_file: mEncryptedFile,
                     thumbnail_info: mThumbnailInfo) {
@@ -234,6 +283,22 @@ extension Matrix {
             self.info = info
             self.file = file
         }
+        
+        public var mimetype: String? {
+            info.mimetype
+        }
+        
+        public var thumbnail_info: Matrix.mThumbnailInfo? {
+            nil
+        }
+        
+        public var thumbnail_file: Matrix.mEncryptedFile? {
+            nil
+        }
+        
+        public var thumbnail_url: MXC? {
+            nil
+        }
     }
 
     public struct mAudioInfo: Codable {
@@ -261,6 +326,22 @@ extension Matrix {
             self.body = body
             self.geo_uri = geo_uri
             self.info = info
+        }
+        
+        public var mimetype: String? {
+            nil
+        }
+        
+        public var thumbnail_info: Matrix.mThumbnailInfo? {
+            info.thumbnail_info
+        }
+        
+        public var thumbnail_file: Matrix.mEncryptedFile? {
+            info.thumbnail_file
+        }
+        
+        public var thumbnail_url: MXC? {
+            info.thumbnail_url
         }
     }
 
@@ -290,6 +371,22 @@ extension Matrix {
             self.body = body
             self.info = info
             self.file = file
+        }
+        
+        public var mimetype: String? {
+            info.mimetype
+        }
+        
+        public var thumbnail_info: Matrix.mThumbnailInfo? {
+            info.thumbnail_info
+        }
+        
+        public var thumbnail_file: Matrix.mEncryptedFile? {
+            info.thumbnail_file
+        }
+        
+        public var thumbnail_url: MXC? {
+            info.thumbnail_url
         }
     }
 
