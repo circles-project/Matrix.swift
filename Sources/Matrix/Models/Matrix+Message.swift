@@ -52,6 +52,8 @@ extension Matrix {
             return content.mimetype
         }
         
+        public lazy var timestamp: Date = Date(timeIntervalSince1970: TimeInterval(event.originServerTS))
+        
         public func fetchThumbnail() async throws {
             guard event.type == M_ROOM_MESSAGE,
                   let content = event.content as? MessageContent
