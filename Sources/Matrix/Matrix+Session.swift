@@ -731,7 +731,7 @@ extension Matrix {
         
         // MARK: Users
         
-        public func getUser(userId: UserId) async throws -> Matrix.User? {
+        public func getUser(userId: UserId) -> Matrix.User {
             if let existingUser = self.users[userId] {
                 return existingUser
             }
