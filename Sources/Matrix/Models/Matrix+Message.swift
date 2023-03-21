@@ -9,13 +9,14 @@ import Foundation
 
 extension Matrix {
     public class Message: ObservableObject, Identifiable {
-        private(set) public var event: ClientEventWithoutRoomId
+        @Published private(set) public var event: ClientEventWithoutRoomId
+        private(set) public var encryptedEvent: ClientEventWithoutRoomId?
         public var room: Room
         public var sender: User
         
         @Published public var thumbnail: NativeImage?
         @Published public var reactions: [String:UInt]
-        public var blurhash: NativeImage?
+        public var blur: NativeImage?
         
         public var isEncrypted: Bool
         
@@ -27,10 +28,28 @@ extension Matrix {
             self.sender = room.session.getUser(userId: event.sender)
             self.reactions = [:]
             
-            // FIXME: Initialize the blurhash
+            // Initialize the blurhash
+            if let messageContent = event.content as? Matrix.MessageContent,
+               let blurhash = messageContent.blurhash,
+               let thumbnailInfo = messageContent.thumbnail_info
+            {
+                self.blur = .init(blurHash: blurhash, size: CGSize(width: thumbnailInfo.w, height: thumbnailInfo.h))
+            } else {
+                self.blur = nil
+            }
             
-            self.isEncrypted = event.type == M_ROOM_ENCRYPTED
-            // FIXME: Now try to decrypt???
+            if event.type == M_ROOM_ENCRYPTED {
+                self.isEncrypted = true
+                self.encryptedEvent = event
+                
+                // Now try to decrypt
+                let _ = Task {
+                    try await decrypt()
+                }
+            } else {
+                self.isEncrypted = false
+                self.encryptedEvent = nil
+            }
         }
         
         public var eventId: EventId {
@@ -49,15 +68,42 @@ extension Matrix {
             event.type
         }
         
-        public var content: MessageContent {
-            event.content as! MessageContent
+        public var content: MessageContent? {
+            event.content as? MessageContent
         }
         
         public var mimetype: String? {
-            return content.mimetype
+            return content?.mimetype
         }
         
         public lazy var timestamp: Date = Date(timeIntervalSince1970: TimeInterval(event.originServerTS))
+        
+        public func decrypt() async throws {
+            guard self.event.type == M_ROOM_ENCRYPTED
+            else {
+                // Already decrypted!
+                return
+            }
+            
+            if let decryptedEvent = try? self.room.session.decryptMessageEvent(self.event, in: self.room.roomId) {
+                await MainActor.run {
+                    self.event = decryptedEvent
+                }
+                
+                // Now we also need to update our blurhash and thumbnail
+                
+                // Blurhash
+                if let messageContent = event.content as? Matrix.MessageContent,
+                   let blurhash = messageContent.blurhash,
+                   let thumbnailInfo = messageContent.thumbnail_info
+                {
+                    self.blur = .init(blurHash: blurhash, size: CGSize(width: thumbnailInfo.w, height: thumbnailInfo.h))
+                }
+                
+                // Thumbnail
+                try await fetchThumbnail()
+            }
+        }
         
         public func fetchThumbnail() async throws {
             guard event.type == M_ROOM_MESSAGE,
