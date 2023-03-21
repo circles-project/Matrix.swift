@@ -736,6 +736,14 @@ extension Matrix {
             return user
         }
         
+        public func ignoreUser(userId: UserId) async throws {
+            var content = try await self.getAccountData(for: M_IGNORED_USER_LIST, of: IgnoredUserListContent.self)
+            if !content.ignoredUsers.contains(userId) {
+                content.ignoredUsers.append(userId)
+                try await self.putAccountData(content, for: M_IGNORED_USER_LIST)
+            }
+        }
+        
         
         // MARK: Sending messages
                 
