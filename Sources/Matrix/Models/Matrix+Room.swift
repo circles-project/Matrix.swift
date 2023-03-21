@@ -20,11 +20,13 @@ extension Matrix {
         public let type: String?
         public let version: String
         
+        // FIXME: Change all of these to be computed properties.  Make `state` be @Published so SwiftUI will update all Views whenever it changes.
         @Published public var name: String?
         @Published public var topic: String?
         @Published public var avatarUrl: MXC?
         @Published public var avatar: NativeImage?
         
+        // FIXME: Change all of these to be computed properties.  Make `state` be @Published so SwiftUI will update all Views whenever it changes.
         public let predecessorRoomId: RoomId?
         public let successorRoomId: RoomId?
         public let tombstoneEventId: EventId?
@@ -38,12 +40,14 @@ extension Matrix {
         @Published public var highlightCount: Int = 0
         @Published public var notificationCount: Int = 0
         
+        // FIXME: Change all of these to be computed properties.  Make `state` be @Published so SwiftUI will update all Views whenever it changes.
         @Published public var joinedMembers: Set<UserId> = []
         @Published public var invitedMembers: Set<UserId> = []
         @Published public var leftMembers: Set<UserId> = []
         @Published public var bannedMembers: Set<UserId> = []
         @Published public var knockingMembers: Set<UserId> = []
 
+        // FIXME: Change all of these to be computed properties.  Make `state` be @Published so SwiftUI will update all Views whenever it changes.
         @Published public var encryptionParams: RoomEncryptionContent?
         
         private var backwardToken: String?
@@ -404,21 +408,69 @@ extension Matrix {
                 return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
         }
         
-        public func sendImage(image: NativeImage) async throws -> EventId {
+        public func sendImage(image: NativeImage,
+                              thumbnailSize: (Int,Int)?=(800,600),
+                              withBlurhash: Bool=true
+        ) async throws -> EventId {
             guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
                 throw Matrix.Error("Couldn't create JPEG for image")
             }
-            let info = mImageInfo(h: Int(image.size.height),
+            
+            var info = mImageInfo(h: Int(image.size.height),
                                   w: Int(image.size.width),
                                   mimetype: "image/jpeg",
                                   size: jpegData.count)
+            
+            let thumbnail: NativeImage?
+            if let (thumbWidth, thumbHeight) = thumbnailSize {
+                thumbnail = image.downscale(to: CGSize(width: thumbWidth, height: thumbHeight))
+            } else {
+                thumbnail = nil
+            }
+            
+            let thumbnailData: Data?
+            if let thumbnail = thumbnail {
+                thumbnailData = thumbnail.jpegData(compressionQuality: 0.9)
+                guard thumbnailData != nil else {
+                    throw Matrix.Error("Failed to create JPEG for thumbnail")
+                }
+            } else {
+                thumbnailData = nil
+            }
+            
+            if withBlurhash {
+                info.blurhash = image.blurHash(numberOfComponents: image.size.width > image.size.height ? (6,4) : (4,6))
+            }
+            
             if !self.isEncrypted {
                 let mxc = try await self.session.uploadData(data: jpegData, contentType: "image/jpeg")
+                if let thumbnail = thumbnail,
+                   let thumbnailData = thumbnailData
+                {
+                    let thumbnailMXC = try await self.session.uploadData(data: thumbnailData, contentType: "image/jpeg")
+                    info.thumbnail_info = mThumbnailInfo(h: Int(thumbnail.size.height),
+                                                         w: Int(thumbnail.size.width),
+                                                         mimetype: "image/jpeg",
+                                                         size: thumbnailData.count)
+                    info.thumbnail_url = thumbnailMXC
+                }
                 let content = mImageContent(msgtype: .image, body: "\(mxc.mediaId).jpeg", url: mxc, info: info)
                 return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             }
             else {
                 let encryptedFile = try await self.session.encryptAndUploadData(plaintext: jpegData, contentType: "image/jpeg")
+                
+                if let thumbnail = thumbnail,
+                   let thumbnailData = thumbnailData
+                {
+                    let thumbnailFile = try await self.session.encryptAndUploadData(plaintext: thumbnailData, contentType: "image/jpeg")
+                    info.thumbnail_info = mThumbnailInfo(h: Int(thumbnail.size.height),
+                                                         w: Int(thumbnail.size.width),
+                                                         mimetype: "image/jpeg",
+                                                         size: thumbnailData.count)
+                    info.thumbnail_file = thumbnailFile
+                }
+                
                 let content = mImageContent(msgtype: .image, body: "\(encryptedFile.url.mediaId).jpeg", file: encryptedFile, info: info)
                 return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             }
