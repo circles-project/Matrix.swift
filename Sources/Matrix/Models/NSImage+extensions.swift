@@ -29,9 +29,9 @@ extension NSImage {
             let resizedImage = NSImage(size: maxSize)
             resizedImage.addRepresentation(bitmapRep)
             return resizedImage
+        } else {
+            return nil
         }
-
-        return nil
     }
     
     public func jpegData(compressionQuality: CGFloat) -> Data? {
