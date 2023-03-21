@@ -68,6 +68,10 @@ extension Matrix {
             event.type
         }
         
+        public var stateKey: String? {
+            event.stateKey
+        }
+        
         public var content: MessageContent? {
             event.content as? MessageContent
         }

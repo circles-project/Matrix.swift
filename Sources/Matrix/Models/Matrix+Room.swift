@@ -31,7 +31,7 @@ extension Matrix {
         public let successorRoomId: RoomId?
         public let tombstoneEventId: EventId?
         
-        @Published public var timeline: OrderedDictionary<EventId,ClientEventWithoutRoomId> //[ClientEventWithoutRoomId]
+        @Published public var timeline: OrderedDictionary<EventId,Matrix.Message> //[ClientEventWithoutRoomId]
         @Published public var localEchoEvent: Event?
         //@Published var earliestMessage: MatrixMessage?
         //@Published var latestMessage: MatrixMessage?
@@ -56,13 +56,7 @@ extension Matrix {
         public init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialTimeline: [ClientEventWithoutRoomId] = []) throws {
             self.roomId = roomId
             self.session = session
-            self.timeline = .init(uniqueKeysWithValues: initialTimeline
-                .sorted()
-                .map {
-                    ($0.eventId, $0)
-                }
-            )
-            
+            self.timeline = [:] // Set this to empty for starters, because we need `self` to create instances of Matrix.Message
             self.state = [:]
             
             // Ugh, sometimes all of our state is actually in the timeline.
@@ -163,6 +157,15 @@ extension Matrix {
             // Swift Phase 1 initialization complete
             // See https://docs.swift.org/swift-book/documentation/the-swift-programming-language/initialization/#Two-Phase-Initialization
             // Now we can call instance functions
+            
+            let initialMessages = initialTimeline.map {
+                Matrix.Message(event: $0, room: self)
+            }
+            self.timeline = .init(uniqueKeysWithValues: initialMessages
+                .map {
+                    ($0.eventId, $0)
+                }
+            )
         }
         
         public func updateTimeline(from events: [ClientEventWithoutRoomId]) async throws {
@@ -173,7 +176,11 @@ extension Matrix {
                 return
             }
             
-            let newKeysAndValues = events.map {
+            let messages = events.map {
+                Matrix.Message(event: $0, room: self)
+            }
+            
+            let newKeysAndValues = messages.map {
                 ($0.eventId, $0)
             }
             
@@ -186,8 +193,8 @@ extension Matrix {
                 return
             }
             
-            var tmpTimeline = self.timeline.merging(newKeysAndValues, uniquingKeysWith: { e1,e2 -> ClientEventWithoutRoomId in
-                e1
+            var tmpTimeline = self.timeline.merging(newKeysAndValues, uniquingKeysWith: { m1,m2 -> Matrix.Message in
+                m1
             })
             tmpTimeline.sort()
             let newTimeline = tmpTimeline
@@ -349,17 +356,13 @@ extension Matrix {
             try await self.session.getJoinedMembers(roomId: roomId)
         }
         
-        public var lastMessage: ClientEventWithoutRoomId? {
+        public var lastMessage: Matrix.Message? {
             timeline
                 .values
                 .filter {
                     $0.stateKey == nil
                 }
                 .last
-        }
-        
-        public var timestamp: UInt64 {
-            self.lastMessage?.originServerTS ?? self.state[M_ROOM_CREATE]![""]!.originServerTS
         }
         
         public func setName(newName: String) async throws {
