@@ -287,7 +287,7 @@ public class Client {
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3useruseridaccount_datatype
     public func getAccountData<T>(for eventType: String, of dataType: T.Type) async throws -> T where T: Decodable {
-        let path = "/_matrix/client/\(version)/user/\(creds.userId)/account_data/\(eventType)"
+        let path = "/_matrix/client/v3/user/\(creds.userId)/account_data/\(eventType)"
         let (data, response) = try await call(method: "GET", path: path)
         
         let decoder = JSONDecoder()
@@ -296,6 +296,12 @@ public class Client {
         let content = try decoder.decode(dataType, from: data)
         
         return content
+    }
+    
+    // https://spec.matrix.org/v1.6/client-server-api/#put_matrixclientv3useruseridaccount_datatype
+    public func putAccountData(_ content: Codable, for eventType: String) async throws {
+        let path = "/_matrix/client/v3/user/\(creds.userId)/account_data/\(eventType)"
+        let (data, response) = try await call(method: "PUT", path: path, body: content)
     }
     
     // MARK: Devices
