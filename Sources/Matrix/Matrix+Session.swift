@@ -343,12 +343,7 @@ extension Matrix {
 
                         // Update the room with the latest data from `info`
                         await room.updateState(from: stateEvents)
-                        if room.isEncrypted {
-                            let decryptedEvents = tryToDecryptEvents(events: timelineEvents, in: roomId)
-                            try await room.updateTimeline(from: decryptedEvents)
-                        } else {
-                            try await room.updateTimeline(from: timelineEvents)
-                        }
+                        try await room.updateTimeline(from: timelineEvents)
                         
                         if let unread = info.unreadNotifications {
                             print("\t\(unread.notificationCount) notifications")
@@ -950,33 +945,13 @@ extension Matrix {
                 // But do save the timeline events for offline use
                 try await store.saveTimeline(events: responseBody.chunk, in: roomId)
             }
-            
-            responseBody.chunk = self.tryToDecryptEvents(events: responseBody.chunk, in: roomId)
+
             return responseBody
         }
         
         // MARK: Decrypting Messsages
         
-        private func tryToDecryptEvents(events: [ClientEventWithoutRoomId],
-                                        in roomId: RoomId
-        ) -> [ClientEventWithoutRoomId] {
-            events.compactMap { event in
-                switch event.type {
-                case M_ROOM_ENCRYPTED:
-                    // Try to decrypt any encrypted events in the timeline
-                    let maybeDecrypted = try? self.decryptMessageEvent(event, in: roomId)
-                    // But if we failed to decrypt, keep the encrypted event around
-                    // Maybe we didn't get the key the first time around
-                    // We can always ask for it later
-                    return maybeDecrypted ?? event
-                default:
-                    // Keep everything else as-is for now
-                    return event
-                }
-            }
-        }
-        
-        private func decryptMessageEvent(_ encryptedEvent: ClientEventWithoutRoomId,
+        public func decryptMessageEvent(_ encryptedEvent: ClientEventWithoutRoomId,
                                          in roomId: RoomId
         ) throws -> ClientEventWithoutRoomId {
             logger.debug("\(self.creds.userId) Trying to decrypt event \(encryptedEvent.eventId)")
