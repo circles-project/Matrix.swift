@@ -32,8 +32,9 @@ extension UIImage {
             return renderer.image { (context) in
                 self.draw(in: CGRect(origin: .zero, size: newSize))
             }
+        } else {
+            return nil
         }
-        return self
     }
 }
 
