@@ -483,15 +483,10 @@ extension Matrix {
         }
         
         public func sendReply(to eventId: EventId, text: String) async throws -> EventId {
-            if !self.isEncrypted {
-                let content = mTextContent(msgtype: .text,
-                                           body: text,
-                                           relates_to: mRelatesTo(inReplyTo: .init(eventId: eventId)))
-                return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
-            }
-            else {
-                throw Matrix.Error("Not implemented")
-            }
+            let content = mTextContent(msgtype: .text,
+                                       body: text,
+                                       relates_to: mRelatesTo(inReplyTo: .init(eventId: eventId)))
+            return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
         }
         
         public func redact(eventId: EventId, reason: String?) async throws -> EventId {
