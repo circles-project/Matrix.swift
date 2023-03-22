@@ -9,20 +9,20 @@ import Foundation
 
 /// m.room.power_levels: https://spec.matrix.org/v1.5/client-server-api/#mroompower_levels
 public struct RoomPowerLevelsContent: Codable {
-    public let invite: Int?
-    public let kick: Int?
-    public let ban: Int?
-    public let redact: Int?
+    public var invite: Int?
+    public var kick: Int?
+    public var ban: Int?
+    public var redact: Int?
     
-    public let events: [String: Int]?
-    public let eventsDefault: Int?
+    public var events: [String: Int]?
+    public var eventsDefault: Int?
 
-    public let notifications: [String: Int]?
+    public var notifications: [String: Int]?
     
-    public let stateDefault: Int?
+    public var stateDefault: Int?
 
-    public let users: [UserId: Int]?
-    public let usersDefault: Int?
+    public var users: [UserId: Int]?
+    public var usersDefault: Int?
     
     public init(invite: Int? = nil,
                 kick: Int? = nil,

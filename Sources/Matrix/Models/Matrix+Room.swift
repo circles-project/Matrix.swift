@@ -377,6 +377,92 @@ extension Matrix {
             try await self.session.setTopic(roomId: self.roomId, topic: newTopic)
         }
         
+        public func setPowerLevel(userId: UserId, power: Int) async throws {
+            guard var content = try await session.getRoomState(roomId: roomId, eventType: M_ROOM_POWER_LEVELS) as? RoomPowerLevelsContent
+            else {
+                throw Matrix.Error("Couldn't get current power levels")
+            }
+
+            var dict = content.users ?? [:]
+            dict[userId] = power
+            content.users = dict
+            let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
+        }
+        
+        public var myPowerLevel: Int {
+            let me = session.creds.userId
+            return powerLevels?.users?[me] ?? powerLevels?.usersDefault ?? 0
+        }
+        
+        public var powerLevels: RoomPowerLevelsContent? {
+            guard let event = self.state[M_ROOM_POWER_LEVELS]?[""],
+                  let content = event.content as? RoomPowerLevelsContent
+            else {
+                return nil
+            }
+            return content
+        }
+        
+        public var iCanInvite: Bool {
+            guard let levels = powerLevels
+            else {
+                return false
+            }
+            
+            let inviteLevel = levels.invite ?? levels.stateDefault ?? 50
+            return myPowerLevel >= inviteLevel
+        }
+        
+        public var iCanKick: Bool {
+            guard let levels = powerLevels
+            else {
+                return false
+            }
+            
+            let kickLevel = levels.kick ?? levels.stateDefault ?? 50
+            return myPowerLevel >= kickLevel
+        }
+        
+        public var iCanBan: Bool {
+            guard let levels = powerLevels
+            else {
+                return false
+            }
+            
+            let banLevel = levels.ban ?? levels.stateDefault ?? 50
+            return myPowerLevel >= banLevel
+        }
+        
+        public var iCanRedact: Bool {
+            guard let levels = powerLevels
+            else {
+                return false
+            }
+            
+            let redactLevel = levels.redact ?? levels.stateDefault ?? 50
+            return myPowerLevel >= redactLevel
+        }
+        
+        public func iCanSendEvent(type: String) -> Bool {
+            guard let levels = powerLevels
+            else {
+                return false
+            }
+            
+            let sendLevel = levels.events?[type] ?? levels.eventsDefault ?? 0
+            return myPowerLevel >= sendLevel
+        }
+        
+        public func iCanChangeState(type: String) -> Bool {
+            guard let levels = powerLevels
+            else {
+                return false
+            }
+            
+            let stateLevel = levels.stateDefault ?? 50
+            return myPowerLevel >= stateLevel
+        }
+        
         public func invite(userId: UserId, reason: String? = nil) async throws {
             try await self.session.inviteUser(roomId: self.roomId, userId: userId, reason: reason)
         }
