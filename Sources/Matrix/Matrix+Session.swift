@@ -634,8 +634,8 @@ extension Matrix {
         }
         
         
-        public func getRoom(roomId: RoomId) async throws -> Matrix.Room? {
-            if let existingRoom = self.rooms[roomId] {
+        public func getRoom<T: Matrix.Room>(roomId: RoomId, as: T.Type = Matrix.Room.self) async throws -> T? {
+            if let existingRoom = self.rooms[roomId] as? T {
                 return existingRoom
             }
             
@@ -646,7 +646,7 @@ extension Matrix {
             if let store = self.dataStore {
                 let events = try await store.loadEssentialState(for: roomId)
                 if events.count > 0 {
-                    if let room = try? Matrix.Room(roomId: roomId, session: self, initialState: events) {
+                    if let room = try? T(roomId: roomId, session: self, initialState: events) {
                         await MainActor.run {
                             self.rooms[roomId] = room
                         }
@@ -658,7 +658,7 @@ extension Matrix {
             // Ok we didn't have the room state cached locally
             // Maybe the server knows about this room?
             let events = try await getRoomStateEvents(roomId: roomId)
-            if let room = try? Matrix.Room(roomId: roomId, session: self, initialState: events, initialTimeline: []) {
+            if let room = try? T(roomId: roomId, session: self, initialState: events, initialTimeline: []) {
                 await MainActor.run {
                     self.rooms[roomId] = room
                 }
