@@ -13,6 +13,7 @@ extension Matrix {
     public class Room: ObservableObject {
         public typealias HistoryVisibility = RoomHistoryVisibilityContent.HistoryVisibility
         public typealias Membership = RoomMemberContent.Membership
+        public typealias PowerLevels = RoomPowerLevelsContent
 
         public let roomId: RoomId
         public let session: Session
@@ -336,7 +337,7 @@ extension Matrix {
         // MARK: Power levels
         
         public func setPowerLevel(userId: UserId, power: Int) async throws {
-            guard var content = try await session.getRoomState(roomId: roomId, eventType: M_ROOM_POWER_LEVELS) as? RoomPowerLevelsContent
+            guard var content = try await session.getRoomState(roomId: roomId, eventType: M_ROOM_POWER_LEVELS) as? PowerLevels
             else {
                 throw Matrix.Error("Couldn't get current power levels")
             }
@@ -352,9 +353,9 @@ extension Matrix {
             return powerLevels?.users?[me] ?? powerLevels?.usersDefault ?? 0
         }
         
-        public var powerLevels: RoomPowerLevelsContent? {
+        public var powerLevels: PowerLevels? {
             guard let event = self.state[M_ROOM_POWER_LEVELS]?[""],
-                  let content = event.content as? RoomPowerLevelsContent
+                  let content = event.content as? PowerLevels
             else {
                 return nil
             }
