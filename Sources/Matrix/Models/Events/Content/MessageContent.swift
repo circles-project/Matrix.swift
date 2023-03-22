@@ -94,21 +94,24 @@ extension Matrix {
         public var file: mEncryptedFile?
         public var url: MXC?
         public var info: mImageInfo
+        public var caption: String?
         
-        public init(msgtype: Matrix.MessageType, body: String, url: MXC? = nil, info: mImageInfo) {
+        public init(msgtype: Matrix.MessageType, body: String, url: MXC? = nil, info: mImageInfo, caption: String? = nil) {
             self.msgtype = msgtype
             self.body = body
             self.file = nil
             self.url = url
             self.info = info
+            self.caption = caption
         }
 
-        public init(msgtype: Matrix.MessageType, body: String, file: mEncryptedFile? = nil, info: mImageInfo) {
+        public init(msgtype: Matrix.MessageType, body: String, file: mEncryptedFile? = nil, info: mImageInfo, caption: String? = nil) {
             self.msgtype = msgtype
             self.body = body
             self.file = file
             self.url = nil
             self.info = info
+            self.caption = caption
         }
         
         public var mimetype: String? {
@@ -287,7 +290,8 @@ extension Matrix {
         public let msgtype: Matrix.MessageType
         public var body: String
         public var info: mAudioInfo
-        public var file: mEncryptedFile
+        public var file: mEncryptedFile?
+        public var url: MXC?
         
         public init(msgtype: Matrix.MessageType, body: String, info: mAudioInfo,
                     file: mEncryptedFile) {
@@ -295,6 +299,16 @@ extension Matrix {
             self.body = body
             self.info = info
             self.file = file
+            self.url = nil
+        }
+        
+        public init(msgtype: Matrix.MessageType, body: String, info: mAudioInfo,
+                    url: MXC) {
+            self.msgtype = msgtype
+            self.body = body
+            self.info = info
+            self.file = nil
+            self.url = url
         }
         
         public var mimetype: String? {
@@ -386,14 +400,28 @@ extension Matrix {
         public let msgtype: Matrix.MessageType
         public var body: String
         public var info: mVideoInfo
-        public var file: mEncryptedFile
+        public var file: mEncryptedFile?
+        public var url: MXC?
+        public var caption: String?
         
         public init(msgtype: Matrix.MessageType, body: String, info: mVideoInfo,
-                    file: mEncryptedFile) {
+                    file: mEncryptedFile, caption: String? = nil) {
             self.msgtype = msgtype
             self.body = body
             self.info = info
             self.file = file
+            self.url = nil
+            self.caption = caption
+        }
+        
+        public init(msgtype: Matrix.MessageType, body: String, info: mVideoInfo,
+                    url: MXC, caption: String? = nil) {
+            self.msgtype = msgtype
+            self.body = body
+            self.info = info
+            self.file = nil
+            self.url = url
+            self.caption = caption
         }
         
         public var mimetype: String? {
