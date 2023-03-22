@@ -138,20 +138,18 @@ extension Matrix {
         public var w: Int
         public var mimetype: String
         public var size: Int
-        public var file: mEncryptedFile?
         public var thumbnail_url: MXC?
         public var thumbnail_file: mEncryptedFile?
         public var thumbnail_info: mThumbnailInfo?
         public var blurhash: String?
         
-        public init(h: Int, w: Int, mimetype: String, size: Int, file: mEncryptedFile? = nil,
+        public init(h: Int, w: Int, mimetype: String, size: Int,
                     thumbnail_url: MXC? = nil, thumbnail_file: mEncryptedFile? = nil,
                     thumbnail_info: mThumbnailInfo? = nil, blurhash: String? = nil) {
             self.h = h
             self.w = w
             self.mimetype = mimetype
             self.size = size
-            self.file = file
             self.thumbnail_url = thumbnail_url
             self.thumbnail_file = thumbnail_file
             self.thumbnail_info = thumbnail_info
