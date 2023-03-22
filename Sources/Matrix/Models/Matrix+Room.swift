@@ -10,7 +10,7 @@ import Foundation
 import OrderedCollections
 
 extension Matrix {
-    public class Room: ObservableObject {
+    open class Room: ObservableObject {
         public typealias HistoryVisibility = RoomHistoryVisibilityContent.HistoryVisibility
         public typealias Membership = RoomMemberContent.Membership
         public typealias PowerLevels = RoomPowerLevelsContent
