@@ -12,46 +12,26 @@ import OrderedCollections
 extension Matrix {
     public class Room: ObservableObject {
         public typealias HistoryVisibility = RoomHistoryVisibilityContent.HistoryVisibility
+        public typealias Membership = RoomMemberContent.Membership
 
         public let roomId: RoomId
         public let session: Session
         private var dataStore: DataStore?
         
-        public let type: String?
-        public let version: String
-        
-        // FIXME: Change all of these to be computed properties.  Make `state` be @Published so SwiftUI will update all Views whenever it changes.
-        @Published public var name: String?
-        @Published public var topic: String?
-        @Published public var avatarUrl: MXC?
         @Published public var avatar: NativeImage?
         
-        // FIXME: Change all of these to be computed properties.  Make `state` be @Published so SwiftUI will update all Views whenever it changes.
-        public let predecessorRoomId: RoomId?
-        public let successorRoomId: RoomId?
-        public let tombstoneEventId: EventId?
-        
-        @Published public var timeline: OrderedDictionary<EventId,Matrix.Message> //[ClientEventWithoutRoomId]
+        @Published private(set) public var timeline: OrderedDictionary<EventId,Matrix.Message> //[ClientEventWithoutRoomId]
         @Published public var localEchoEvent: Event?
-        //@Published var earliestMessage: MatrixMessage?
-        //@Published var latestMessage: MatrixMessage?
-        public var state: [String: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
+
+        @Published private(set) public var state: [String: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
         
         @Published public var highlightCount: Int = 0
         @Published public var notificationCount: Int = 0
         
-        // FIXME: Change all of these to be computed properties.  Make `state` be @Published so SwiftUI will update all Views whenever it changes.
-        @Published public var joinedMembers: Set<UserId> = []
-        @Published public var invitedMembers: Set<UserId> = []
-        @Published public var leftMembers: Set<UserId> = []
-        @Published public var bannedMembers: Set<UserId> = []
-        @Published public var knockingMembers: Set<UserId> = []
-
-        // FIXME: Change all of these to be computed properties.  Make `state` be @Published so SwiftUI will update all Views whenever it changes.
-        @Published public var encryptionParams: RoomEncryptionContent?
-        
         private var backwardToken: String?
         private var forwardToken: String?
+        
+        // MARK: init
         
         public init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialTimeline: [ClientEventWithoutRoomId] = []) throws {
             self.roomId = roomId
@@ -82,77 +62,6 @@ extension Matrix {
             else {
                 throw Matrix.Error("No m.room.create event")
             }
-            self.type = creationContent.type
-            self.version = creationContent.roomVersion ?? "1"
-            self.predecessorRoomId = creationContent.predecessor?.roomId
-            
-            if let tombstoneEvent = state[M_ROOM_TOMBSTONE]?[""],
-               let tombstoneContent = tombstoneEvent.content as? RoomTombstoneContent
-            {
-                self.tombstoneEventId = tombstoneEvent.eventId
-                self.successorRoomId = tombstoneContent.replacementRoom
-            } else {
-                self.tombstoneEventId = nil
-                self.successorRoomId = nil
-            }
-            
-            if let nameEvent = state[M_ROOM_NAME]?[""],
-               let nameContent = nameEvent.content as? RoomNameContent
-            {
-                self.name = nameContent.name
-            }
-            
-            if let avatarEvent = state[M_ROOM_AVATAR]?[""],
-               let avatarContent = avatarEvent.content as? RoomAvatarContent
-            {
-                self.avatarUrl = avatarContent.mxc
-            }
-            
-            if let topicEvent = state[M_ROOM_TOPIC]?[""],
-               let topicContent = topicEvent.content as? RoomTopicContent
-            {
-                self.topic = topicContent.topic
-            }
-            
-            for (memberKey, memberEvent) in state[M_ROOM_MEMBER] ?? [:] {
-                guard memberKey == memberEvent.stateKey,                           // Sanity check
-                      let memberContent = memberEvent.content as? RoomMemberContent,
-                      let memberUserId = UserId(memberKey)
-                else {
-                    // continue
-                    throw Matrix.Error("Error processing \(M_ROOM_MEMBER) event for user \(memberKey)")
-                }
-                
-                switch memberContent.membership {
-                case .join:
-                    joinedMembers.insert(memberUserId)
-                case .invite:
-                    invitedMembers.insert(memberUserId)
-                case .ban:
-                    bannedMembers.insert(memberUserId)
-                case .knock:
-                    knockingMembers.insert(memberUserId)
-                case .leave:
-                    leftMembers.insert(memberUserId)
-                }
-            }
-            
-            for (powerLevelsKey, powerLevelsEvent) in state[M_ROOM_POWER_LEVELS] ?? [:]  {
-                guard powerLevelsEvent.content is RoomPowerLevelsContent
-                else {
-                    throw Matrix.Error("Couldn't parse \(M_ROOM_POWER_LEVELS) event for key \(powerLevelsKey)")
-                }
-                // Do we need to *do* anything with the powerlevels for now?
-                // No?
-            }
-
-            if let encryptionEvent = state[M_ROOM_ENCRYPTION]?[""],
-               let encryptionContent = encryptionEvent.content as? RoomEncryptionContent
-            {
-                self.encryptionParams = encryptionContent
-            } else {
-                self.encryptionParams = nil
-            }
             
             // Swift Phase 1 initialization complete
             // See https://docs.swift.org/swift-book/documentation/the-swift-programming-language/initialization/#Two-Phase-Initialization
@@ -167,6 +76,8 @@ extension Matrix {
                 }
             )
         }
+        
+        // MARK: Timeline
         
         public func updateTimeline(from events: [ClientEventWithoutRoomId]) async throws {
 
@@ -204,15 +115,15 @@ extension Matrix {
             }
         }
         
+        // MARK: State
+        
         public func updateState(from events: [ClientEventWithoutRoomId]) async {
-            await MainActor.run {
-                for event in events {
-                    updateState(from: event)
-                }
+            for event in events {
+                await updateState(from: event)
             }
         }
         
-        public func updateState(from event: ClientEventWithoutRoomId) {
+        public func updateState(from event: ClientEventWithoutRoomId) async {
             guard let stateKey = event.stateKey
             else {
                 let msg = "No state key for \"state\" event of type \(event.type)"
@@ -221,103 +132,19 @@ extension Matrix {
                 //continue
                 return
             }
-
-            switch event.type {
             
-            case M_ROOM_AVATAR:
-                guard let content = event.content as? RoomAvatarContent
-                else {
-                    print("Room:\tFailed to parse \(M_ROOM_AVATAR) event \(event.eventId)")
-                    return
-                }
-                //print("Room:\tSetting room avatar")
-                if self.avatarUrl != content.mxc {
-                    self.avatarUrl = content.mxc
-                    // FIXME: Also fetch the new avatar image
-                }
-                    
-                case M_ROOM_NAME:
-                    guard let content = event.content as? RoomNameContent
-                    else {
-                        print("Room:\tFailed to parse \(M_ROOM_NAME) event \(event.eventId)")
-                        return
-                    }
-                    //print("Room:\tSetting room name")
-                    self.name = content.name
-                    
-                case M_ROOM_TOPIC:
-                    guard let content = event.content as? RoomTopicContent
-                    else {
-                        print("\tRoom:\tFailed to parse \(M_ROOM_TOPIC) event \(event.eventId)")
-                        return
-                    }
-                    //print("Room:\tSetting topic")
-                    self.topic = content.topic
-                    
-                case M_ROOM_MEMBER:
-                    guard let content = event.content as? RoomMemberContent,
-                          let stateKey = event.stateKey,
-                          let userId = UserId(stateKey)
-                    else {
-                        print("Room:\tFailed to parse \(M_ROOM_MEMBER) event \(event.eventId)")
-                        return
-                    }
-                    print("Room:\tUpdating membership for user \(stateKey)")
-                    switch content.membership {
-                    case .invite:
-                        self.invitedMembers.insert(userId)
-                        self.leftMembers.remove(userId)
-                        self.bannedMembers.remove(userId)
-                    case .join:
-                        self.joinedMembers.insert(userId)
-                        self.invitedMembers.remove(userId)
-                        self.knockingMembers.remove(userId)
-                        self.leftMembers.remove(userId)
-                        self.bannedMembers.remove(userId)
-                    case .knock:
-                        self.knockingMembers.insert(userId)
-                        self.leftMembers.remove(userId)
-                        self.bannedMembers.remove(userId)
-                    case .leave:
-                        self.leftMembers.insert(userId)
-                        self.invitedMembers.remove(userId)
-                        self.knockingMembers.remove(userId)
-                        self.joinedMembers.remove(userId)
-                        self.bannedMembers.remove(userId)
-                    case .ban:
-                        self.bannedMembers.insert(userId)
-                        self.invitedMembers.remove(userId)
-                        self.knockingMembers.remove(userId)
-                        self.joinedMembers.remove(userId)
-                        self.leftMembers.remove(userId)
-                    } // end switch content.membership
-                
-            case M_ROOM_ENCRYPTION:
-                guard let content = event.content as? RoomEncryptionContent
-                else {
-                    return
-                }
-                self.encryptionParams = content
-                
-            default:
-                let msg = "Room:\tNot handling event of type \(event.type)"
-                //print("\(msg)")
-                
-            } // end switch event.type
+            // Update our local copy of the state to include this event
+            await MainActor.run {
+                var d = self.state[event.type] ?? [:]
+                d[stateKey] = event
+                self.state[event.type] = d
+            }
             
-            // Finally, update our local copy of the state to include this event
-            var d = self.state[event.type] ?? [:]
-            d[stateKey] = event
-            self.state[event.type] = d
-        } // end func updateState()
-        
-        
-        public func paginate(limit: UInt?=nil) async throws {
-            let response = try await self.session.getMessages(roomId: roomId, forward: false, from: self.backwardToken, limit: limit)
-            // The timeline messages are in the "chunk" piece of the response
-            try await self.updateTimeline(from: response.chunk)
-            self.backwardToken = response.end ?? self.backwardToken
+            if event.type == M_ROOM_AVATAR {
+                // FIXME: Fetch the latest image
+            }
         }
+        
         
         public func getState(type: String, stateKey: String) async throws -> Codable? {
             if let event = self.state[type]?[stateKey] {
@@ -343,8 +170,37 @@ extension Matrix {
             .compactMap{ $0 }
         }
         
+        // MARK: Computed properties
+        
+        public var version: String {
+            guard let event = state[M_ROOM_CREATE]![""],
+                  let content = event.content as? RoomCreateContent
+            else {
+                return "1"
+            }
+            return content.roomVersion ?? "1"
+        }
+        
         public var creator: UserId {
             state[M_ROOM_CREATE]![""]!.sender
+        }
+        
+        public var type: String? {
+            guard let event = state[M_ROOM_CREATE]![""],
+                  let content = event.content as? RoomCreateContent
+            else {
+                return nil
+            }
+            return content.type
+        }
+        
+        public var historyVisibility: HistoryVisibility? {
+            guard let event = state[M_ROOM_HISTORY_VISIBILITY]?[""],
+                  let content = event.content as? RoomHistoryVisibilityContent
+            else {
+                return nil
+            }
+            return content.historyVisibility
         }
         
         public func getHistoryVisibility() async throws -> HistoryVisibility? {
@@ -352,11 +208,100 @@ extension Matrix {
             return content?.historyVisibility
         }
         
+        public var name: String? {
+            guard let event = state[M_ROOM_NAME]?[""],
+                  let content = event.content as? RoomNameContent
+            else {
+                return nil
+            }
+            return content.name
+        }
+        
+        public var topic: String? {
+            guard let event = state[M_ROOM_TOPIC]?[""],
+                  let content = event.content as? RoomTopicContent
+            else {
+                return nil
+            }
+            return content.topic
+        }
+        
+        public var avatarUrl: MXC? {
+            guard let event = state[M_ROOM_AVATAR]?[""],
+                  let content = event.content as? RoomAvatarContent
+            else {
+                return nil
+            }
+            return content.mxc
+        }
+        
+        public var predecessorRoomId: RoomId? {
+            guard let event = state[M_ROOM_CREATE]?[""],
+                  let content = event.content as? RoomCreateContent
+            else {
+                return nil
+            }
+            return content.predecessor?.roomId
+        }
+        
+        public var successorRoomId: RoomId? {
+            guard let event = state[M_ROOM_TOMBSTONE]?[""],
+                  let content = event.content as? RoomTombstoneContent
+            else {
+                return nil
+            }
+            return content.replacementRoom
+        }
+        
+        public var tombstoneEventId: EventId? {
+            guard let event = state[M_ROOM_TOMBSTONE]?[""]
+            else {
+                return nil
+            }
+            return event.eventId
+        }
+        
+        private func getKnownMembers(status: Membership) -> [UserId] {
+            guard let dict = state[M_ROOM_MEMBER]
+            else {
+                return []
+            }
+            return dict.values.compactMap { event in
+                guard let user = event.stateKey,
+                      let content = event.content as? RoomMemberContent,
+                      content.membership == status
+                else {
+                    return nil
+                }
+                return UserId(user)
+            }
+        }
+        
+        public var joinedMembers: [UserId] {
+            self.getKnownMembers(status: .join)
+        }
+        
+        public var invitedMembers: [UserId] {
+            self.getKnownMembers(status: .invite)
+        }
+        
+        public var leftMembers: [UserId] {
+            self.getKnownMembers(status: .leave)
+        }
+        
+        public var bannedMembers: [UserId] {
+            self.getKnownMembers(status: .ban)
+        }
+        
+        public var knockingMembers: [UserId] {
+            self.getKnownMembers(status: .knock)
+        }
+                
         public func getJoinedMembers() async throws -> [UserId] {
             try await self.session.getJoinedMembers(roomId: roomId)
         }
         
-        public var lastMessage: Matrix.Message? {
+        public var latestMessage: Matrix.Message? {
             timeline
                 .values
                 .filter {
@@ -364,6 +309,17 @@ extension Matrix {
                 }
                 .last
         }
+        
+        public var earliestMessage: Matrix.Message? {
+            timeline
+                .values
+                .filter {
+                    $0.stateKey == nil
+                }
+                .first
+        }
+        
+        // MARK: Room "profile"
         
         public func setName(newName: String) async throws {
             try await self.session.setRoomName(roomId: self.roomId, name: newName)
@@ -376,6 +332,8 @@ extension Matrix {
         public func setTopic(newTopic: String) async throws {
             try await self.session.setTopic(roomId: self.roomId, topic: newTopic)
         }
+        
+        // MARK: Power levels
         
         public func setPowerLevel(userId: UserId, power: Int) async throws {
             guard var content = try await session.getRoomState(roomId: roomId, eventType: M_ROOM_POWER_LEVELS) as? RoomPowerLevelsContent
@@ -463,6 +421,8 @@ extension Matrix {
             return myPowerLevel >= stateLevel
         }
         
+        // MARK: Membership operations
+        
         public func invite(userId: UserId, reason: String? = nil) async throws {
             try await self.session.inviteUser(roomId: self.roomId, userId: userId, reason: reason)
         }
@@ -479,18 +439,36 @@ extension Matrix {
             try await self.session.leave(roomId: self.roomId, reason: reason)
         }
         
+        // MARK: Pagination
+        
         public func canPaginate() -> Bool {
             // FIXME: TODO:
             return false
         }
+                
+        public func paginate(limit: UInt?=nil) async throws {
+            let response = try await self.session.getMessages(roomId: roomId, forward: false, from: self.backwardToken, limit: limit)
+            // The timeline messages are in the "chunk" piece of the response
+            try await self.updateTimeline(from: response.chunk)
+            self.backwardToken = response.end ?? self.backwardToken
+        }
         
-        public func paginate(count: UInt = 25) async throws {
-            throw Matrix.Error("Not implemented")
+        // MARK: Encryption
+        
+        public var encryptionParams: RoomEncryptionContent? {
+            guard let event = state[M_ROOM_ENCRYPTION]?[""],
+                  let content = event.content as? RoomEncryptionContent
+            else {
+                return nil
+            }
+            return content
         }
         
         public var isEncrypted: Bool {
             self.encryptionParams != nil
         }
+        
+        // MARK: Sending messages
         
         public func sendText(text: String) async throws -> EventId {
                 let content = mTextContent(msgtype: .text, body: text)
@@ -592,6 +570,8 @@ extension Matrix {
         }
     }
 }
+
+// MARK: Protocol Extensions
 
 extension Matrix.Room: Identifiable {
     public var id: String {
