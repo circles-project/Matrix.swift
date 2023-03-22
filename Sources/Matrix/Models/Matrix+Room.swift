@@ -80,7 +80,7 @@ extension Matrix {
         
         // MARK: Timeline
         
-        public func updateTimeline(from events: [ClientEventWithoutRoomId]) async throws {
+        open func updateTimeline(from events: [ClientEventWithoutRoomId]) async throws {
 
             guard !events.isEmpty
             else {
@@ -118,13 +118,13 @@ extension Matrix {
         
         // MARK: State
         
-        public func updateState(from events: [ClientEventWithoutRoomId]) async {
+        open func updateState(from events: [ClientEventWithoutRoomId]) async {
             for event in events {
                 await updateState(from: event)
             }
         }
         
-        public func updateState(from event: ClientEventWithoutRoomId) async {
+        open func updateState(from event: ClientEventWithoutRoomId) async {
             guard let stateKey = event.stateKey
             else {
                 let msg = "No state key for \"state\" event of type \(event.type)"
