@@ -34,7 +34,7 @@ extension Matrix {
         
         // MARK: init
         
-        public init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialTimeline: [ClientEventWithoutRoomId] = []) throws {
+        public required init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialTimeline: [ClientEventWithoutRoomId] = []) throws {
             self.roomId = roomId
             self.session = session
             self.timeline = [:] // Set this to empty for starters, because we need `self` to create instances of Matrix.Message

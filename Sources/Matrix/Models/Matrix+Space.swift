@@ -8,27 +8,37 @@
 import Foundation
 
 extension Matrix {
-    public class SpaceRoom: Room {
+    open class SpaceRoom: Room {
         @Published public var children: Set<RoomId>
         @Published public var parents: Set<RoomId>
         
-        public init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId]) throws {
+        public required init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialTimeline: [ClientEventWithoutRoomId] = []) throws {
             self.children = []
             self.parents = []
-            try super.init(roomId: roomId, session: session, initialState: initialState, initialTimeline: [])
+            try super.init(roomId: roomId, session: session, initialState: initialState, initialTimeline: initialTimeline)
             
             guard self.type == M_SPACE
             else {
                 throw Matrix.Error("Not an m.space room")
             }
             
-            let initialChildren = self.state[M_SPACE_CHILD]?.values.compactMap { event in
-                RoomId(event.stateKey!)
+            let initialChildren: [RoomId] = self.state[M_SPACE_CHILD]?.compactMap { (stateKey,event) in
+                guard let content = event.content as? SpaceChildContent,
+                      content.via?.first != nil
+                else {
+                    return nil
+                }
+                return RoomId(stateKey)
             } ?? []
             self.children = Set(initialChildren)
 
-            let initialParents = self.state[M_SPACE_PARENT]?.values.compactMap { event in
-                RoomId(event.stateKey!)
+            let initialParents: [RoomId] = self.state[M_SPACE_PARENT]?.compactMap { (stateKey,event) in
+                guard let content = event.content as? SpaceParentContent,
+                      content.via?.first != nil
+                else {
+                    return nil
+                }
+                return RoomId(stateKey)
             } ?? []
             self.parents = Set(initialParents)
         }
