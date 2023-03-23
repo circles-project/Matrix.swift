@@ -40,6 +40,10 @@ extension Matrix {
             // FIXME: Query the crypto module and/or the server to find out whether we've verified this user
             false
         }
+        
+        public var devices: [CryptoDevice] {
+            self.session.getCryptoDevices(userId: self.userId)
+        }
     }
 }
 

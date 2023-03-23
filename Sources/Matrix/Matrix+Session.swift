@@ -29,6 +29,7 @@ extension Matrix {
         
         @Published public var rooms: [RoomId: Matrix.Room]
         @Published public var invitations: [RoomId: Matrix.InvitedRoom]
+        @Published public var spaceChildRooms: [RoomId: Matrix.SpaceChildRoom]
         
         public private(set) var users: [UserId: Matrix.User]
         
@@ -45,8 +46,6 @@ extension Matrix {
         private var backgroundSyncTask: Task<UInt,Swift.Error>? // FIXME use a TaskGroup
         private var backgroundSyncDelayMS: UInt64?
         
-        // FIXME: Derive this from our account data???
-        // The type is `m.ignored_user_list` https://spec.matrix.org/v1.5/client-server-api/#mignored_user_list
         private var ignoreUserIds: [UserId] {
             guard let content = self.accountData[.mIgnoredUserList] as? IgnoredUserListContent
             else {
@@ -72,8 +71,10 @@ extension Matrix {
                     recoverySecretKey: Data? = nil, recoveryTimestamp: Data? = nil,
                     storageType: StorageType = .persistent(preserve: true)
         ) async throws {
+            
             self.rooms = [:]
             self.invitations = [:]
+            self.spaceChildRooms = [:]
             self.users = [:]
             self.accountData = [:]
                         
@@ -724,6 +725,25 @@ extension Matrix {
             return nil
         }
         
+        public func getSpaceChildRoom(roomId: RoomId) async throws -> Matrix.SpaceChildRoom? {
+            if let room = self.spaceChildRooms[roomId] {
+                return room
+            }
+            
+            if let store = self.dataStore,
+               let events = try? await store.loadStrippedState(for: roomId),
+               let room = try? Matrix.SpaceChildRoom(session: self, roomId: roomId, stateEvents: events)
+            {
+                await MainActor.run {
+                    self.spaceChildRooms[roomId] = room
+                }
+                return room
+            }
+            
+            // Whoops, looks like we couldn't find what we needed
+            return nil
+        }
+        
         // MARK: Users
         
         public func getUser(userId: UserId) -> Matrix.User {
@@ -991,6 +1011,20 @@ extension Matrix {
                                             sender: encryptedEvent.sender,
                                             // stateKey should be nil, since we decrypted something; must not be a state event.
                                             type: decryptedMinimalEvent.type)
+        }
+        
+        // MARK: Devices
+        
+        public func getCryptoDevices(userId: UserId) -> [CryptoDevice] {
+            guard let devices = try? self.crypto.getUserDevices(userId: "\(userId)", timeout: 0)
+            else {
+                return []
+            }
+            return devices
+        }
+        
+        public var devices: [CryptoDevice] {
+            self.getCryptoDevices(userId: self.creds.userId)
         }
         
         // MARK: Cross Signing
