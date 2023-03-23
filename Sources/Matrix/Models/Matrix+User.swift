@@ -35,6 +35,11 @@ extension Matrix {
                 self.avatarUrl = newAvatarUrl
             }
         }
+        
+        public var isVerified: Bool {
+            // FIXME: Query the crypto module and/or the server to find out whether we've verified this user
+            false
+        }
     }
 }
 
