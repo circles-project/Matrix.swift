@@ -22,7 +22,8 @@ extension Matrix {
         @Published public var avatar: NativeImage?
         
         @Published private(set) public var timeline: OrderedDictionary<EventId,Matrix.Message> //[ClientEventWithoutRoomId]
-        @Published public var localEchoEvent: Event?
+        //@Published public var localEchoEvent: Event?
+        @Published private(set) public var localEchoMessage: Message? // FIXME: Set this when we send a message
 
         @Published private(set) public var state: [String: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
         
