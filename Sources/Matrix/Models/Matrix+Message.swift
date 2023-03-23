@@ -82,6 +82,12 @@ extension Matrix {
         
         public lazy var timestamp: Date = Date(timeIntervalSince1970: TimeInterval(event.originServerTS))
         
+        public var relatesToId: EventId? {
+            guard let content = event.content as? mTextContent
+            else { return nil }
+            return content.relates_to?.inReplyTo?.eventId
+        }
+        
         public func decrypt() async throws {
             guard self.event.type == M_ROOM_ENCRYPTED
             else {
