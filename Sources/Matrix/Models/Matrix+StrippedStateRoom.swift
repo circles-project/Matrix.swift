@@ -144,3 +144,9 @@ extension Matrix {
     }
 
 }
+
+extension Matrix.StrippedStateRoom: Identifiable {
+    public var id: String {
+        "\(self.roomId)"
+    }
+}
