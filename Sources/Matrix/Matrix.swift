@@ -138,7 +138,7 @@ public enum Matrix {
     #endif
     
     // Types imported from the Rust Crypto SDK
-    public typealias Device = MatrixSDKCrypto.Device
+    public typealias CryptoDevice = MatrixSDKCrypto.Device
     
     // Mappings from String type names to Codable implementations
     // Used for encoding and decoding Matrix events
