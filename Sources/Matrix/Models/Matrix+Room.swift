@@ -348,6 +348,15 @@ extension Matrix {
             let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
         }
         
+        public func getPowerLevel(userId: UserId) -> Int {
+            guard let event = state[M_ROOM_POWER_LEVELS]?[""],
+                  let content = event.content as? RoomPowerLevelsContent
+            else {
+                return 0
+            }
+            return content.users?[userId] ?? content.usersDefault ?? 0
+        }
+        
         public var myPowerLevel: Int {
             let me = session.creds.userId
             return powerLevels?.users?[me] ?? powerLevels?.usersDefault ?? 0
@@ -434,6 +443,10 @@ extension Matrix {
         
         public func ban(userId: UserId, reason: String? = nil) async throws {
             try await self.session.banUser(roomId: self.roomId, userId: userId, reason: reason)
+        }
+        
+        public func mute(userId: UserId) async throws {
+            try await self.setPowerLevel(userId: userId, power: -10)
         }
         
         public func leave(reason: String? = nil) async throws {
