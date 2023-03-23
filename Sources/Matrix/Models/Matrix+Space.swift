@@ -9,57 +9,48 @@ import Foundation
 
 extension Matrix {
     open class SpaceRoom: Room {
-        @Published public var children: Set<RoomId>
-        @Published public var parents: Set<RoomId>
         
         public required init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialTimeline: [ClientEventWithoutRoomId] = []) throws {
-            self.children = []
-            self.parents = []
+
             try super.init(roomId: roomId, session: session, initialState: initialState, initialTimeline: initialTimeline)
             
             guard self.type == M_SPACE
             else {
                 throw Matrix.Error("Not an m.space room")
             }
-            
-            let initialChildren: [RoomId] = self.state[M_SPACE_CHILD]?.compactMap { (stateKey,event) in
+        }
+        
+        
+        public var children: [RoomId] {
+            self.state[M_SPACE_CHILD]?.compactMap { (stateKey,event) -> RoomId? in
                 guard let content = event.content as? SpaceChildContent,
-                      content.via?.first != nil
+                      content.via?.first != nil,
+                      let childRoomId = RoomId(stateKey)
                 else {
                     return nil
                 }
-                return RoomId(stateKey)
+                return childRoomId
             } ?? []
-            self.children = Set(initialChildren)
-
-            let initialParents: [RoomId] = self.state[M_SPACE_PARENT]?.compactMap { (stateKey,event) in
-                guard let content = event.content as? SpaceParentContent,
-                      content.via?.first != nil
+        }
+        
+        public var parents: [RoomId] {
+            self.state[M_SPACE_PARENT]?.compactMap { (stateKey,event) -> RoomId? in
+                guard let content = event.content as? SpaceChildContent,
+                      content.via?.first != nil,
+                      let parentRoomId = RoomId(stateKey)
                 else {
                     return nil
                 }
-                return RoomId(stateKey)
+                return parentRoomId
             } ?? []
-            self.parents = Set(initialParents)
         }
         
         public func addChild(_ childRoomId: RoomId) async throws {
-            if !self.children.contains(childRoomId) {
-                try await self.session.addSpaceChild(childRoomId, to: self.roomId)
-                // Finally update our state locally
-                await MainActor.run {
-                    self.children.insert(childRoomId)
-                }
-            }
+            try await self.session.addSpaceChild(childRoomId, to: self.roomId)
         }
         
         public func removeChild(_ childRoomId: RoomId) async throws {
-            if self.children.contains(childRoomId) {
-                try await self.session.removeSpaceChild(childRoomId, from: self.roomId)
-                await MainActor.run {
-                    self.children.remove(childRoomId)
-                }
-            }
+            try await self.session.removeSpaceChild(childRoomId, from: self.roomId)
         }
         
         public func getChildRoomIds() async throws -> [RoomId] {
