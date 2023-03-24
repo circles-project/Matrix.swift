@@ -15,7 +15,8 @@ extension Matrix {
         public var sender: User
         
         @Published public var thumbnail: NativeImage?
-        @Published public var reactions: [String:UInt]
+        @Published private(set) public var reactions: [String:UInt]
+        @Published private(set) public var replies: [Message]
         public var blur: NativeImage?
         
         public var isEncrypted: Bool
@@ -27,6 +28,7 @@ extension Matrix {
             self.room = room
             self.sender = room.session.getUser(userId: event.sender)
             self.reactions = [:]
+            self.replies = []
             
             // Initialize the blurhash
             if let messageContent = event.content as? Matrix.MessageContent,
@@ -86,6 +88,28 @@ extension Matrix {
             guard let content = event.content as? mTextContent
             else { return nil }
             return content.relates_to?.inReplyTo?.eventId
+        }
+        
+        public func addReaction(message: Message) async {
+            guard let content = message.event.content as? ReactionContent,
+                  content.relatesTo.eventId == self.eventId
+            else {
+                return
+            }
+            let reaction  = content.relatesTo.key
+            await MainActor.run {
+                let count = self.reactions[reaction] ?? 0
+                self.reactions[reaction] = count + 1
+            }
+            
+        }
+        
+        public func addReply(message: Message) async {
+            if message.relatesToId == self.eventId && !self.replies.contains(message) {
+                await MainActor.run {
+                    self.replies.append(message)
+                }
+            }
         }
         
         public func decrypt() async throws {
