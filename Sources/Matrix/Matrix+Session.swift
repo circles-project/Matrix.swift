@@ -1032,6 +1032,10 @@ extension Matrix {
             self.getCryptoDevices(userId: self.creds.userId)
         }
         
+        public var device: CryptoDevice? {
+            try? self.crypto.getDevice(userId: self.creds.userId.description, deviceId: self.creds.deviceId.description, timeout: 0)
+        }
+        
         // MARK: Cross Signing
         
         public func setupCrossSigning() async throws -> UIAuthSession<EmptyStruct>? {
