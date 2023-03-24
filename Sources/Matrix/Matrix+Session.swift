@@ -670,6 +670,11 @@ extension Matrix {
             return nil
         }
         
+        public var systemNoticesRoom: Matrix.Room? {
+            // FIXME: Make this do something
+            nil
+        }
+        
         public func getSpaceRoom(roomId: RoomId) async throws -> Matrix.SpaceRoom? {
             if let existingSpace = self.rooms[roomId] as? Matrix.SpaceRoom {
                 return existingSpace
