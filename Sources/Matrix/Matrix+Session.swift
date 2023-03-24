@@ -885,7 +885,7 @@ extension Matrix {
 
         // MARK: Encrypted Media
         
-        func encryptAndUploadData(plaintext: Data, contentType: String) async throws -> mEncryptedFile {
+        public func encryptAndUploadData(plaintext: Data, contentType: String) async throws -> mEncryptedFile {
             let key = try Random.generateBytes(byteCount: 32)
             let iv = try Random.generateBytes(byteCount: 16)
             var cryptor = Cryptor(operation: .encrypt,
@@ -909,7 +909,7 @@ extension Matrix {
                                   v: "v2")
         }
         
-        func downloadAndDecryptData(_ info: mEncryptedFile) async throws -> Data {
+        public func downloadAndDecryptData(_ info: mEncryptedFile) async throws -> Data {
             let ciphertext = try await self.downloadData(mxc: info.url)
             
             // Cryptographic doom principle: Verify that the ciphertext is what we expected,
