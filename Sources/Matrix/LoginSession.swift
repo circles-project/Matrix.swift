@@ -35,17 +35,14 @@ public class LoginSession: UIAuthSession<Matrix.Credentials> {
         }
     }
     
-    public convenience init(userId: String,
+    public convenience init(userId: UserId,
                             password: String? = nil,
                             deviceId: String? = nil,
                             initialDeviceDisplayName: String? = nil,
                             completion: ((Matrix.Credentials) async throws -> Void)? = nil
     ) async throws {
-        guard let domain = UserId(userId)?.domain
-        else {
-            throw Matrix.Error("Couldn't parse Matrix user id \(userId)")
-        }
-        let wellknown = try await Matrix.fetchWellKnown(for: domain)
+
+        let wellknown = try await Matrix.fetchWellKnown(for: userId.domain)
         
         guard let homeserver = URL(string: wellknown.homeserver.baseUrl)
         else {
@@ -61,7 +58,7 @@ public class LoginSession: UIAuthSession<Matrix.Credentials> {
     }
     
     public init(homeserver: URL,
-                userId: String,
+                userId: UserId,
                 password: String? = nil,
                 deviceId: String? = nil,
                 initialDeviceDisplayName: String? = nil,
@@ -69,20 +66,30 @@ public class LoginSession: UIAuthSession<Matrix.Credentials> {
     ) async throws {
         let version = "v3"
         let urlPath = "/_matrix/client/\(version)/login"
-        self.userId = UserId(userId)!
+        self.userId = userId
         let wellknown = try await Matrix.fetchWellKnown(for: self.userId.domain)
         
         guard let url = URL(string: wellknown.homeserver.baseUrl + urlPath) else {
             throw Matrix.Error("Couldn't construct /login URL")
         }
 
-        let args: [String: Codable] = [
-            "identifier": LoginRequestBody.Identifier(type: "m.id.user", user: userId),
-            "password": password,                                // For legacy non-UIA login
-            "type": password != nil ? "m.login.password" : nil,  // For legacy non-UIA login
-            "device_id": deviceId,
-            "initial_device_display_name": initialDeviceDisplayName,
+        var args: [String: Codable] = [
+            "identifier": LoginRequestBody.Identifier(type: "m.id.user", user: "\(userId)"),
         ]
+        
+        // For legacy non-UIA login
+        if let password = password {
+            args["password"] = password
+            args["type"] = "m.login.password"
+        }
+        
+        if let deviceId = deviceId {
+            args["device_id"] = deviceId
+        }
+        
+        if let initialDeviceDisplayName = initialDeviceDisplayName {
+            args["initial_device_display_name"] = initialDeviceDisplayName
+        }
         
         super.init(method: "POST", url: url, requestDict: args, completion: completion)
     }
@@ -93,7 +100,11 @@ public class LoginSession: UIAuthSession<Matrix.Credentials> {
                             initialDeviceDisplayName: String? = nil,
                             completion: ((Matrix.Credentials) async throws -> Void)? = nil
     ) async throws {
-        try await self.init(userId: "@\(username):\(domain)",
+        guard let userId = UserId("@\(username):\(domain)")
+        else {
+            throw Matrix.Error("Invalid user id")
+        }
+        try await self.init(userId: userId,
                             deviceId: deviceId,
                             initialDeviceDisplayName: initialDeviceDisplayName,
                             completion: completion)
