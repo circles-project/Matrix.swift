@@ -31,7 +31,8 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
                             deviceId: String? = nil,
                             initialDeviceDisplayName: String? = nil,
                             //showMSISDN: Bool = false,
-                            inhibitLogin: Bool = false
+                            inhibitLogin: Bool = false,
+                            completion: ((Matrix.Credentials) async throws -> Void)? = nil
     ) async throws {
 
         let wellKnown = try await Matrix.fetchWellKnown(for: domain)
@@ -46,7 +47,8 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
                             password: password,
                             deviceId: deviceId,
                             initialDeviceDisplayName: initialDeviceDisplayName,
-                            inhibitLogin: inhibitLogin)
+                            inhibitLogin: inhibitLogin,
+                            completion: completion)
     }
 
 
@@ -57,7 +59,8 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
                 deviceId: String? = nil,
                 initialDeviceDisplayName: String? = nil,
                 //showMSISDN: Bool = false,
-                inhibitLogin: Bool = false
+                inhibitLogin: Bool = false,
+                completion: ((Matrix.Credentials) async throws -> Void)? = nil
     ) async throws {
         self.domain = domain
         
@@ -80,7 +83,7 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
             //requestDict["x_show_msisdn": showMSISDN,
             "inhibit_login": inhibitLogin,
         ]
-        super.init(method: "POST", url: signupURL, requestDict: requestDict)
+        super.init(method: "POST", url: signupURL, requestDict: requestDict, completion: completion)
     }
     
     // MARK: Set username and password

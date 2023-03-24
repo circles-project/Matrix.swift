@@ -72,14 +72,17 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
             return nil
         }
     }
+    
+    var completion: ((T) async throws -> Void)?
         
-    public init(method: String, url: URL, credentials: Matrix.Credentials? = nil, requestDict: [String:Codable]) {
+    public init(method: String, url: URL, credentials: Matrix.Credentials? = nil, requestDict: [String:Codable], completion: ((T) async throws -> Void)? = nil) {
         self.method = method
         self.url = url
         //self.accessToken = accessToken
         self.creds = credentials
         self.state = .notConnected
         self.realRequestDict = requestDict
+        self.completion = completion
         
         /*
         let initTask = Task {
@@ -177,6 +180,9 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
             let t: T = try decoder.decode(T.self, from: data)
             await MainActor.run {
                 self.state = .finished(t)
+            }
+            if let block = completion {
+                try await block(t)
             }
         }
         
@@ -340,6 +346,9 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
             }
             await MainActor.run {
                 state = .finished(t)
+            }
+            if let block = completion {
+                try await block(t)
             }
             return
         }

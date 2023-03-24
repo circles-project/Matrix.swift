@@ -38,7 +38,8 @@ public class LoginSession: UIAuthSession<Matrix.Credentials> {
     public convenience init(userId: String,
                             password: String? = nil,
                             deviceId: String? = nil,
-                            initialDeviceDisplayName: String? = nil
+                            initialDeviceDisplayName: String? = nil,
+                            completion: ((Matrix.Credentials) async throws -> Void)? = nil
     ) async throws {
         guard let domain = UserId(userId)?.domain
         else {
@@ -55,14 +56,16 @@ public class LoginSession: UIAuthSession<Matrix.Credentials> {
                             userId: userId,
                             password: password,
                             deviceId: deviceId,
-                            initialDeviceDisplayName: initialDeviceDisplayName)
+                            initialDeviceDisplayName: initialDeviceDisplayName,
+                            completion: completion)
     }
     
     public init(homeserver: URL,
                 userId: String,
                 password: String? = nil,
                 deviceId: String? = nil,
-                initialDeviceDisplayName: String? = nil
+                initialDeviceDisplayName: String? = nil,
+                completion: ((Matrix.Credentials) async throws -> Void)? = nil
     ) async throws {
         let version = "v3"
         let urlPath = "/_matrix/client/\(version)/login"
@@ -81,10 +84,18 @@ public class LoginSession: UIAuthSession<Matrix.Credentials> {
             "initial_device_display_name": initialDeviceDisplayName,
         ]
         
-        super.init(method: "POST", url: url, requestDict: args)
+        super.init(method: "POST", url: url, requestDict: args, completion: completion)
     }
     
-    public convenience init(username: String, domain: String, deviceId: String? = nil, initialDeviceDisplayName: String? = nil) async throws {
-        try await self.init(userId: "@\(username):\(domain)", deviceId: deviceId, initialDeviceDisplayName: initialDeviceDisplayName)
+    public convenience init(username: String,
+                            domain: String,
+                            deviceId: String? = nil,
+                            initialDeviceDisplayName: String? = nil,
+                            completion: ((Matrix.Credentials) async throws -> Void)? = nil
+    ) async throws {
+        try await self.init(userId: "@\(username):\(domain)",
+                            deviceId: deviceId,
+                            initialDeviceDisplayName: initialDeviceDisplayName,
+                            completion: completion)
     }
 }

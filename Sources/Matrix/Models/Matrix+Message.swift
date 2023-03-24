@@ -90,6 +90,7 @@ extension Matrix {
             return content.relates_to?.inReplyTo?.eventId
         }
         
+        // https://github.com/uhoreg/matrix-doc/blob/aggregations-reactions/proposals/2677-reactions.md
         public func addReaction(message: Message) async {
             guard let content = message.event.content as? ReactionContent,
                   content.relatesTo.eventId == self.eventId
