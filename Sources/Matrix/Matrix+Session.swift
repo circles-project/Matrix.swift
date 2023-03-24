@@ -34,7 +34,7 @@ extension Matrix {
         public private(set) var users: [UserId: Matrix.User]
         
         // cvw: Stuff that we need to add, but haven't got to yet
-        public var accountData: [Matrix.AccountDataType: Codable]
+        public var accountData: [String: Codable]
 
         // Need some private stuff that outside callers can't see
         private var dataStore: DataStore?
@@ -47,7 +47,7 @@ extension Matrix {
         private var backgroundSyncDelayMS: UInt64?
         
         private var ignoreUserIds: [UserId] {
-            guard let content = self.accountData[.mIgnoredUserList] as? IgnoredUserListContent
+            guard let content = self.accountData[M_IGNORED_USER_LIST] as? IgnoredUserListContent
             else {
                 return []
             }

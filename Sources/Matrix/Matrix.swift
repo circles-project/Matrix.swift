@@ -126,7 +126,6 @@ public enum Matrix {
     // Well fuck you too Swift, we're doing it anyway.
     // See below for the "real" type definitions.
     public typealias Event = _MatrixEvent
-    public typealias AccountDataType = _MatrixAccountDataType
     public typealias MessageType = _MatrixMessageType
     public typealias MessageContent = _MatrixMessageContent
     
@@ -208,66 +207,6 @@ public enum Matrix {
 public protocol _MatrixEvent: Codable {
     var type: String {get}
     var content: Codable {get}
-}
-
-// MARK: AccountDataType
-public enum _MatrixAccountDataType: Codable, Equatable, Hashable {
-    case mIdentityServer // "m.identity_server"
-    case mFullyRead // "m.fully_read"
-    case mDirect // "m.direct"
-    case mIgnoredUserList
-    case mPushRules // "m.push_rules"
-    case mSecretStorageKey(String) // "m.secret_storage.key.[key ID]"
-    case mTag // "m.tag"
-    
-    public init(from decoder: Decoder) throws {
-        let string = try String(from: decoder)
-        
-        switch string {
-        case "m.identity_server":
-            self = .mIdentityServer
-            return
-        case "m.fully_read":
-            self = .mFullyRead
-            return
-            
-        case "m.direct":
-            self = .mDirect
-            return
-            
-        case "m.ignored_user_list":
-            self = .mIgnoredUserList
-            return
-            
-        case "m.push_rules":
-            self = .mPushRules
-            return
-            
-        case "m.tag":
-            self = .mTag
-            return
-            
-        default:
-            
-            // OK it's not one of the "normal" ones.  Is it one of the weird ones?
-            
-            // Maybe it's a secret storage key?
-            if string.starts(with: "m.secret_storage.key.") {
-                guard let keyId = string.split(separator: ".").last
-                else {
-                    let msg = "Couldn't get key id for m.secret_storage.key"
-                    print(msg)
-                    throw Matrix.Error(msg)
-                }
-                self = .mSecretStorageKey(String(keyId))
-            }
-            
-            // If we're still here, then we have *no* idea what to do with this thing.
-            let msg = "Failed to decode MatrixAccountDataType from string [\(string)]"
-            print(msg)
-            throw Matrix.Error(msg)
-        }
-    }
 }
 
 // MARK: MessageType
