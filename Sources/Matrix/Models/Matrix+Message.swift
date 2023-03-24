@@ -169,3 +169,9 @@ extension Matrix {
         }
     }
 }
+
+extension Matrix.Message: Equatable {
+    public static func == (lhs: Matrix.Message, rhs: Matrix.Message) -> Bool {
+        lhs.eventId == rhs.eventId && lhs.type == rhs.type
+    }
+}
