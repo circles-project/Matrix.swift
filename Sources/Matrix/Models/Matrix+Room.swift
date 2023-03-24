@@ -303,22 +303,22 @@ extension Matrix {
             try await self.session.getJoinedMembers(roomId: roomId)
         }
         
+        public var messages: [Matrix.Message] {
+            Array(
+                timeline
+                    .values
+                    .filter {
+                        $0.stateKey == nil
+                    }
+            )
+        }
+        
         public var latestMessage: Matrix.Message? {
-            timeline
-                .values
-                .filter {
-                    $0.stateKey == nil
-                }
-                .last
+            messages.last
         }
         
         public var earliestMessage: Matrix.Message? {
-            timeline
-                .values
-                .filter {
-                    $0.stateKey == nil
-                }
-                .first
+            messages.first
         }
         
         // MARK: Room "profile"
