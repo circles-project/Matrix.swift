@@ -143,6 +143,8 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         return false
     }
     
+    // MARK: connect()
+    
     public func connect() async throws {
         let tag = "UIA(init)"
         
@@ -212,6 +214,8 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         }
     }
     
+    // MARK: selectFlow()
+    
     public func selectFlow(flow: UIAA.Flow) async {
         guard case .connected(let uiaState) = state else {
             // throw some error
@@ -226,6 +230,8 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         }
     }
     
+    // MARK: Dummy stage
+    
     public func doDummyAuthStage() async throws {
         let authDict = [
             "type": AUTH_TYPE_DUMMY
@@ -233,6 +239,8 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         
         try await doUIAuthStage(auth: authDict)
     }
+    
+    // MARK: Password stages
     
     public func doPasswordAuthStage(password: String) async throws {
 
@@ -258,6 +266,7 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         try await doUIAuthStage(auth: passwordAuthDict)
     }
 
+    // MARK: Terms stage
     
     public func doTermsStage() async throws {
         let auth: [String: String] = [
@@ -265,6 +274,8 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         ]
         try await doUIAuthStage(auth: auth)
     }
+    
+    // MARK: doUIAuthStage()
     
     // FIXME: We need some way to know if this succeeded or failed
     public func doUIAuthStage(auth: [String:Codable]) async throws {
@@ -443,7 +454,8 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         // Need to send
         // V, our long-term public key (from "verifier"?  Although here the actual verifiers are hashes.)
         // P, our base point on the curve
-        let stage = AUTH_TYPE_ENROLL_BSSPEKE_SAVE
+        let stageId = UIAA.StageId(AUTH_TYPE_ENROLL_BSSPEKE_SAVE)!
+        let oprfStageId = UIAA.StageId(AUTH_TYPE_ENROLL_BSSPEKE_OPRF)!
         
         guard let bss = self.storage[AUTH_TYPE_ENROLL_BSSPEKE_OPRF+".state"] as? BlindSaltSpeke.ClientSession
         else {
@@ -451,8 +463,8 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
             print("BS-SPEKE\tError: \(msg)")
             throw Matrix.Error(msg)
         }
-        guard let oprfParams = self.sessionState?.params?[AUTH_TYPE_ENROLL_BSSPEKE_OPRF] as? BSSpekeOprfParams,
-              let params = self.sessionState?.params?[stage] as? BSSpekeEnrollParams
+        guard let oprfParams = self.sessionState?.params?[oprfStageId] as? BSSpekeOprfParams,
+              let params = self.sessionState?.params?[stageId] as? BSSpekeEnrollParams
         else {
             let msg = "Couldn't find BS-SPEKE enroll params"
             print("BS-SPEKE\t\(msg)")
@@ -478,7 +490,7 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         }
         
         let args: [String: Codable] = [
-            "type": stage,
+            "type": stageId.stringValue,
             "P": Data(P).base64EncodedString(),
             "V": Data(V).base64EncodedString(),
             "phf_params": phfParams,
@@ -526,7 +538,8 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         // Need to send
         // V, our long-term public key (from "verifier"?  Although here the actual verifiers are hashes.)
         // P, our base point on the curve
-        let stage = AUTH_TYPE_LOGIN_BSSPEKE_VERIFY
+        let stageId = UIAA.StageId(AUTH_TYPE_LOGIN_BSSPEKE_VERIFY)!
+        let oprfStageId = UIAA.StageId(AUTH_TYPE_LOGIN_BSSPEKE_OPRF)!
         
         guard let bss = self.storage[AUTH_TYPE_LOGIN_BSSPEKE_OPRF+".state"] as? BlindSaltSpeke.ClientSession
         else {
@@ -535,8 +548,8 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
             throw Matrix.Error(msg)
         }
         
-        guard let oprfParams = self.sessionState?.params?[AUTH_TYPE_LOGIN_BSSPEKE_OPRF] as? BSSpekeOprfParams,
-              let params = self.sessionState?.params?[stage] as? BSSpekeVerifyParams
+        guard let oprfParams = self.sessionState?.params?[oprfStageId] as? BSSpekeOprfParams,
+              let params = self.sessionState?.params?[stageId] as? BSSpekeVerifyParams
         else {
             let msg = "Couldn't find BS-SPEKE enroll params"
             print("BS-SPEKE\t\(msg)")
@@ -571,7 +584,7 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         let verifier = bss.generateVerifier()
         
         let args: [String: String] = [
-            "type": stage,
+            "type": stageId.stringValue,
             "A": Data(A).base64EncodedString(),
             "verifier": Data(verifier).base64EncodedString(),
         ]

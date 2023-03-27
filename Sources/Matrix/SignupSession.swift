@@ -87,7 +87,7 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
         super.init(method: "POST", url: signupURL, requestDict: requestDict, completion: completion)
     }
     
-    // MARK: Set username and password
+    // MARK: Username
     
     public func doUsernameStage(username: String) async throws {
         
@@ -161,11 +161,6 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
         try await doUIAuthStage(auth: emailAuthDict)
     }
     
-    private func _canonicalize(_ username: String) -> String {
-        let tmp = username.starts(with: "@") ? username : "@\(username)"
-        let userId = tmp.contains(":") ? tmp : "\(tmp):\(self.domain)"
-        return userId
-    }
         
     // MARK: Apple Subscriptions
     

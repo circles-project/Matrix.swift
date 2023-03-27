@@ -34,7 +34,7 @@ extension Matrix {
         public private(set) var users: [UserId: Matrix.User]
         
         // cvw: Stuff that we need to add, but haven't got to yet
-        public var accountData: [String: Codable]
+        @Published public var accountData: [String: Codable]
 
         // Need some private stuff that outside callers can't see
         private var dataStore: DataStore?

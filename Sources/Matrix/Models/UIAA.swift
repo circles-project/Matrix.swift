@@ -26,30 +26,45 @@ public enum UIAA {
         }
     }
     
-    public struct Params: CustomStringConvertible {
-        private var items: [String: Any]
-        
-        public subscript(index: String) -> Any? {
-            get {
-                return items[index]
-            }
-            set(newValue) {
-                items[index] = newValue
-            }
-        }
-        
-        public var description: String {
-            items.description
-        }
-    }
     
-    public struct SessionState: Codable {
+    public struct SessionState: Decodable {
         public var errcode: String?
         public var error: String?
         public var flows: [Flow]
-        public var params: Params?
+        public var params: [StageId: UiaStageParams]?
         public var completed: [String]?
         public var session: String
+        
+        enum CodingKeys: String, CodingKey {
+            case errcode
+            case error
+            case flows
+            case params
+            case completed
+            case session
+        }
+        
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.errcode = try container.decodeIfPresent(String.self, forKey: .errcode)
+            self.error = try container.decodeIfPresent(String.self, forKey: .error)
+            self.flows = try container.decode([Flow].self, forKey: .flows)
+            self.params = try container.decode([StageId:UiaStageParams].self, forKey: .params) // This relies on our extension to KeyedDecodingContainer, below.
+            self.completed = try container.decodeIfPresent([String].self, forKey: .completed)
+            self.session = try container.decode(String.self, forKey: .session)
+        }
+        
+        /*
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encodeIfPresent(errcode, forKey: .errcode)
+            try container.encodeIfPresent(error, forKey: .error)
+            try container.encode(flows, forKey: .flows)
+            try container.encodeIfPresent(params, forKey: .params)
+            try container.encodeIfPresent(completed, forKey: .completed)
+            try container.encode(session, forKey: .session)
+        }
+        */
 
         public func hasCompleted(stage: String) -> Bool {
             guard let completed = completed else {
@@ -57,6 +72,61 @@ public enum UIAA {
             }
             return completed.contains(stage)
         }
+    }
+    
+    // This is an ugly hack to facilitate decoding UIA parameters from the HTTP response.
+    // By defining our own type here, we can write our own custom implementation that tells
+    // Swift's KeyedDecodingContainer how to handle dictionaries from UIA stages to the
+    // parameters for those stages.
+    public struct StageId: LosslessStringConvertible, Hashable, CodingKey, Codable {
+        var string: String
+        
+        public init?(_ description: String) {
+            self.string = description
+        }
+        
+        public var stringValue: String {
+            string
+        }
+        
+        public init?(stringValue: String) {
+            self.string = stringValue
+        }
+        
+        public var intValue: Int? {
+            nil
+        }
+        
+        public init?(intValue: Int) {
+            return nil
+        }
+        
+        public init(from decoder: Decoder) throws {
+            self.string = try .init(from: decoder)
+        }
+        
+        public enum CodingKeys: CodingKey {
+            case string
+        }
+        
+        public func encode(to encoder: Encoder) throws {
+            try self.string.encode(to: encoder)
+        }
+    }
+    
+    private(set) public static var parameterTypes: [String: UiaStageParams.Type] = [
+        AUTH_TYPE_TERMS : TermsParams.self,
+        AUTH_TYPE_APPLE_SUBSCRIPTION : AppleSubscriptionParams.self,
+        AUTH_TYPE_ENROLL_PASSWORD : PasswordEnrollParams.self,
+        AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN : EmailLoginParams.self,
+        AUTH_TYPE_ENROLL_BSSPEKE_OPRF : BSSpekeOprfParams.self,
+        AUTH_TYPE_LOGIN_BSSPEKE_OPRF : BSSpekeOprfParams.self,
+        AUTH_TYPE_ENROLL_BSSPEKE_SAVE : BSSpekeEnrollParams.self,
+        AUTH_TYPE_LOGIN_BSSPEKE_VERIFY : BSSpekeVerifyParams.self,
+    ]
+    
+    public static func registerParameterType(type: UiaStageParams.Type, for name: String) {
+        parameterTypes[name] = type
     }
 }
 
@@ -88,7 +158,9 @@ extension UIAA.Flow: Hashable {
     }
 }
 
-public struct TermsParams: Codable {
+public protocol UiaStageParams: Codable { }
+
+public struct TermsParams: UiaStageParams {
     public struct Policy: Codable {
         public struct LocalizedPolicy: Codable {
             public var name: String
@@ -116,19 +188,19 @@ public struct TermsParams: Codable {
 }
 
 
-public struct AppleSubscriptionParams: Codable {
+public struct AppleSubscriptionParams: UiaStageParams {
     public var productIds: [String]
 }
 
-public struct PasswordEnrollParams: Codable {
+public struct PasswordEnrollParams: UiaStageParams {
     public var minimumLength: Int
 }
 
-public struct EmailLoginParams: Codable {
+public struct EmailLoginParams: UiaStageParams {
     public var addresses: [String]
 }
 
-public struct BSSpekeOprfParams: Codable {
+public struct BSSpekeOprfParams: UiaStageParams {
     public var curve: String
     public var hashFunction: String
 
@@ -146,7 +218,7 @@ public struct BSSpekeOprfParams: Codable {
     }
 }
 
-public struct BSSpekeEnrollParams: Codable {
+public struct BSSpekeEnrollParams: UiaStageParams {
 
     public var blindSalt: String
     
@@ -155,7 +227,7 @@ public struct BSSpekeEnrollParams: Codable {
     }
 }
 
-public struct BSSpekeVerifyParams: Codable {
+public struct BSSpekeVerifyParams: UiaStageParams {
     public var B: String  // Server's ephemeral public key
     public var blindSalt: String
     
@@ -166,139 +238,40 @@ public struct BSSpekeVerifyParams: Codable {
 }
 
 
-extension UIAA.Params: Codable {
-    
-    public enum CodingKeys: String, CodingKey, CaseIterable {
-        case mLoginTerms = "m.login.terms"
-        case mLoginPassword = "m.login.password"
-        case mLoginDummy = "m.login.dummy"
-        case mEnrollPassword = "m.enroll.password"
-        case mEnrollEmailRequestToken = "m.enroll.email.request_token"
-        case mEnrollEmailSubmitToken = "m.enroll.email.submit_token"
-        case mLoginEmailRequestToken = "m.login.email.request_token"
-        case mLoginEmailSubmitToken = "m.login.email.submit_token"
-        case mEnrollBSSpekeOprf = "m.enroll.bsspeke-ecc.oprf"
-        case mEnrollBSSpekeSave = "m.enroll.bsspeke-ecc.save"
-        case mLoginBSSpekeOprf = "m.login.bsspeke-ecc.oprf"
-        case mLoginBSSpekeVerify = "m.login.bsspeke-ecc.verify"
-        case mLoginSubscriptionApple = "org.futo.subscription.apple"
-    }
-
-    
-    public init(from decoder: Decoder) throws {
-        print("Trying to decode some UIA params...")
-        
-        self.items = .init()
-        
-        // Approach:
-        // - Define a whole bunch of coding keys, based on the known auth types
-        // - Get a container from the decoder
-        // - Attempt to decode each element in the container, using its coding key to determine its type
-        // - After we decode each thing, stick it in the internal dictionary keyed by its coding key (ie its auth type)
-        
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        for key in CodingKeys.allCases {
-            if container.contains(key) {
-                print("\t\(key.stringValue)\tYes")
-            } else {
-                print("\t\(key.stringValue)\tNo")
-            }
+extension KeyedDecodingContainer {
+    func decode(_ type: Dictionary<UIAA.StageId,UiaStageParams>.Type, forKey key: KeyedDecodingContainer<K>.Key) throws -> Dictionary<UIAA.StageId,UiaStageParams> {
+        let subContainer: KeyedDecodingContainer<UIAA.StageId> = try self.nestedContainer(keyedBy: UIAA.StageId.self, forKey: key)
+        var decodedDict = [UIAA.StageId:UiaStageParams]()
+        for k in subContainer.allKeys {
+            guard let T = UIAA.parameterTypes[k.stringValue] else { continue }
+            decodedDict[k] = try subContainer.decode(T.self, forKey: k)
         }
-        
-        // This is painful but it works.
-        // Why can't our CodingKeys be CaseIterable when they have associated values?  This could be so much cleaner...
-        
-        print("Trying to decode Apple params")
-        if let appleParams = try container.decodeIfPresent(AppleSubscriptionParams.self, forKey: .mLoginSubscriptionApple) {
-            print("Decoded params for Apple subscriptions")
-            self.items[CodingKeys.mLoginSubscriptionApple.rawValue] = appleParams
-        }
-        
-        print("Trying to decode terms params")
-        if let termsParams = try container.decodeIfPresent(TermsParams.self, forKey: .mLoginTerms) {
-            print("Decoded params for terms")
-            self.items[CodingKeys.mLoginTerms.rawValue] = termsParams
-        }
-        
-        print("Trying to decode password params")
-        if let passwordParams = try container.decodeIfPresent(PasswordEnrollParams.self, forKey: .mEnrollPassword) {
-            print("Decoded params for password")
-            self.items[CodingKeys.mEnrollPassword.rawValue] = passwordParams
-        }
-        
-        print("Trying to decode email params")
-        if let emailParams = try? container.decode(EmailLoginParams.self, forKey: .mLoginEmailRequestToken) {
-            print("Decoded params for email request token")
-            self.items[CodingKeys.mLoginEmailRequestToken.rawValue] = emailParams
-        }
-        
-        print("Trying to decode bsspeke enroll oprf params")
-        if let bsspekeParams = try container.decodeIfPresent(BSSpekeOprfParams.self, forKey: .mEnrollBSSpekeOprf) {
-            print("Decoded params for bsspeke enroll oprf")
-            self.items[CodingKeys.mEnrollBSSpekeOprf.rawValue] = bsspekeParams
-        }
-        
-        print("Trying to decode bsspeke login oprf params")
-        if let bsspekeParams = try container.decodeIfPresent(BSSpekeOprfParams.self, forKey: .mLoginBSSpekeOprf) {
-            print("Decoded params for bsspeke login oprf")
-            self.items[CodingKeys.mLoginBSSpekeOprf.rawValue] = bsspekeParams
-        }
-        
-        print("Trying to decode bsspeke enroll save params")
-        if let bsspekeParams = try container.decodeIfPresent(BSSpekeEnrollParams.self, forKey: .mEnrollBSSpekeSave) {
-            print("Decoded params for bsspeke save")
-            self.items[CodingKeys.mEnrollBSSpekeSave.rawValue] = bsspekeParams
-        }
-        
-        print("Trying to decode bsspeke login verify params")
-        if let bsspekeParams = try container.decodeIfPresent(BSSpekeVerifyParams.self, forKey: .mLoginBSSpekeVerify) {
-            print("Decoded params for bsspeke verify")
-            self.items[CodingKeys.mLoginBSSpekeVerify.rawValue] = bsspekeParams
-        }
-        
-        print("That's all folks")
+        return decodedDict
     }
     
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-
-        // Now we need to look at what all we've got
-        // * Try to pull each possible thing out of the dictionary, and if we find it, cast it to its real type
-        // * Encode it into the container
-        // This function is going to wind up essentially mirroring the `decode()` function above
-        // - For each `if let foo` up there, we'll have the exact same `if let foo` down here
-        
-        if let appleParams = items[CodingKeys.mLoginSubscriptionApple.rawValue] as? AppleSubscriptionParams {
-            try container.encode(appleParams, forKey: .mLoginSubscriptionApple)
-        }
-        
-        if let termsParams = items[CodingKeys.mLoginTerms.rawValue] as? TermsParams {
-            try container.encode(termsParams, forKey: .mLoginTerms)
-        }
-        
-        if let passwordParams = items[CodingKeys.mEnrollPassword.rawValue] as? PasswordEnrollParams {
-            try container.encode(passwordParams, forKey: .mEnrollPassword)
-        }
-        
-        if let emailParams = items[CodingKeys.mLoginEmailRequestToken.rawValue] as? EmailLoginParams {
-            try container.encode(emailParams, forKey: .mLoginEmailRequestToken)
-        }
-        
-        if let bsspekeParams = items[CodingKeys.mEnrollBSSpekeOprf.rawValue] as? BSSpekeOprfParams {
-            try container.encode(bsspekeParams, forKey: .mEnrollBSSpekeOprf)
-        }
-        
-        if let bsspekeParams = items[CodingKeys.mLoginBSSpekeOprf.rawValue] as? BSSpekeOprfParams {
-            try container.encode(bsspekeParams, forKey: .mLoginBSSpekeOprf)
-        }
-        
-        if let bsspekeParams = items[CodingKeys.mEnrollBSSpekeSave.rawValue] as? BSSpekeEnrollParams {
-            try container.encode(bsspekeParams, forKey: .mEnrollBSSpekeSave)
-        }
-        
-        if let bsspekeParams = items[CodingKeys.mLoginBSSpekeVerify.rawValue] as? BSSpekeVerifyParams {
-            try container.encode(bsspekeParams, forKey: .mLoginBSSpekeVerify)
+    func decodeIfPresent(_ type: Dictionary<UIAA.StageId,UiaStageParams>.Type, forKey key: KeyedDecodingContainer<K>.Key) throws -> Dictionary<UIAA.StageId,UiaStageParams>? {
+        if self.contains(key) {
+            return try self.decode([UIAA.StageId: UiaStageParams].self, forKey: key)
+        } else {
+            return nil
         }
     }
 }
+
+/*
+extension KeyedEncodingContainer {
+    
+    func encode(_ value: Dictionary<UIAA.StageId,UiaStageParams>, forKey key: KeyedEncodingContainer<K>.Key) throws {
+        var subContainer: KeyedEncodingContainer<UIAA.StageId> = try self.nestedContainer(keyedBy: UIAA.StageId.self, forKey: key)
+        for (stageId, params) in value {
+            try subContainer.encode(params, forKey: stageId)
+        }
+    }
+    
+    func encodeIfPresent(_ value: Dictionary<UIAA.StageId,UiaStageParams>?, forKey key: KeyedDecodingContainer<K>.Key) throws {
+        if let value = value {
+            try encode(value, forKey: key)
+        }
+    }
+}
+*/
