@@ -25,6 +25,7 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
     //public let deviceId: String?
     //public let initialDeviceDisplayName: String?
     //public let inhibitLogin = false
+    var logger = Matrix.logger
     
     public convenience init(domain: String,
                             username: String? = nil,
@@ -91,12 +92,15 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
     
     public func doUsernameStage(username: String) async throws {
         
+        logger.debug("Attempting \(AUTH_TYPE_ENROLL_USERNAME) with username = [\(username)]")
+        
         // Now that we allow legacy Matrix-spec registration
         // with username & password in the real request body,
         // we have to sanity check that the caller is not trying
         // to mix & match the old style with the new.
         guard self.realRequestDict["username"] == nil
         else {
+            logger.error("Can't do \(AUTH_TYPE_ENROLL_USERNAME) when we already have a username set")
             throw Matrix.Error("Can't do \(AUTH_TYPE_ENROLL_USERNAME) when we already have a username set")
         }
         
@@ -105,6 +109,7 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
             "username": username,
         ]
         try await doUIAuthStage(auth: authDict)
+        logger.debug("Username stage was successful.  Storing username in the UIA session")
         self.storage["username"] = username
     }
     

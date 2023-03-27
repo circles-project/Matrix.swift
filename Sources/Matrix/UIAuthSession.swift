@@ -387,6 +387,7 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
                 if let params = newUiaaState.params {
                     print("\tParams:\t\(params)")
                 }
+                print("\tStages:\t\(newStages)")
 
             } else {
                 print("\(tag)\tStage isn't complete???  Completed = \(completed)")
