@@ -77,14 +77,24 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
             throw Matrix.Error("Can't signup with a password but no username")
         }
 
-        let requestDict: [String: Codable] = [
-            "username": username,
-            "password": password,
-            "device_id": deviceId,
-            "initial_device_display_name": initialDeviceDisplayName,
-            //requestDict["x_show_msisdn": showMSISDN,
+        var requestDict: [String: Codable] = [
+            //x_show_msisdn": showMSISDN,
             "inhibit_login": inhibitLogin,
         ]
+        
+        if let username = username {
+            requestDict["username"] = username
+        }
+        if let password = password {
+            requestDict["password"] = password
+        }
+        if let deviceId = deviceId {
+            requestDict["device_id"] = deviceId
+        }
+        if let initialDeviceDisplayName = initialDeviceDisplayName {
+            requestDict["initial_device_display_name"] = initialDeviceDisplayName
+        }
+
         super.init(method: "POST", url: signupURL, requestDict: requestDict, completion: completion)
     }
     
