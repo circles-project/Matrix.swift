@@ -161,7 +161,16 @@ extension UIAA.Flow: Hashable {
 public protocol UiaStageParams: Codable { }
 
 public struct TermsParams: UiaStageParams {
-    public struct Policy: Codable {
+    public struct Policy: Codable, Hashable {
+        public static func == (lhs: TermsParams.Policy, rhs: TermsParams.Policy) -> Bool {
+            lhs.name == rhs.name && lhs.version == rhs.version
+        }
+        
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(name)
+            hasher.combine(version)
+        }
+        
         public struct LocalizedPolicy: Codable {
             public var name: String
             public var url: URL
