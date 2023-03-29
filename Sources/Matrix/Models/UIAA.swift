@@ -174,6 +174,7 @@ public struct TermsParams: UiaStageParams {
         public struct LocalizedPolicy: Codable {
             public var name: String
             public var url: URL
+            public var markdown: URL
         }
         
         public var name: String
