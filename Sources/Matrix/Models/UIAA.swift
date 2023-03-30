@@ -174,7 +174,13 @@ public struct TermsParams: UiaStageParams {
         public struct LocalizedPolicy: Codable {
             public var name: String
             public var url: URL
-            public var markdown: URL
+            public var markdownUrl: URL
+            
+            enum CodingKeys: String, CodingKey {
+                case name
+                case url
+                case markdownUrl = "markdown_url"
+            }
         }
         
         public var name: String
