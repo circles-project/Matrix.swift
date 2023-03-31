@@ -437,10 +437,10 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
 
     // MARK: BS-SPEKE protocol support
     
-    // NOTE: The ..OPRF.. functions are *almost* but not exactly duplicates of those in the SignupSession and LoginSession.
+    // NOTE: The ..OPRF.. functions for Signup and Login are *almost* but not exactly duplicates of each other.
     //       The SignupSession needs a userId:password: version of the Enroll OPRF,
     //       because it isn't logged in with a userId yet.
-    //       Below, the Login OPRF has the same thing for the LoginSession.
+    //       The LoginSession needs the same thing too, for the same reason.
     //       The "normal" UIAuthSession should always use the simple password: version when already logged in.
     public func doBSSpekeEnrollOprfStage(password: String) async throws {
         guard let userId = self.creds?.userId else {
@@ -487,7 +487,6 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         return array
     }
     
-    // OK this one *is* exactly the same as in SignupSession
     public func doBSSpekeEnrollSaveStage() async throws {
         // Need to send
         // V, our long-term public key (from "verifier"?  Although here the actual verifiers are hashes.)
