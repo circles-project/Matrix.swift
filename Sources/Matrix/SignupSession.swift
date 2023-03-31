@@ -141,41 +141,6 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
         try await doUIAuthStage(auth: tokenAuthDict)
     }
     
-    // MARK: (New) Email stages
-    
-    public func doEmailRequestTokenStage(email: String) async throws -> String? {
-
-        guard _looksLikeValidEmail(userInput: email) == true
-        else {
-            let msg = "Invalid email address"
-            print("Email signup Error: \(msg)")
-            throw Matrix.Error(msg)
-        }
-        
-        let clientSecretNumber = UInt64.random(in: 0 ..< UInt64.max)
-        let clientSecret = String(format: "%016x", clientSecretNumber)
-        
-        let emailAuthDict: [String: String] = [
-            "type": AUTH_TYPE_ENROLL_EMAIL_REQUEST_TOKEN,
-            "email": email,
-            "client_secret": clientSecret,
-        ]
-        
-        // FIXME: We need to know if this succeeded or failed
-        try await doUIAuthStage(auth: emailAuthDict)
-        
-        return clientSecret
-    }
-    
-    public func doEmailSubmitTokenStage(token: String, secret: String) async throws {
-        let emailAuthDict: [String: String] = [
-            "type": AUTH_TYPE_ENROLL_EMAIL_SUBMIT_TOKEN,
-            "token": token,
-            "client_secret": secret,
-        ]
-        try await doUIAuthStage(auth: emailAuthDict)
-    }
-    
         
     // MARK: Apple Subscriptions
     
