@@ -183,7 +183,7 @@ public class Client {
         let (_,_) = try await call(method: "PUT",
                                    path: "_matrix/client/\(version)/profile/\(creds.userId)/avatar_url",
                                    body: [
-                                     "avatar_url": mxc,
+                                     "avatar_url": "\(mxc)",
                                    ])
     }
     
