@@ -533,9 +533,8 @@ public class Client {
     ) async throws -> EventId {
         print("SENDSTATE\tSending state event of type [\(type)] to room [\(roomId)]")
         
-        let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
         let (data, response) = try await call(method: "PUT",
-                                              path: "/_matrix/client/\(version)/rooms/\(roomId)/state/\(type)/\(stateKey)/\(txnId)",
+                                              path: "/_matrix/client/\(version)/rooms/\(roomId)/state/\(type)/\(stateKey)",
                                               body: content)
         struct ResponseBody: Codable {
             var eventId: EventId
