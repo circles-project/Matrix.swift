@@ -21,7 +21,7 @@ public let AUTH_TYPE_LEGACY_EMAIL = "m.login.email.identity"
 
 
 public class SignupSession: UIAuthSession<Matrix.Credentials> {
-    public let domain: String
+    //public let domain: String // Moved this into the storage
     //public let deviceId: String?
     //public let initialDeviceDisplayName: String?
     //public let inhibitLogin = false
@@ -64,7 +64,6 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
                 inhibitLogin: Bool = false,
                 completion: ((Matrix.Credentials) async throws -> Void)? = nil
     ) async throws {
-        self.domain = domain
         
         guard let signupURL = URL(string: "/_matrix/client/v3/register", relativeTo: homeserver)
         else {
@@ -96,6 +95,8 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
         }
 
         super.init(method: "POST", url: signupURL, requestDict: requestDict, completion: completion)
+        
+        self.storage["domain"] = domain
     }
     
     // MARK: Username
