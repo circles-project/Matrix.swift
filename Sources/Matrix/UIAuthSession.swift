@@ -41,6 +41,7 @@ public protocol UIASession {
     func doBSSpekeEnrollOprfStage(password: String) async throws
     func doBSSpekeEnrollSaveStage() async throws
     
+    func doBSSpekeLoginOprfStage(userId: UserId, password: String) async throws
     func doBSSpekeLoginOprfStage(password: String) async throws
     func doBSSpekeLoginVerifyStage() async throws
 }
@@ -548,7 +549,7 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
     //       here we also need a userId:password: version of the Login OPRF for the LoginSession.
     //       The "normal" UIAuthSession should always use the simple password: version when already logged in.
     public func doBSSpekeLoginOprfStage(password: String) async throws {
-        guard let userId = self.creds?.userId
+        guard let userId = self.creds?.userId ?? self.storage["userId"] as? UserId
         else {
             let msg = "Couldn't find user id for BS-SPEKE login"
             print(msg)

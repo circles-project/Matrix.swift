@@ -65,7 +65,7 @@ public class LoginSession: UIAuthSession<Matrix.Credentials> {
     ) async throws {
         let version = "v3"
         let urlPath = "/_matrix/client/\(version)/login"
-        let wellknown = try await Matrix.fetchWellKnown(for: self.userId.domain)
+        let wellknown = try await Matrix.fetchWellKnown(for: userId.domain)
         
         guard let url = URL(string: wellknown.homeserver.baseUrl + urlPath) else {
             throw Matrix.Error("Couldn't construct /login URL")
