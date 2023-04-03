@@ -33,7 +33,16 @@ public protocol UIASession {
     func doUIAuthStage(auth: [String:Codable]) async throws
     
     func doTermsStage() async throws
+ 
+    func doEmailRequestTokenStage(email: String) async throws -> String?
+    func doEmailSubmitTokenStage(token: String, secret: String) async throws
     
+    func doBSSpekeEnrollOprfStage(userId: UserId, password: String) async throws
+    func doBSSpekeEnrollOprfStage(password: String) async throws
+    func doBSSpekeEnrollSaveStage() async throws
+    
+    func doBSSpekeLoginOprfStage(password: String) async throws
+    func doBSSpekeLoginVerifyStage() async throws
 }
 
 public let AUTH_TYPE_ENROLL_BSSPEKE_OPRF = "m.enroll.bsspeke-ecc.oprf"
