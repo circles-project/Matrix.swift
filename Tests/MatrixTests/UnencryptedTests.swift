@@ -72,7 +72,8 @@ final class UnencryptedTests: XCTestCase {
             }
         }
         
-        guard case let .finished(creds) = session.state
+        guard case let .finished(codableCreds) = session.state,
+              let creds = codableCreds as? Matrix.Credentials
         else {
             throw "UIA is not finished"
         }

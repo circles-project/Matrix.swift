@@ -10,12 +10,19 @@ import AnyCodable
 import BlindSaltSpeke
 
 @available(macOS 12.0, *)
+
+public enum UIASessionState {
+    case notConnected
+    case connected(UIAA.SessionState)
+    case inProgress(UIAA.SessionState,[String])
+    case finished(Codable)
+}
+
 public protocol UIASession {
-    associatedtype T: Codable
     
     var url: URL { get }
     
-    var state: UIAuthSession<T>.State { get }
+    var state: UIASessionState { get }
     
     var sessionId: String? { get }
     
@@ -45,19 +52,12 @@ public let AUTH_TYPE_LOGIN_EMAIL_SUBMIT_TOKEN = "m.login.email.submit_token"
 
 @available(macOS 12.0, *)
 public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
-        
-    public enum State {
-        case notConnected
-        case connected(UIAA.SessionState)
-        case inProgress(UIAA.SessionState,[String])
-        case finished(T)
-    }
     
     public let url: URL
     public let method: String
     //public let accessToken: String? // FIXME: Make this MatrixCredentials ???
     public let creds: Matrix.Credentials?
-    @Published public var state: State
+    @Published public var state: UIASessionState
     public var realRequestDict: [String:Codable] // The JSON fields for the "real" request behind the UIA protection
     public var storage = [String: Any]() // For holding onto data between requests, like we do on the server side
     

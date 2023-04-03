@@ -111,7 +111,8 @@ final class MatrixTests: XCTestCase {
             }
         }
         
-        guard case let .finished(creds) = session.state
+        guard case let .finished(codableCreds) = session.state,
+              let creds = codableCreds as? Matrix.Credentials
         else {
             throw "UIA is not finished"
         }
@@ -204,7 +205,8 @@ final class MatrixTests: XCTestCase {
         }
         
         // Get creds
-        guard case let .finished(creds) = authSession.state
+        guard case let .finished(codableCreds) = authSession.state,
+              let creds = codableCreds as? Matrix.Credentials
         else {
             throw "UIA is not finished"
         }
