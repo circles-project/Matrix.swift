@@ -9,7 +9,6 @@ import Foundation
 import AnyCodable
 
 public class LoginSession: UIAuthSession<Matrix.Credentials> {
-    public let userId: UserId
     
     public struct LoginRequestBody: Codable {
         public struct Identifier: Codable {
@@ -66,7 +65,6 @@ public class LoginSession: UIAuthSession<Matrix.Credentials> {
     ) async throws {
         let version = "v3"
         let urlPath = "/_matrix/client/\(version)/login"
-        self.userId = userId
         let wellknown = try await Matrix.fetchWellKnown(for: self.userId.domain)
         
         guard let url = URL(string: wellknown.homeserver.baseUrl + urlPath) else {
@@ -92,6 +90,8 @@ public class LoginSession: UIAuthSession<Matrix.Credentials> {
         }
         
         super.init(method: "POST", url: url, requestDict: args, completion: completion)
+        
+        self.storage["userId"] = userId
     }
     
     public convenience init(username: String,
