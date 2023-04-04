@@ -20,8 +20,10 @@ final class EncryptedTests: XCTestCase {
     
     // Use the local Synapse development environment, or a local Conduit, for the tests.
     // Maintaining a public-facing test homeserver that offers registration is getting to be too much of a pain
-    let homeserver = URL(string: "http://localhost:6167")!
-    let domain = "localhost:6167"
+    //let homeserver = URL(string: "http://localhost:6167")!
+    //let domain = "localhost:6167"
+    let homeserver = URL(string: "https://matrix.us.circles-dev.net")!
+    let domain = "us.circles-dev.net"
     //let homeserver = URL(string: "http://localhost:8080")!
     //let domain = "localhost:8480"
     var registerLogger = os.Logger(subsystem: "EncryptedTests", category: "register")
@@ -33,6 +35,9 @@ final class EncryptedTests: XCTestCase {
         let supportedAuthTypes = [
             AUTH_TYPE_TERMS,
             AUTH_TYPE_DUMMY,
+            AUTH_TYPE_ENROLL_USERNAME,
+            AUTH_TYPE_ENROLL_BSSPEKE_OPRF,
+            AUTH_TYPE_ENROLL_BSSPEKE_SAVE,
         ]
         
         let r = Int.random(in: 0..<5000)
@@ -40,7 +45,7 @@ final class EncryptedTests: XCTestCase {
         //logger.debug("Username: \(username)")
         let password = String(format: "%0llx", UInt64.random(in: UInt64.min...UInt64.max))
         //logger.debug("Password: \(password)")
-        let session = try await SignupSession(domain: domain, homeserver: homeserver, username: username, password: password)
+        let session = try await SignupSession(domain: domain, homeserver: homeserver)
         try await session.connect()
         XCTAssertNotNil(session.sessionState)
         let uiaState = session.sessionState!
@@ -74,6 +79,12 @@ final class EncryptedTests: XCTestCase {
                 try await session.doDummyAuthStage()
             case AUTH_TYPE_TERMS:
                 try await session.doTermsStage()
+            case AUTH_TYPE_ENROLL_USERNAME:
+                try await session.doUsernameStage(username: username)
+            case AUTH_TYPE_ENROLL_BSSPEKE_OPRF:
+                try await session.doBSSpekeEnrollOprfStage(userId: UserId("@\(username):\(domain)")!, password: password)
+            case AUTH_TYPE_ENROLL_BSSPEKE_SAVE:
+                try await session.doBSSpekeEnrollSaveStage()
             default:
                 //logger.debug("Unknown stage [\(stage)]")
                 throw "Unknown stage [\(stage)]"
