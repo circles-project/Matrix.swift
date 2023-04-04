@@ -69,14 +69,10 @@ extension Matrix {
             // See https://docs.swift.org/swift-book/documentation/the-swift-programming-language/initialization/#Two-Phase-Initialization
             // Now we can call instance functions
             
-            let initialMessages = initialTimeline.map {
-                Matrix.Message(event: $0, room: self)
+            self.timeline = [:]
+            for event in initialTimeline {
+                self.timeline[event.eventId] = Matrix.Message(event: event, room: self)
             }
-            self.timeline = .init(uniqueKeysWithValues: initialMessages
-                .map {
-                    ($0.eventId, $0)
-                }
-            )
         }
         
         // MARK: Timeline
