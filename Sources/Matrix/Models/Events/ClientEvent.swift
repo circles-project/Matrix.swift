@@ -50,17 +50,35 @@ public struct ClientEvent: Matrix.Event, Codable {
     }
     
     public init(from decoder: Decoder) throws {
+        Matrix.logger.debug("Decoding ClientEvent")
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
-        self.eventId = try container.decode(String.self, forKey: .eventId)
-        self.originServerTS = try container.decode(UInt64.self, forKey: .originServerTS)
-        self.roomId = try container.decode(RoomId.self, forKey: .roomId)
-        self.sender = try container.decode(UserId.self, forKey: .sender)
-        self.stateKey = try? container.decode(String.self, forKey: .stateKey)
-        self.type = try container.decode(String.self, forKey: .type)
-        self.unsigned = try? container.decode(UnsignedData.self, forKey: .unsigned)
+        let eventId = try container.decode(String.self, forKey: .eventId)
+        Matrix.logger.debug("\teventId = \(eventId)")
+        self.eventId = eventId
         
+        self.originServerTS = try container.decode(UInt64.self, forKey: .originServerTS)
+        Matrix.logger.debug("\toriginserverTs")
+
+        self.roomId = try container.decode(RoomId.self, forKey: .roomId)
+        Matrix.logger.debug("\troomid")
+
+        self.sender = try container.decode(UserId.self, forKey: .sender)
+        Matrix.logger.debug("\tsender")
+
+        self.stateKey = try container.decodeIfPresent(String.self, forKey: .stateKey)
+        Matrix.logger.debug("\tstateKey")
+
+        let type = try container.decode(String.self, forKey: .type)
+        Matrix.logger.debug("\ttype = \(type)")
+        self.type = type
+
+        self.unsigned = try container.decodeIfPresent(UnsignedData.self, forKey: .unsigned)
+        Matrix.logger.debug("\tunsigned")
+
         self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
+        Matrix.logger.debug("\tcontent")
+
     }
     
     public func encode(to encoder: Encoder) throws {
