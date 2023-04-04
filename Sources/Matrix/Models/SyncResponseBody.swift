@@ -19,12 +19,12 @@ extension Matrix {
         }
         
         public init(from decoder: Decoder) throws {
-            //logger.debug("Decoding account data event")
+            logger.debug("Decoding account data event")
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
             let type = try container.decode(String.self, forKey: .type)
             self.type = type
-            //logger.debug("\tGot type = \(type)")
+            logger.debug("\tAccount data event type = \(type)")
             self.content = try Matrix.decodeAccountData(of: self.type, from: decoder)
         }
     }

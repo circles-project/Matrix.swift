@@ -179,10 +179,12 @@ extension Matrix {
         enum CodingKeys: String, CodingKey {
             case content
         }
+        logger.debug("Matrix decoding Account Data content of type \(dataType)")
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
         if let codableType = accountDataTypes[dataType] {
             let content = try container.decode(codableType.self, forKey: .content)
+            logger.debug("Matrix decoded content of type \(codableType)")
             return content
         }
         
@@ -190,12 +192,14 @@ extension Matrix {
             guard let keyId = dataType.split(separator: ".").last
             else {
                 let msg = "Couldn't get key id for \(M_SECRET_STORAGE_KEY)"
-                print(msg)
+                logger.error("Couldn't get key id for \(M_SECRET_STORAGE_KEY)")
                 throw Matrix.Error(msg)
             }
-            throw Matrix.Error("Not implemented")
+            logger.error("Account Data type \(M_SECRET_STORAGE_KEY) is not implemented")
+            throw Matrix.Error("Account Data type \(M_SECRET_STORAGE_KEY) is not implemented")
         }
         
+        logger.error("Cannot decode unknown account data type \(dataType)")
         throw Matrix.Error("Cannot decode unknown account data type \(dataType)")
     }
 
