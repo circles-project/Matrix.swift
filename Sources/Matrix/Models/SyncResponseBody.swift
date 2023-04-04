@@ -173,31 +173,31 @@ extension Matrix {
         }
         
         public init(from decoder: Decoder) throws {
-            //logger.debug("Decoding /sync response")
+            logger.debug("Decoding /sync response")
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
-            //logger.debug("\tAccount data")
+            logger.debug("\tAccount data")
             self.accountData = try container.decodeIfPresent(AccountData.self, forKey: .accountData)
             
-            //logger.debug("\tDevice lists")
+            logger.debug("\tDevice lists")
             self.deviceLists = try container.decodeIfPresent(DeviceLists.self, forKey: .deviceLists)
             
-            //logger.debug("\tDevice one-time keys count")
+            logger.debug("\tDevice one-time keys count")
             self.deviceOneTimeKeysCount = try container.decodeIfPresent(OneTimeKeysCount.self, forKey: .deviceOneTimeKeysCount)
             
-            //logger.debug("\tDevice unused fallback key types")
+            logger.debug("\tDevice unused fallback key types")
             self.deviceUnusedFallbackKeyTypes = try container.decodeIfPresent([String].self, forKey: .deviceUnusedFallbackKeyTypes)
             
-            //logger.debug("\tNext batch")
+            logger.debug("\tNext batch")
             self.nextBatch = try container.decode(String.self, forKey: .nextBatch)
             
-            //logger.debug("\tPresence")
+            logger.debug("\tPresence")
             self.presence = try container.decodeIfPresent(Presence.self, forKey: .presence)
             
-            //logger.debug("\tRooms")
+            logger.debug("\tRooms")
             self.rooms = try container.decodeIfPresent(Rooms.self, forKey: .rooms)
             
-            //logger.debug("\tTo-Device")
+            logger.debug("\tTo-Device")
             self.toDevice = try container.decodeIfPresent(ToDevice.self, forKey: .toDevice)
         }
     }
