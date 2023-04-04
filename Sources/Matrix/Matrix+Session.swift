@@ -639,8 +639,13 @@ extension Matrix {
         }
         
         
-        public func getRoom<T: Matrix.Room>(roomId: RoomId, as: T.Type = Matrix.Room.self) async throws -> T? {
+        public func getRoom<T: Matrix.Room>(roomId: RoomId,
+                                            as type: T.Type = Matrix.Room.self
+        ) async throws -> T? {
+            let tag = "getRoom(\(roomId)))"
+            logger.debug("\(tag)\tStarting")
             if let existingRoom = self.rooms[roomId] as? T {
+                logger.debug("\(tag)\tFound room in the cache.  Done.")
                 return existingRoom
             }
             
@@ -649,9 +654,13 @@ extension Matrix {
             
             // Do we have this room in our data store?
             if let store = self.dataStore {
+                logger.debug("\(tag)\tLoading room from data store")
                 let events = try await store.loadEssentialState(for: roomId)
+                logger.debug("\(tag)\tLoaded \(events.count) events")
                 if events.count > 0 {
+                    logger.debug("\(tag)\tConstructing the room")
                     if let room = try? T(roomId: roomId, session: self, initialState: events) {
+                        logger.debug("\(tag)\tAdding new room to the cache")
                         await MainActor.run {
                             self.rooms[roomId] = room
                         }
@@ -661,13 +670,19 @@ extension Matrix {
             }
             
             // Ok we didn't have the room state cached locally
+            logger.debug("\(tag)\tFailed to load from data store")
             // Maybe the server knows about this room?
+            logger.debug("\(tag)\tAsking the server")
             let events = try await getRoomStateEvents(roomId: roomId)
+            logger.debug("\(tag)\tGot \(events.count) events from the server")
             if let room = try? T(roomId: roomId, session: self, initialState: events, initialTimeline: []) {
+                logger.debug("\(tag)\tCreated room.  Adding to cache.")
                 await MainActor.run {
                     self.rooms[roomId] = room
                 }
                 return room
+            } else {
+                logger.error("\(tag)\tFailed to create room from the server's state events")
             }
             
             // Looks like we got nothing
