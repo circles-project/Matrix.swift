@@ -642,7 +642,7 @@ extension Matrix {
         public func getRoom<T: Matrix.Room>(roomId: RoomId,
                                             as type: T.Type = Matrix.Room.self
         ) async throws -> T? {
-            let tag = "getRoom(\(roomId)))"
+            let tag = "getRoom(\(roomId))"
             logger.debug("\(tag)\tStarting")
             if let existingRoom = self.rooms[roomId] as? T {
                 logger.debug("\(tag)\tFound room in the cache.  Done.")
