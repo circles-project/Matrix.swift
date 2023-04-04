@@ -259,7 +259,9 @@ public struct GRDBDataStore: DataStore {
             M_SPACE_PARENT,
         ]
         let table = Table<ClientEvent>("state")
-        let request = table.filter(sql: "room_id='\(roomId)' AND type IN (\(eventTypes.map({"'\($0)'"}).joined(separator: ",")))")
+        //let query = "room_id='\(roomId)' AND type IN (\(eventTypes.map({"'\($0)'"}).joined(separator: ",")))"
+        let query = "room_id='\(roomId)'"
+        let request = table.filter(sql: query)
         let events = try await dbQueue.read { db in
             try request.fetchAll(db)
         }
