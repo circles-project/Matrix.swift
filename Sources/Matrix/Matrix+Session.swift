@@ -202,6 +202,8 @@ extension Matrix {
                 logger.debug("/sync:\t\(self.creds.userId) Token didn't change; Therefore no updates; Doing nothing")
                 self.syncRequestTask = nil
                 return syncToken
+            } else {
+                logger.debug("/sync:\t\(self.creds.userId) Got new sync token \(responseBody.nextBatch)")
             }
             
             // Track whether this sync was successful.  If not, we shouldn't advance the token.
@@ -236,7 +238,7 @@ extension Matrix {
             
             // Handle invites
             if let invitedRoomsDict = responseBody.rooms?.invite {
-                //logger.debug("/sync:\t\(invitedRoomsDict.count) invited rooms")
+                logger.debug("/sync:\t\(invitedRoomsDict.count) invited rooms")
                 for (roomId, info) in invitedRoomsDict {
                     logger.debug("/sync:\t\(self.creds.userId) Found invited room \(roomId)")
                     guard let events = info.inviteState?.events
@@ -254,7 +256,7 @@ extension Matrix {
                     //}
                 }
             } else {
-                //logger.debug("/sync:\tNo invited rooms")
+                logger.debug("/sync:\tNo invited rooms")
             }
             
             // Handle rooms where we're already joined
@@ -276,21 +278,21 @@ extension Matrix {
                         // Then save the state events that came in during the timeline
                         // We do both in a single call so it all happens in one transaction in the database
                         if !allStateEvents.isEmpty {
-                            //print("/sync:\tSaving state for room \(roomId)")
+                            logger.debug("/sync:\tSaving state for room \(roomId)")
                             try await store.saveState(events: allStateEvents, in: roomId)
                         }
                         if !timelineEvents.isEmpty {
                             // Save the whole timeline so it can be displayed later
-                            //print("/sync:\tSaving timeline for room \(roomId)")
+                            logger.debug("/sync:\tSaving timeline for room \(roomId)")
                             try await store.saveTimeline(events: timelineEvents, in: roomId)
                         }
                         
                         // Save the room summary with the latest timestamp
                         if let timestamp = roomTimestamp {
-                            //print("/sync:\tSaving timestamp for room \(roomId)")
+                            logger.debug("/sync:\tSaving timestamp for room \(roomId)")
                             try await store.saveRoomTimestamp(roomId: roomId, state: .join, timestamp: timestamp)
                         } else {
-                            //print("/sync:\tNo update to timestamp for room \(roomId)")
+                            logger.debug("/sync:\tNo update to timestamp for room \(roomId)")
                         }
                     }
                     
@@ -338,17 +340,17 @@ extension Matrix {
 
 
                     if let room = self.rooms[roomId] {
-                        print("\tWe know this room already")
-                        print("\t\(stateEvents.count) new state events")
-                        print("\t\(timelineEvents.count) new timeline events")
+                        logger.debug("\tWe know this room already")
+                        logger.debug("\t\(stateEvents.count) new state events")
+                        logger.debug("\t\(timelineEvents.count) new timeline events")
 
                         // Update the room with the latest data from `info`
                         await room.updateState(from: stateEvents)
                         try await room.updateTimeline(from: timelineEvents)
                         
                         if let unread = info.unreadNotifications {
-                            print("\t\(unread.notificationCount) notifications")
-                            print("\t\(unread.highlightCount) highlights")
+                            logger.debug("\t\(unread.notificationCount) notifications")
+                            logger.debug("\t\(unread.highlightCount) highlights")
                             room.notificationCount = unread.notificationCount
                             room.highlightCount = unread.highlightCount
                         }
@@ -359,40 +361,42 @@ extension Matrix {
                         // FIXME Also purge any stripped state that we had been storing for this room
                         
                         if let room = try? Matrix.Room(roomId: roomId, session: self, initialState: stateEvents+timelineStateEvents, initialTimeline: timelineEvents) {
-                            print("/sync:\t\(creds.userId) Initialized new Room object for \(roomId)")
+                            logger.debug("/sync:\t\(self.creds.userId) Initialized new Room object for \(roomId)")
                             await MainActor.run {
                                 self.rooms[roomId] = room
                             }
                         } else {
-                            print("/sync:\t\(creds.userId) Error: Failed to initialize Room object for \(roomId)")
+                            logger.debug("/sync:\t\(self.creds.userId) Error: Failed to initialize Room object for \(roomId)")
                         }
                     }
                 }
             } else {
-                //print("/sync:\tNo joined rooms")
+                logger.debug("/sync:\tNo joined rooms")
             }
             
             // Handle rooms that we've left
             if let leftRoomsDict = responseBody.rooms?.leave {
-                print("/sync:\t\(leftRoomsDict.count) left rooms")
+                logger.debug("/sync:\t\(leftRoomsDict.count) left rooms")
                 for (roomId, info) in leftRoomsDict {
-                    print("/sync:\tFound left room \(roomId)")
+                    logger.debug("/sync:\tFound left room \(roomId)")
                     // TODO: What should we do here?
                     // For now, just make sure these rooms are taken out of the other lists
                     invitations.removeValue(forKey: roomId)
                     rooms.removeValue(forKey: roomId)
                 }
             } else {
-                //print("/sync:\tNo left rooms")
+                logger.debug("/sync:\tNo left rooms")
             }
             
             // FIXME: Do something with AccountData
+            logger.debug("/sync:\t\(self.creds.userId) Skipping account data for now")
             
             // FIXME: Handle to-device messages
+            logger.debug("/sync:\t\(self.creds.userId) Skipping to-device messages for now")
 
 
             if success {
-                //print("/sync:\tUpdating sync token...  awaiting MainActor")
+                logger.debug("/sync:\t\(self.creds.userId) Updating sync token...  awaiting MainActor")
                 await MainActor.run {
                     //print("/sync:\tMainActor updating sync token to \(responseBody.nextBatch)")
                     self.syncToken = responseBody.nextBatch
