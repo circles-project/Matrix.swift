@@ -46,6 +46,8 @@ extension Matrix {
         private var backgroundSyncTask: Task<UInt,Swift.Error>? // FIXME use a TaskGroup
         private var backgroundSyncDelayMS: UInt64?
         
+        var syncLogger: os.Logger
+        
         private var ignoreUserIds: [UserId] {
             guard let content = self.accountData[M_IGNORED_USER_LIST] as? IgnoredUserListContent
             else {
@@ -62,6 +64,7 @@ extension Matrix {
         // Matrix Rust crypto
         private var crypto: MatrixSDKCrypto.OlmMachine
         private var cryptoQueue: TicketTaskQueue<Void>
+        var cryptoLogger: os.Logger
         
         // MARK: init
         
@@ -71,6 +74,9 @@ extension Matrix {
                     recoverySecretKey: Data? = nil, recoveryTimestamp: Data? = nil,
                     storageType: StorageType = .persistent(preserve: true)
         ) async throws {
+            
+            self.syncLogger = os.Logger(subsystem: "matrix", category: "sync \(creds.userId)")
+            self.cryptoLogger = os.Logger(subsystem: "matrix", category: "crypto \(creds.userId)")
             
             self.rooms = [:]
             self.invitations = [:]
@@ -135,10 +141,10 @@ extension Matrix {
                 while keepSyncing {
                     guard let token = try? await sync()
                     else {
-                        logger.warning("/sync:\t\(self.creds.userId) sync failed with token \(self.syncToken ?? "(none)")")
+                        syncLogger.warning("Sync failed with token \(self.syncToken ?? "(none)")")
                         continue
                     }
-                    logger.debug("/sync:\t\(self.creds.userId) got new sync token \(token ?? "(none)")")
+                    syncLogger.debug("Got new sync token \(token ?? "(none)")")
                     count += 1
                     if let delay = self.backgroundSyncDelayMS {
                         let nano = delay * 1000
@@ -154,6 +160,9 @@ extension Matrix {
         // So here we are defining its type explicitly.
         @Sendable
         private func syncRequestTaskOperation() async throws -> String? {
+            
+            var logger = self.syncLogger
+            
             // Following the Rust Crypto SDK example https://github.com/matrix-org/matrix-rust-sdk/blob/8ac7f88d22e2fa0ca96eba7239ba7ec08658552c/crates/matrix-sdk-crypto/src/lib.rs#L540
             // We first send any outbound messages from the crypto module before we actually call /sync
             try await cryptoQueue.run {
@@ -174,11 +183,11 @@ extension Matrix {
             let (data, response) = try await self.call(method: "GET", path: url, params: params)
             //logger.debug("User \(self.creds.userId) got sync response")
             
-            //let rawDataString = String(data: data, encoding: .utf8)
-            //print("\n\n\(rawDataString!)\n\n")
+            let rawDataString = String(data: data, encoding: .utf8)
+            print("\n\n\(rawDataString!)\n\n")
             
             guard response.statusCode == 200 else {
-                logger.error("/sync:\t\(self.creds.userId) Error: got HTTP \(response.statusCode) \(response.description)")
+                logger.error("\(self.creds.userId) Error: got HTTP \(response.statusCode) \(response.description)")
                 self.syncRequestTask = nil
                 //return self.syncToken
                 return nil
@@ -190,7 +199,7 @@ extension Matrix {
             else {
                 self.syncRequestTask = nil
                 let msg = "Could not decode /sync response"
-                logger.error("/sync:\t\(self.creds.userId) \(msg)")
+                logger.error("\(msg)")
                 throw Matrix.Error(msg)
             }
             
@@ -199,11 +208,11 @@ extension Matrix {
             // First thing to check: Did our sync token actually change?
             // Because if not, then we've already seen everything in this update
             if responseBody.nextBatch == self.syncToken {
-                logger.debug("/sync:\t\(self.creds.userId) Token didn't change; Therefore no updates; Doing nothing")
+                logger.debug("Token didn't change; Therefore no updates; Doing nothing")
                 self.syncRequestTask = nil
                 return syncToken
             } else {
-                logger.debug("/sync:\t\(self.creds.userId) Got new sync token \(responseBody.nextBatch)")
+                logger.debug("Got new sync token \(responseBody.nextBatch)")
             }
             
             // Track whether this sync was successful.  If not, we shouldn't advance the token.
@@ -211,11 +220,11 @@ extension Matrix {
             
             try await cryptoQueue.run {
                 // Send updates to the Rust crypto module
-                logger.debug("/sync:\t\(self.creds.userId) Updating Rust crypto module")
+                logger.debug("Updating Rust crypto module")
                 guard let decryptedToDeviceEventsString = try? self.updateCryptoAfterSync(responseBody: responseBody)
                 else {
                     success = false
-                    logger.error("/sync:\t\(self.creds.userId) Crypto update failed")
+                    logger.error("Crypto update failed")
                     return
                 }
                 // NOTE: If we want to track the Olm or Megolm sessions ourselves for debugging purposes,
@@ -223,14 +232,14 @@ extension Matrix {
                 //       plaintext of all the to-device events.
                 
                 // Send any requests from the crypto module
-                logger.debug("/sync:\t\(self.creds.userId) Querying crypto module for any new requests")
+                logger.debug("Querying crypto module for any new requests")
                 guard let cryptoRequests = try? self.crypto.outgoingRequests()
                 else {
                     // Don't set success to false here -- With the outgoing requests, we can always try again later
-                    logger.error("/sync:\t\(self.creds.userId) Failed to get outgoing crypto requests")
+                    logger.error("Failed to get outgoing crypto requests")
                     return
                 }
-                logger.debug("/sync:\t\(self.creds.userId) Sending \(cryptoRequests.count) crypto requests")
+                logger.debug("Sending \(cryptoRequests.count) crypto requests")
                 for request in cryptoRequests {
                     try await self.sendCryptoRequest(request: request)
                 }
@@ -238,9 +247,9 @@ extension Matrix {
             
             // Handle invites
             if let invitedRoomsDict = responseBody.rooms?.invite {
-                logger.debug("/sync:\t\(invitedRoomsDict.count) invited rooms")
+                logger.debug("Found \(invitedRoomsDict.count) invited rooms")
                 for (roomId, info) in invitedRoomsDict {
-                    logger.debug("/sync:\t\(self.creds.userId) Found invited room \(roomId)")
+                    logger.debug("Found invited room \(roomId)")
                     guard let events = info.inviteState?.events
                     else {
                         continue
@@ -256,14 +265,14 @@ extension Matrix {
                     //}
                 }
             } else {
-                logger.debug("/sync:\tNo invited rooms")
+                logger.debug("No invited rooms")
             }
             
             // Handle rooms where we're already joined
             if let joinedRoomsDict = responseBody.rooms?.join {
-                logger.debug("/sync:\t\(self.creds.userId) \(joinedRoomsDict.count) joined rooms")
+                logger.debug("Found \(joinedRoomsDict.count) joined rooms")
                 for (roomId, info) in joinedRoomsDict {
-                    logger.debug("/sync:\t\(self.creds.userId) Found joined room \(roomId)")
+                    logger.debug("Found joined room \(roomId)")
                     let stateEvents = info.state?.events ?? []
                     let timelineEvents = info.timeline?.events ?? []
                     let timelineStateEvents = timelineEvents.filter {
@@ -278,21 +287,21 @@ extension Matrix {
                         // Then save the state events that came in during the timeline
                         // We do both in a single call so it all happens in one transaction in the database
                         if !allStateEvents.isEmpty {
-                            logger.debug("/sync:\tSaving state for room \(roomId)")
+                            logger.debug("Saving state for room \(roomId)")
                             try await store.saveState(events: allStateEvents, in: roomId)
                         }
                         if !timelineEvents.isEmpty {
                             // Save the whole timeline so it can be displayed later
-                            logger.debug("/sync:\tSaving timeline for room \(roomId)")
+                            logger.debug("Saving timeline for room \(roomId)")
                             try await store.saveTimeline(events: timelineEvents, in: roomId)
                         }
                         
                         // Save the room summary with the latest timestamp
                         if let timestamp = roomTimestamp {
-                            logger.debug("/sync:\tSaving timestamp for room \(roomId)")
+                            logger.debug("Saving timestamp for room \(roomId)")
                             try await store.saveRoomTimestamp(roomId: roomId, state: .join, timestamp: timestamp)
                         } else {
-                            logger.debug("/sync:\tNo update to timestamp for room \(roomId)")
+                            logger.debug("No update to timestamp for room \(roomId)")
                         }
                     }
                     
@@ -311,7 +320,7 @@ extension Matrix {
                         $0.stateKey
                     }
                     if !leftUsers.isEmpty {
-                        logger.debug("CRYPTO:\t\(self.creds.userId) Discarding/invalidating old Megolm session for room \(roomId) because \(leftUsers.count) users have left")
+                        logger.debug("CRYPTO: Discarding/invalidating old Megolm session for room \(roomId) because \(leftUsers.count) users have left")
                         try await cryptoQueue.run {
                             try self.crypto.discardRoomKey(roomId: "\(roomId)")
                         }
@@ -332,7 +341,7 @@ extension Matrix {
                         $0.stateKey
                     }
                     if !newUsers.isEmpty {
-                        logger.debug("\t\(self.creds.userId) Updating crypto state with \(newUsers.count) potentially-new users")
+                        logger.debug("Updating crypto state with \(newUsers.count) potentially-new users")
                         try await cryptoQueue.run {
                             try self.crypto.updateTrackedUsers(users: newUsers)
                         }
@@ -340,20 +349,17 @@ extension Matrix {
 
 
                     if let room = self.rooms[roomId] {
-                        logger.debug("\tWe know this room already")
-                        logger.debug("\t\(stateEvents.count) new state events")
-                        logger.debug("\t\(timelineEvents.count) new timeline events")
+                        logger.debug("\tWe know this room already: \(stateEvents.count) new state events, \(timelineEvents.count) new timeline events")
 
                         // Update the room with the latest data from `info`
                         await room.updateState(from: stateEvents)
                         try await room.updateTimeline(from: timelineEvents)
                         
                         if let unread = info.unreadNotifications {
-                            logger.debug("\t\(unread.notificationCount) notifications")
-                            logger.debug("\t\(unread.highlightCount) highlights")
+                            logger.debug("\t\(unread.notificationCount) notifications, \(unread.highlightCount) highlights")
                             //room.notificationCount = unread.notificationCount
                             //room.highlightCount = unread.highlightCount
-                            try await room.updateUnreadCounts(notifications: unread.notificationCount, highlights: unread.highlightCount)
+                            await room.updateUnreadCounts(notifications: unread.notificationCount, highlights: unread.highlightCount)
                         }
                         
                     } else {
@@ -362,42 +368,42 @@ extension Matrix {
                         // FIXME Also purge any stripped state that we had been storing for this room
                         
                         if let room = try? Matrix.Room(roomId: roomId, session: self, initialState: stateEvents+timelineStateEvents, initialTimeline: timelineEvents) {
-                            logger.debug("/sync:\t\(self.creds.userId) Initialized new Room object for \(roomId)")
+                            logger.debug("Initialized new Room object for \(roomId)")
                             await MainActor.run {
                                 self.rooms[roomId] = room
                             }
                         } else {
-                            logger.debug("/sync:\t\(self.creds.userId) Error: Failed to initialize Room object for \(roomId)")
+                            logger.error("Failed to initialize Room object for \(roomId)")
                         }
                     }
                 }
             } else {
-                logger.debug("/sync:\tNo joined rooms")
+                logger.debug("No joined rooms")
             }
             
             // Handle rooms that we've left
             if let leftRoomsDict = responseBody.rooms?.leave {
-                logger.debug("/sync:\t\(leftRoomsDict.count) left rooms")
+                logger.debug("Found \(leftRoomsDict.count) left rooms")
                 for (roomId, info) in leftRoomsDict {
-                    logger.debug("/sync:\tFound left room \(roomId)")
+                    logger.debug("Found left room \(roomId)")
                     // TODO: What should we do here?
                     // For now, just make sure these rooms are taken out of the other lists
                     invitations.removeValue(forKey: roomId)
                     rooms.removeValue(forKey: roomId)
                 }
             } else {
-                logger.debug("/sync:\tNo left rooms")
+                logger.debug("No left rooms")
             }
             
             // FIXME: Do something with AccountData
-            logger.debug("/sync:\t\(self.creds.userId) Skipping account data for now")
+            logger.debug("Skipping account data for now")
             
             // FIXME: Handle to-device messages
-            logger.debug("/sync:\t\(self.creds.userId) Skipping to-device messages for now")
+            logger.debug("Skipping to-device messages for now")
 
 
             if success {
-                logger.debug("/sync:\t\(self.creds.userId) Updating sync token...  awaiting MainActor")
+                logger.debug("Updating sync token...  awaiting MainActor")
                 await MainActor.run {
                     //print("/sync:\tMainActor updating sync token to \(responseBody.nextBatch)")
                     self.syncToken = responseBody.nextBatch
@@ -415,7 +421,7 @@ extension Matrix {
             //print("/sync:\t\(creds.userId) Starting sync()  -- token is \(syncToken ?? "(none)")")
             // FIXME: Use a TaskGroup
             if let task = syncRequestTask {
-                logger.debug("/sync:\t\(self.creds.userId) is already syncing..  awaiting on the result")
+                syncLogger.debug("Already syncing..  awaiting on the result")
                 return try await task.value
             } else {
                 syncRequestTask = .init(priority: .background, operation: syncRequestTaskOperation)
@@ -426,13 +432,14 @@ extension Matrix {
         // MARK: Crypto
         
         private func updateCryptoAfterSync(responseBody: SyncResponseBody) throws -> String {
+            var logger = self.syncLogger
             var eventsListString = "[]"
             if let toDevice = responseBody.toDevice {
                 let events = toDevice.events
                 let encoder = JSONEncoder()
                 let eventsData = try encoder.encode(events)
                 eventsListString = String(data: eventsData, encoding: .utf8)!
-                logger.debug("/sync:\t\(self.creds.userId) Sending \(events.count) to-device event to Rust crypto module:   \(eventsListString)")
+                logger.debug("Sending \(events.count) to-device event to Rust crypto module:   \(eventsListString)")
             }
             let eventsString = "{\"events\": \(eventsListString)}"
             // Ugh we have to translate the device lists back to raw String's
@@ -440,31 +447,32 @@ extension Matrix {
                 changed: responseBody.deviceLists?.changed?.map { $0.description } ?? [],
                 left: responseBody.deviceLists?.left?.map { $0.description } ?? []
             )
-            logger.debug("/sync:\t\(self.creds.userId) \(deviceLists.changed.count) Changed devices")
-            logger.debug("/sync:\t\(self.creds.userId) \(deviceLists.left.count) Left devices")
-            logger.debug("/sync:\t\(self.creds.userId) \(responseBody.deviceOneTimeKeysCount?.keys.count ?? 0) device one-time keys")
+            logger.debug("\(deviceLists.changed.count) Changed devices")
+            logger.debug("\(deviceLists.left.count) Left devices")
+            logger.debug("\(responseBody.deviceOneTimeKeysCount?.keys.count ?? 0) device one-time keys")
             if let dotkc = responseBody.deviceOneTimeKeysCount {
-                logger.debug("/sync:\t\(self.creds.userId)\t\(dotkc)")
+                logger.debug("\(dotkc)")
             }
-            logger.debug("/sync:\t\(self.creds.userId) \(responseBody.deviceUnusedFallbackKeyTypes?.count ?? 0) unused fallback keys")
+            logger.debug("\(responseBody.deviceUnusedFallbackKeyTypes?.count ?? 0) unused fallback keys")
 
             guard let result = try? self.crypto.receiveSyncChanges(events: eventsString,
                                                                    deviceChanges: deviceLists,
                                                                    keyCounts: responseBody.deviceOneTimeKeysCount ?? [:],
                                                                    unusedFallbackKeys: responseBody.deviceUnusedFallbackKeyTypes ?? [])
             else {
-                logger.debug("/sync:\t\(self.creds.userId) Crypto update failed")
+                logger.error("Crypto update failed")
                 throw Matrix.Error("Crypto update failed")
             }
-            logger.debug("/sync:\t\(self.creds.userId) Got response from Rust crypto: \(result)")
+            logger.debug("Got response from Rust crypto: \(result)")
             return result
         }
 
         func sendCryptoRequest(request: Request) async throws {
+            var logger = self.cryptoLogger
             switch request {
                 
             case .toDevice(requestId: let requestId, eventType: let eventType, body: let messagesString):
-                logger.debug("CRYPTO:\t\(self.creds.userId) Handling to-device request")
+                logger.debug("Handling to-device request")
                 let bodyString = "{\"messages\": \(messagesString)}"         // Redneck JSON encoding 🤘
                 let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
                 //let txnId = "\(UInt8.random(in: UInt8.min...UInt8.max))"
@@ -474,34 +482,36 @@ extension Matrix {
                                                            body: bodyString)
                 guard let responseBodyString = String(data: data, encoding: .utf8)
                 else {
+                    logger.error("Couldn't process /sendToDevice response")
                     throw Matrix.Error("Couldn't process /sendToDevice response")
                 }
-                logger.debug("CRYPTO:\t\(self.creds.userId) Marking to-device request as sent")
+                logger.debug("Marking to-device request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .toDevice,
                                                   response: responseBodyString)
                 
             case .keysUpload(requestId: let requestId, body: let bodyString):
-                logger.debug("CRYPTO:\t\(self.creds.userId) Handling keys upload request")
+                logger.debug("Handling keys upload request")
                 let (data, response) = try await self.call(method: "POST",
                                                            path: "/_matrix/client/v3/keys/upload",
                                                            body: bodyString)
                 guard let responseBodyString = String(data: data, encoding: .utf8)
                 else {
+                    logger.error("Couldn't process /keys/upload response")
                     throw Matrix.Error("Couldn't process /keys/upload response")
                 }
-                logger.debug("CRYPTO:\t\(self.creds.userId) Marking keys upload request as sent")
+                logger.debug("Marking keys upload request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .keysUpload,
                                                   response: responseBodyString)
             
             case .keysQuery(requestId: let requestId, users: let users):
-                logger.debug("CRYPTO:\t\(self.creds.userId) Handling keys query request")
+                logger.debug("Handling keys query request")
                 // poljar says the Rust code intentionally ignores the timeout and device id's here
                 // weird but ok whatever
                 var deviceKeys: [String: [String]] = .init()
                 for user in users {
-                    print("CRYPTO:\t\(creds.userId) Including user \(user) in keys query")
+                    logger.debug("Including user \(user) in keys query")
                     deviceKeys[user] = []
                 }
                 struct KeysQueryRequestBody: Codable {
@@ -519,15 +529,16 @@ extension Matrix {
                                                            body: requestBody)
                 guard let responseBodyString = String(data: data, encoding: .utf8)
                 else {
+                    logger.error("Couldn't process /keys/query response body")
                     throw Matrix.Error("Couldn't process /keys/query response body")
                 }
-                logger.debug("CRYPTO:\t\(self.creds.userId) Marking /keys/query response as sent")
+                logger.debug("Marking /keys/query response as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .keysQuery,
                                                   response: responseBodyString)
                 
             case .keysClaim(requestId: let requestId, oneTimeKeys: let oneTimeKeys):
-                logger.debug("CRYPTO:\t\(self.creds.userId) Handling keys claim request")
+                logger.debug("Handling keys claim request")
                 let (data, response) = try await self.call(method: "POST",
                                                            path: "/_matrix/client/v3/keys/claim",
                                                            body: [
@@ -535,15 +546,16 @@ extension Matrix {
                                                            ])
                 guard let responseBodyString = String(data: data, encoding: .utf8)
                 else {
+                    logger.error("Couldn't process /keys/claim response")
                     throw Matrix.Error("Couldn't process /keys/claim response")
                 }
-                logger.debug("CRYPTO:\t\(self.creds.userId) Marking /keys/claim response as sent")
+                logger.debug("Marking /keys/claim response as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .keysClaim,
                                                   response: responseBodyString)
                 
             case .keysBackup(requestId: let requestId, version: let backupVersion, rooms: let rooms):
-                logger.debug("CRYPTO:\t\(self.creds.userId) Handling keys backup request")
+                logger.debug("Handling keys backup request")
                 let path = "/_matrix/client/v3/room_keys/keys"
                 let params = [
                     "version": "\(backupVersion)"
@@ -556,15 +568,16 @@ extension Matrix {
                                                            body: requestBody)
                 guard let responseBodyString = String(data: data, encoding: .utf8)
                 else {
+                    logger.error("Couldn't process /room_keys/keys response")
                     throw Matrix.Error("Couldn't process /room_keys/keys response")
                 }
-                logger.debug("CRYPTO:\t\(self.creds.userId) Marking keys backup request as sent")
+                logger.debug("Marking keys backup request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .keysBackup,
                                                   response: responseBodyString)
                 
             case .roomMessage(requestId: let requestId, roomId: let roomId, eventType: let eventType, content: let content):
-                logger.debug("CRYPTO:\t\(self.creds.userId) Sending room message for the crypto SDK: type = \(eventType)")
+                logger.debug("Sending room message for the crypto SDK: type = \(eventType)")
                 // oof, looks like we need to decode the raw request string that the crypto sdk provided
                 // it's kind of a stupid round-trip through our decoders, but oh well...
                 let rawRequestData = content.data(using: .utf8)!
@@ -575,23 +588,25 @@ extension Matrix {
                                                            body: requestBody)
                 guard let responseBodyString = String(data: data, encoding: .utf8)
                 else {
+                    logger.error("Couldn't process /send/\(eventType) response")
                     throw Matrix.Error("Couldn't process /send/\(eventType) response")
                 }
-                logger.debug("CRYPTO:\t\(self.creds.userId) Marking room message request as sent")
+                logger.debug("Marking room message request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .roomMessage,
                                                   response: responseBodyString)
                 
             case .signatureUpload(requestId: let requestId, body: let requestBody):
-                logger.debug("CRYPTO:\t\(self.creds.userId) Handling signature upload request")
+                logger.debug("Handling signature upload request")
                 let (data, response) = try await self.call(method: "POST",
                                                            path: "/_matrix/client/v3/keys/signatures/upload",
                                                            body: requestBody)
                 guard let responseBodyString = String(data: data, encoding: .utf8)
                 else {
+                    logger.error("Couldn't process /keys/signatures/upload response")
                     throw Matrix.Error("Couldn't process /keys/signatures/upload response")
                 }
-                logger.debug("CRYPTO:\t\(self.creds.userId) Marking signature upload request as sent")
+                logger.debug("Marking signature upload request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .signatureUpload,
                                                   response: responseBodyString)
