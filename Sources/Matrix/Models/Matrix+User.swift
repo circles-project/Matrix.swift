@@ -36,6 +36,23 @@ extension Matrix {
             }
         }
         
+        public func fetchAvatarImage() async throws {
+            if let mxc = self.avatarUrl {
+                logger.debug("Fetching avatar for user \(self.userId) from \(mxc)")
+                guard let data = try? await self.session.downloadData(mxc: mxc)
+                else {
+                    logger.error("User \(self.userId) failed to download avatar from \(mxc)")
+                    return
+                }
+                let newAvatar = Matrix.NativeImage(data: data)
+                await MainActor.run {
+                    self.avatar = newAvatar
+                }
+            } else {
+                logger.debug("Can't fetch avatar for user \(self.userId) because we have no avatar_url")
+            }
+        }
+        
         public var isVerified: Bool {
             // FIXME: Query the crypto module and/or the server to find out whether we've verified this user
             false
