@@ -339,6 +339,20 @@ extension Matrix {
             try await self.session.setTopic(roomId: self.roomId, topic: newTopic)
         }
         
+        public func fetchAvatarImage() async throws {
+            if let mxc = self.avatarUrl {
+                guard let data = try? await self.session.downloadData(mxc: mxc)
+                else {
+                    logger.error("Room \(self.roomId) failed to download avatar from \(mxc)")
+                    return
+                }
+                let newAvatar = Matrix.NativeImage(data: data)
+                await MainActor.run {
+                    self.avatar = newAvatar
+                }
+            }
+        }
+        
         // MARK: Power levels
         
         public func setPowerLevel(userId: UserId, power: Int) async throws {
