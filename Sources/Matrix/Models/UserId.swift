@@ -145,3 +145,18 @@ extension KeyedDecodingContainer {
         return decodedDict
     }
 }
+
+extension KeyedEncodingContainer {
+    mutating func encode<T:Encodable>(_ dict: Dictionary<UserId,T>, forKey key: KeyedEncodingContainer<K>.Key) throws {
+        var subContainer: KeyedEncodingContainer<UserId> = self.nestedContainer(keyedBy: UserId.self, forKey: key)
+        for (k,v) in dict {
+            try subContainer.encode(v, forKey: k)
+        }
+    }
+    
+    mutating func encodeIfPresent<T:Encodable>(_ dict: Dictionary<UserId,T>?, forKey key: KeyedEncodingContainer<K>.Key) throws {
+        if let d = dict {
+            try self.encode(d, forKey: key)
+        }
+    }
+}
