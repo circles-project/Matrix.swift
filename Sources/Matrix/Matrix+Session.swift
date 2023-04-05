@@ -351,8 +351,9 @@ extension Matrix {
                         if let unread = info.unreadNotifications {
                             logger.debug("\t\(unread.notificationCount) notifications")
                             logger.debug("\t\(unread.highlightCount) highlights")
-                            room.notificationCount = unread.notificationCount
-                            room.highlightCount = unread.highlightCount
+                            //room.notificationCount = unread.notificationCount
+                            //room.highlightCount = unread.highlightCount
+                            try await room.updateUnreadCounts(notifications: unread.notificationCount, highlights: unread.highlightCount)
                         }
                         
                     } else {

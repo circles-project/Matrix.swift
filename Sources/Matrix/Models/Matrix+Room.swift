@@ -75,6 +75,14 @@ extension Matrix {
             }
         }
         
+        func updateUnreadCounts(notifications: Int, highlights: Int) async {
+            // Gotta run this on the main Actor because the vars are @Published, and will trigger an objectWillChange
+            await MainActor.run {
+                self.notificationCount = notifications
+                self.highlightCount = highlights
+            }
+        }
+        
         // MARK: Timeline
         
         open func updateTimeline(from events: [ClientEventWithoutRoomId]) async throws {
