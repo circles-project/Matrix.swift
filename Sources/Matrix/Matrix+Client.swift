@@ -790,9 +790,11 @@ public class Client {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/state"
         
         let (data, response) = try await call(method: "GET", path: path)
+
+        let stringResponse = String(data: data, encoding: .utf8)!
+        print("Got state events:\n\(stringResponse)")
         
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         let events = try decoder.decode([ClientEventWithoutRoomId].self, from: data)
         return events
     }
