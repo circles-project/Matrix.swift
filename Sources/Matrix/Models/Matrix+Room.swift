@@ -104,8 +104,13 @@ extension Matrix {
             guard !self.timeline.isEmpty
             else {
                 // No old events.  Start from scratch with the new stuff.
+                var tmpTimeline: OrderedDictionary<EventId,Matrix.Message> = [:]
+                for event in events {
+                    tmpTimeline[event.eventId] = Matrix.Message(event: event, room: self)
+                }
+                let newTimeline = tmpTimeline
                 await MainActor.run {
-                    self.timeline = .init(uniqueKeysWithValues: newKeysAndValues)
+                    self.timeline = newTimeline
                 }
                 return
             }

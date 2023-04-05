@@ -367,6 +367,7 @@ extension Matrix {
                         invitations.removeValue(forKey: roomId)
                         // FIXME Also purge any stripped state that we had been storing for this room
                         
+                        /*
                         if let room = try? Matrix.Room(roomId: roomId, session: self, initialState: stateEvents+timelineStateEvents, initialTimeline: timelineEvents) {
                             logger.debug("Initialized new Room object for \(roomId)")
                             await MainActor.run {
@@ -375,6 +376,7 @@ extension Matrix {
                         } else {
                             logger.error("Failed to initialize Room object for \(roomId)")
                         }
+                        */
                     }
                 }
             } else {

@@ -122,7 +122,7 @@ final class EncryptedTests: XCTestCase {
             session.rooms[roomId] != nil
         })
         
-        guard let room = session.rooms[roomId]
+        guard let room = try await session.getRoom(roomId: roomId)
         else {
             throw "Matrix session does not have room \(roomId)"
         }
@@ -155,12 +155,8 @@ final class EncryptedTests: XCTestCase {
         //let roomId = try await createEncryptedRoom(session: session, name: "testSendEncryptedMessage")
         let roomId = try await session.createRoom(name: "testSendEncryptedMessage", encrypted: true)
         print("✅ created room \(roomId)")
-
-        try await session.waitUntil {
-            session.rooms.keys.contains(roomId)
-        }
         
-        guard let room = session.rooms[roomId]
+        guard let room = try await session.getRoom(roomId: roomId)
         else {
             throw "Failed to get Matrix room \(roomId)"
         }
@@ -206,9 +202,7 @@ final class EncryptedTests: XCTestCase {
 
         let roomId = try await aliceSession.createRoom(name: "testEncryptedConversation", encrypted: true)
         print("✅ Alice created room \(roomId)")
-        try await aliceSession.waitUntil {
-            aliceSession.rooms.keys.contains(roomId)
-        }
+ 
         let roomA = try await aliceSession.getRoom(roomId: roomId)
         XCTAssertNotNil(roomA)
         guard let aliceRoom = roomA
@@ -256,11 +250,8 @@ final class EncryptedTests: XCTestCase {
         try await bobInvitedRoom.join()
         print("✅ Bob sent /join to the room")
 
-        try await bobSession.waitUntil {
-            bobSession.rooms.keys.contains(roomId)
-        }
         print("✅ Bob has the room in joined state")
-        let roomB = bobSession.rooms[roomId]
+        let roomB = try await bobSession.getRoom(roomId: roomId)
         XCTAssertNotNil(roomB)
         guard let bobRoom = roomB
         else {
