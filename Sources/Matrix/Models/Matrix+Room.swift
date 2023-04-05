@@ -341,6 +341,7 @@ extension Matrix {
         
         public func fetchAvatarImage() async throws {
             if let mxc = self.avatarUrl {
+                logger.debug("Fetching avatar for room \(self.roomId) from \(mxc)")
                 guard let data = try? await self.session.downloadData(mxc: mxc)
                 else {
                     logger.error("Room \(self.roomId) failed to download avatar from \(mxc)")
@@ -350,6 +351,8 @@ extension Matrix {
                 await MainActor.run {
                     self.avatar = newAvatar
                 }
+            } else {
+                logger.debug("Can't fetch avatar for room \(self.roomId) because we have no avatar_url")
             }
         }
         
