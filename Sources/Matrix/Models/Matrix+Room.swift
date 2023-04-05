@@ -33,6 +33,8 @@ extension Matrix {
         private var backwardToken: String?
         private var forwardToken: String?
         
+        private var fetchAvatarImageTask: Task<Void,Swift.Error>?
+        
         // MARK: init
         
         public required init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialTimeline: [ClientEventWithoutRoomId] = []) throws {
@@ -353,16 +355,22 @@ extension Matrix {
         
         public func fetchAvatarImage() async throws {
             if let mxc = self.avatarUrl {
-                logger.debug("Fetching avatar for room \(self.roomId) from \(mxc)")
-                guard let data = try? await self.session.downloadData(mxc: mxc)
-                else {
-                    logger.error("Room \(self.roomId) failed to download avatar from \(mxc)")
-                    return
-                }
-                let newAvatar = Matrix.NativeImage(data: data)
-                await MainActor.run {
-                    self.avatar = newAvatar
-                }
+                
+                self.fetchAvatarImageTask = self.fetchAvatarImageTask ?? .init(priority: .background, operation: {
+                    logger.debug("Fetching avatar for room \(self.roomId) from \(mxc)")
+                    guard let data = try? await self.session.downloadData(mxc: mxc)
+                    else {
+                        logger.error("Room \(self.roomId) failed to download avatar from \(mxc)")
+                        return
+                    }
+                    let newAvatar = Matrix.NativeImage(data: data)
+                    await MainActor.run {
+                        self.avatar = newAvatar
+                    }
+                    
+                    self.fetchAvatarImageTask = nil
+                })
+                
             } else {
                 logger.debug("Can't fetch avatar for room \(self.roomId) because we have no avatar_url")
             }
