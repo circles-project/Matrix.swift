@@ -153,6 +153,13 @@ extension Matrix {
             
             if event.type == M_ROOM_AVATAR {
                 // FIXME: Fetch the latest image
+                Task {
+                    do {
+                        try await fetchAvatarImage()
+                    } catch {
+                        logger.error("Failed to fetch avatar for room \(self.roomId)")
+                    }
+                }
             }
         }
         
