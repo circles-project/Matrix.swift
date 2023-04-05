@@ -41,10 +41,21 @@ public class Client {
         apiConfig.httpMaximumConnectionsPerHost = 4 // Default is 6 but we're getting some 429's from Synapse...
         self.apiUrlSession = URLSession(configuration: apiConfig)
         
+        // https://developer.apple.com/documentation/foundation/urlcache
+        let mediaCachePath = [
+            NSHomeDirectory(),
+            ".matrix",
+            Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift",
+            "\(creds.userId)",
+            "\(creds.deviceId)",
+            "media"
+        ].joined(separator: "/")
+        let mediaCacheDir = URL(filePath: mediaCachePath)
         let mediaConfig = URLSessionConfiguration.default
         mediaConfig.httpAdditionalHeaders = [
             "Authorization": "Bearer \(creds.accessToken)",
         ]
+        mediaConfig.urlCache = URLCache(memoryCapacity: 64*1024*1024, diskCapacity: 512*1024*1024, directory: mediaCacheDir)
         mediaConfig.requestCachePolicy = .returnCacheDataElseLoad
         self.mediaUrlSession = URLSession(configuration: mediaConfig)
         
