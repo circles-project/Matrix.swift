@@ -48,6 +48,26 @@ extension Matrix {
             public var join: [RoomId: JoinedRoomSyncInfo]?
             public var knock: [RoomId: KnockedRoomSyncInfo]?
             public var leave: [RoomId: LeftRoomSyncInfo]?
+            
+            public enum CodingKeys: CodingKey {
+                case invite
+                case join
+                case knock
+                case leave
+            }
+            
+            public init(from decoder: Decoder) throws {
+                logger.debug("Decoding Rooms")
+                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.Rooms.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.Rooms.CodingKeys.self)
+                logger.debug("invite")
+                self.invite = try container.decodeIfPresent([RoomId : Matrix.SyncResponseBody.InvitedRoomSyncInfo].self, forKey: Matrix.SyncResponseBody.Rooms.CodingKeys.invite)
+                logger.debug("join")
+                self.join = try container.decodeIfPresent([RoomId : Matrix.SyncResponseBody.JoinedRoomSyncInfo].self, forKey: Matrix.SyncResponseBody.Rooms.CodingKeys.join)
+                logger.debug("knock")
+                self.knock = try container.decodeIfPresent([RoomId : Matrix.SyncResponseBody.KnockedRoomSyncInfo].self, forKey: Matrix.SyncResponseBody.Rooms.CodingKeys.knock)
+                logger.debug("leave")
+                self.leave = try container.decodeIfPresent([RoomId : Matrix.SyncResponseBody.LeftRoomSyncInfo].self, forKey: Matrix.SyncResponseBody.Rooms.CodingKeys.leave)
+            }
         }
         
         public struct InvitedRoomSyncInfo: Decodable {
@@ -115,6 +135,32 @@ extension Matrix {
                 case timeline
                 case unreadNotifications = "unread_notifications"
                 case unreadThreadNotifications = "unread_thread_notifications"
+            }
+            
+            public init(from decoder: Decoder) throws {
+                logger.debug("Decoding JoinedRoomSyncInfo")
+                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.self)
+
+                logger.debug("Account Data")
+                self.accountData = try container.decodeIfPresent(Matrix.SyncResponseBody.AccountData.self, forKey: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.accountData)
+
+                logger.debug("Ephemeral")
+                self.ephemeral = try container.decodeIfPresent(Matrix.SyncResponseBody.Ephemeral.self, forKey: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.ephemeral)
+
+                logger.debug("State")
+                self.state = try container.decodeIfPresent(Matrix.SyncResponseBody.StateEventsContainer.self, forKey: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.state)
+
+                logger.debug("Summary")
+                self.summary = try container.decodeIfPresent(Matrix.SyncResponseBody.JoinedRoomSyncInfo.RoomSummary.self, forKey: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.summary)
+
+                logger.debug("Timeline")
+                self.timeline = try container.decodeIfPresent(Matrix.SyncResponseBody.Timeline.self, forKey: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.timeline)
+
+                logger.debug("Unread Notifications")
+                self.unreadNotifications = try container.decodeIfPresent(Matrix.SyncResponseBody.JoinedRoomSyncInfo.UnreadNotificationCounts.self, forKey: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.unreadNotifications)
+
+                logger.debug("Unread Thread Notifications")
+                self.unreadThreadNotifications = try container.decodeIfPresent([EventId : Matrix.SyncResponseBody.JoinedRoomSyncInfo.UnreadNotificationCounts].self, forKey: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.unreadThreadNotifications)
             }
         }
         
