@@ -65,15 +65,23 @@ struct StateEventRecord: Codable {
     }
     
     init(from decoder: Decoder) throws {
+        Matrix.logger.debug("Decoding a StateEventRecord")
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.roomId = try container.decode(RoomId.self, forKey: .roomId)
-        self.type = try container.decode(String.self, forKey: .type)
+        
+        let roomId = try container.decode(RoomId.self, forKey: .roomId)
+        Matrix.logger.debug("roomId = \(roomId)")
+        self.roomId = roomId
+        
+        let type = try container.decode(String.self, forKey: .type)
+        Matrix.logger.debug("type = \(type)")
+        self.type = type
+        
         self.stateKey = try container.decode(String.self, forKey: .stateKey)
         self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
         self.sender = try container.decode(UserId.self, forKey: .sender)
         self.eventId = try container.decode(String.self, forKey: .eventId)
         self.originServerTS = try container.decode(UInt64.self, forKey: .originServerTS)
-        self.unsigned = try container.decode(UnsignedData.self, forKey: .unsigned)
+        self.unsigned = try container.decodeIfPresent(UnsignedData.self, forKey: .unsigned)
     }
     
     func encode(to encoder: Encoder) throws {
@@ -85,7 +93,7 @@ struct StateEventRecord: Codable {
         try container.encode(self.sender, forKey: .sender)
         try container.encode(self.eventId, forKey: .eventId)
         try container.encode(self.originServerTS, forKey: .originServerTS)
-        try container.encode(self.unsigned, forKey: .unsigned)
+        try container.encodeIfPresent(self.unsigned, forKey: .unsigned)
     }
 }
 
