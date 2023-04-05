@@ -6,10 +6,10 @@ import PackageDescription
 let package = Package(
     name: "Matrix.swift",
     platforms: [
-        .iOS(.v15),
-        .tvOS(.v15),
-        .macCatalyst(.v15),
-        .macOS(.v12)
+        .iOS(.v16),
+        .tvOS(.v16),
+        .macCatalyst(.v16),
+        .macOS(.v13)
     ],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
