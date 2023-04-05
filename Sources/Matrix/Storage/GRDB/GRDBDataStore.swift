@@ -203,19 +203,28 @@ public struct GRDBDataStore: DataStore {
     public func loadEvents(for roomId: RoomId, of types: [String],
                            limit: Int = 25, offset: Int? = nil
     ) async throws -> [ClientEvent] {
-        let roomIdColumn = ClientEvent.Columns.roomId
-        let typeColumn = ClientEvent.Columns.type
-        let timestampColumn = ClientEvent.Columns.originServerTS
+        let roomIdColumn = StateEventRecord.Columns.roomId
+        let typeColumn = StateEventRecord.Columns.type
+        let timestampColumn = StateEventRecord.Columns.originServerTS
         
         let typeStrings = types.map { "\($0)" }
         
-        let events = try await dbQueue.read { db -> [ClientEvent] in
-            try ClientEvent
+        let records = try await dbQueue.read { db -> [StateEventRecord] in
+            try StateEventRecord
                 .filter(roomIdColumn == "\(roomId)")
                 .filter(typeStrings.contains(typeColumn))
                 .order(timestampColumn.desc)
                 .limit(limit, offset: offset)
                 .fetchAll(db)
+        }
+        let events = records.compactMap {
+            try? ClientEvent(content: $0.content,
+                             eventId: $0.eventId,
+                             originServerTS: $0.originServerTS,
+                             roomId: $0.roomId,
+                             sender: $0.sender,
+                             stateKey: $0.stateKey,
+                             type: $0.type)
         }
         return events
     }
@@ -224,17 +233,16 @@ public struct GRDBDataStore: DataStore {
                           limit: Int = 0,
                           offset: Int? = nil
     ) async throws -> [ClientEventWithoutRoomId] {
-        let roomIdColumn = ClientEvent.Columns.roomId
+        let roomIdColumn = StateEventRecord.Columns.roomId
         // let stateKeyColumn = ClientEvent.Columns.stateKey
-        let timestampColumn = ClientEvent.Columns.originServerTS
-        let table = Table<ClientEvent>("state")
-        let baseRequest = table.filter(roomIdColumn == "\(roomId)")
-                               .order(timestampColumn.desc)
+        let timestampColumn = StateEventRecord.Columns.originServerTS
+        let baseRequest = StateEventRecord.filter(roomIdColumn == "\(roomId)")
+                                        .order(timestampColumn.desc)
         let request = limit > 0 ? baseRequest.limit(limit, offset: offset) : baseRequest
-        let clientEvents = try await dbQueue.read { db -> [ClientEvent] in
+        let records = try await dbQueue.read { db -> [StateEventRecord] in
             try request.fetchAll(db)
         }
-        let events = clientEvents.compactMap {
+        let events = records.compactMap {
             try? ClientEventWithoutRoomId(content: $0.content,
                                           eventId: $0.eventId,
                                           originServerTS: $0.originServerTS,
@@ -246,7 +254,7 @@ public struct GRDBDataStore: DataStore {
     }
     
     public func loadEssentialState(for roomId: RoomId) async throws -> [ClientEventWithoutRoomId] {
-        let roomIdColumn = ClientEvent.Columns.roomId
+        let roomIdColumn = StateEventRecord.Columns.roomId
         let eventTypes = [
             M_ROOM_CREATE,
             M_ROOM_TOMBSTONE,
@@ -258,13 +266,12 @@ public struct GRDBDataStore: DataStore {
             M_SPACE_CHILD,
             M_SPACE_PARENT,
         ]
-        let table = Table<ClientEvent>("state")
         //let query = "room_id='\(roomId)' AND type IN (\(eventTypes.map({"'\($0)'"}).joined(separator: ",")))"
         /*
         let query = "room_id='\(roomId)'"
         let request = table.filter(sql: query)
         */
-        let request = table.filter(roomIdColumn == roomId)
+        let request = StateEventRecord.filter(roomIdColumn == roomId)
         let events = try await dbQueue.read { db in
             try request.fetchAll(db)
         }
