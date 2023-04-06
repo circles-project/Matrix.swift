@@ -106,7 +106,7 @@ extension Matrix {
                                          passphrase: nil)
             self.cryptoQueue = TicketTaskQueue<Void>()
 
-            try super.init(creds: creds)
+            try await super.init(creds: creds)
 
             // --------------------------------------------------------------------------------------------------------
             // Phase 1 init is done -- Now we can reference `self`
@@ -144,7 +144,7 @@ extension Matrix {
                         syncLogger.warning("Sync failed with token \(self.syncToken ?? "(none)")")
                         continue
                     }
-                    syncLogger.debug("Got new sync token \(token ?? "(none)")")
+                    syncLogger.debug("Got new sync token \(token)")
                     count += 1
                     if let delay = self.backgroundSyncDelayMS {
                         let nano = delay * 1000

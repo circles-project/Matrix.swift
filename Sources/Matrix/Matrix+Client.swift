@@ -26,10 +26,20 @@ public class Client {
     
     // MARK: Init
     
-    public init(creds: Matrix.Credentials) throws {
+    public init(creds: Matrix.Credentials) async throws {
         self.version = "v3"
         
-        self.creds = creds
+        if let wk = creds.wellKnown {
+            self.creds = creds
+            self.baseUrl = URL(string: wk.homeserver.baseUrl)!
+        } else {
+            let wk = try await Matrix.fetchWellKnown(for: creds.userId.domain)
+            self.creds = Matrix.Credentials(userId: creds.userId,
+                                            accessToken: creds.accessToken,
+                                            deviceId: creds.deviceId,
+                                            wellKnown: wk)
+            self.baseUrl = URL(string: wk.homeserver.baseUrl)!
+        }
         
         let apiConfig = URLSessionConfiguration.default
         apiConfig.httpAdditionalHeaders = [
@@ -58,15 +68,6 @@ public class Client {
         mediaConfig.urlCache = URLCache(memoryCapacity: 64*1024*1024, diskCapacity: 512*1024*1024, directory: mediaCacheDir)
         mediaConfig.requestCachePolicy = .returnCacheDataElseLoad
         self.mediaUrlSession = URLSession(configuration: mediaConfig)
-        
-        guard let wk = creds.wellKnown
-        else {
-            let msg = "Homeserver info is required to instantiate a Matrix API"
-            print(msg)
-            throw Matrix.Error(msg)
-        }
-        
-        self.baseUrl = URL(string: wk.homeserver.baseUrl)!
     }
     
     // MARK: API Call
