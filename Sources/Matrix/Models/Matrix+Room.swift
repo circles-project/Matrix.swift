@@ -359,10 +359,15 @@ extension Matrix {
         }
         
         public func updateAvatarImage() {
-            if let mxc = self.avatarUrl,
-               self.currentAvatarUrl != mxc
+            if let mxc = self.avatarUrl
             {
+                guard mxc != self.currentAvatarUrl
+                else {
+                    logger.debug("Room \(self.roomId) already has the latest avatar.  Done.")
+                    return
+                }
                 logger.debug("Room \(self.roomId) fetching avatar for from \(mxc)")
+
 
                 self.fetchAvatarImageTask = self.fetchAvatarImageTask ?? .init(priority: .background, operation: {
                     logger.debug("Room \(self.roomId) starting a new fetch task")
