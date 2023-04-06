@@ -82,7 +82,7 @@ extension Matrix {
             return content?.mimetype
         }
         
-        public lazy var timestamp: Date = Date(timeIntervalSince1970: TimeInterval(event.originServerTS))
+        public lazy var timestamp: Date = Date(timeIntervalSince1970: TimeInterval(event.originServerTS)/1000.0)
         
         public var relatesToId: EventId? {
             guard let content = event.content as? mTextContent
