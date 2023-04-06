@@ -138,12 +138,19 @@ extension Matrix {
             }
             backgroundSyncTask = .init(priority: .background) {
                 var count: UInt = 0
+                var failureCount: UInt = 0
                 while keepSyncing {
                     guard let token = try? await sync()
                     else {
                         syncLogger.warning("Sync failed with token \(self.syncToken ?? "(none)")")
+                        failureCount += 1
+                        if failureCount > 3 {
+                            keepSyncing = false
+                        }
+                        try await Task.sleep(for: .seconds(1))
                         continue
                     }
+                    failureCount = 0
                     syncLogger.debug("Got new sync token \(token)")
                     count += 1
                     if let delay = self.backgroundSyncDelayMS {
@@ -151,6 +158,7 @@ extension Matrix {
                         try await Task.sleep(nanoseconds: nano)
                     }
                 }
+                backgroundSyncTask = nil
                 return count
             }
         }
