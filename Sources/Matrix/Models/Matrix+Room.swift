@@ -359,20 +359,25 @@ extension Matrix {
         
         public func fetchAvatarImage() async throws {
             if let mxc = self.avatarUrl {
-                
+                logger.debug("Room \(self.roomId) fetching avatar for from \(mxc)")
+
                 self.fetchAvatarImageTask = self.fetchAvatarImageTask ?? .init(priority: .background, operation: {
-                    logger.debug("Fetching avatar for room \(self.roomId) from \(mxc)")
+                    logger.debug("Room \(self.roomId) starting a new fetch task")
                     guard let data = try? await self.session.downloadData(mxc: mxc)
                     else {
                         logger.error("Room \(self.roomId) failed to download avatar from \(mxc)")
                         return
                     }
+                    logger.debug("Room \(self.roomId) got avatar image data from \(mxc)")
                     let newAvatar = Matrix.NativeImage(data: data)
+                    logger.debug("Room \(self.roomId) setting new avatar from \(mxc)")
                     await MainActor.run {
+                        print("Room \(self.roomId) updating avatar NOW")
                         self.avatar = newAvatar
                     }
                     
                     self.fetchAvatarImageTask = nil
+                    logger.debug("Room \(self.roomId) done fetching avatar image")
                 })
                 
             } else {
