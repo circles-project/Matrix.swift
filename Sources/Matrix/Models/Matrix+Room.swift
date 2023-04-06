@@ -95,6 +95,10 @@ extension Matrix {
                 return
             }
             
+            // It's possible that we can get some state events in our timeline, especially when the room is new
+            let stateEvents = events.filter({$0.stateKey != nil})
+            await self.updateState(from: stateEvents)
+            
             let messages = events.map {
                 Matrix.Message(event: $0, room: self)
             }
