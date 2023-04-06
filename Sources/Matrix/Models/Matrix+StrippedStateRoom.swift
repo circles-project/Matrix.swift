@@ -101,7 +101,7 @@ extension Matrix {
             else {
                 return nil
             }
-            return content.mxc
+            return content.url
         }
         
         public var members: [UserId] {

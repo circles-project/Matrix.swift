@@ -703,7 +703,7 @@ public class Client {
                               mimetype: "image/jpeg",
                               size: jpegData.count)
         
-        let _ = try await sendStateEvent(to: roomId, type: M_ROOM_AVATAR, content: RoomAvatarContent(mxc: mxc, info: info))
+        let _ = try await sendStateEvent(to: roomId, type: M_ROOM_AVATAR, content: RoomAvatarContent(url: mxc, info: info))
     }
 
     
@@ -714,7 +714,7 @@ public class Client {
             return nil
         }
         
-        let data = try await downloadData(mxc: content.mxc)
+        let data = try await downloadData(mxc: content.url)
         let image = Matrix.NativeImage(data: data)
         return image
     }

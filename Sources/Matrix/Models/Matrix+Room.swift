@@ -20,6 +20,7 @@ extension Matrix {
         private var dataStore: DataStore?
         
         @Published public var avatar: NativeImage?
+        private var currentAvatarUrl: MXC?          // Remember where we got our current avatar image, so we can know when to fetch a new one (or not)
         
         @Published private(set) public var timeline: OrderedDictionary<EventId,Matrix.Message> //[ClientEventWithoutRoomId]
         //@Published public var localEchoEvent: Event?
@@ -138,6 +139,15 @@ extension Matrix {
             for event in events {
                 await updateState(from: event)
             }
+            
+            // Also update our actual image, if necessary
+            Task {
+                do {
+                    try await updateAvatarImage()
+                } catch {
+                    logger.error("Failed to fetch avatar for room \(self.roomId)")
+                }
+            }
         }
         
         open func updateState(from event: ClientEventWithoutRoomId) async {
@@ -157,16 +167,7 @@ extension Matrix {
                 self.state[event.type] = d
             }
             
-            if event.type == M_ROOM_AVATAR {
-                // FIXME: Fetch the latest image
-                Task {
-                    do {
-                        try await fetchAvatarImage()
-                    } catch {
-                        logger.error("Failed to fetch avatar for room \(self.roomId)")
-                    }
-                }
-            }
+
         }
         
         
@@ -256,7 +257,7 @@ extension Matrix {
             else {
                 return nil
             }
-            return content.mxc
+            return content.url
         }
         
         public var predecessorRoomId: RoomId? {
@@ -357,8 +358,10 @@ extension Matrix {
             try await self.session.setTopic(roomId: self.roomId, topic: newTopic)
         }
         
-        public func fetchAvatarImage() async throws {
-            if let mxc = self.avatarUrl {
+        public func updateAvatarImage() {
+            if let mxc = self.avatarUrl,
+               self.currentAvatarUrl != mxc
+            {
                 logger.debug("Room \(self.roomId) fetching avatar for from \(mxc)")
 
                 self.fetchAvatarImageTask = self.fetchAvatarImageTask ?? .init(priority: .background, operation: {
@@ -374,6 +377,7 @@ extension Matrix {
                     await MainActor.run {
                         print("Room \(self.roomId) updating avatar NOW")
                         self.avatar = newAvatar
+                        self.currentAvatarUrl = mxc
                     }
                     
                     self.fetchAvatarImageTask = nil

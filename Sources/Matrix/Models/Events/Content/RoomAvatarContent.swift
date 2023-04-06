@@ -9,11 +9,11 @@ import Foundation
 
 /// m.room.avatar: https://spec.matrix.org/v1.5/client-server-api/#mroomavatar
 public struct RoomAvatarContent: Codable {
-    public let mxc: MXC
+    public let url: MXC
     public let info: Matrix.mImageInfo
     
-    public init(mxc: MXC, info: Matrix.mImageInfo) {
-        self.mxc = mxc
+    public init(url: MXC, info: Matrix.mImageInfo) {
+        self.url = url
         self.info = info
     }
 }
