@@ -46,6 +46,8 @@ extension Matrix {
         private var backgroundSyncTask: Task<UInt,Swift.Error>? // FIXME use a TaskGroup
         private var backgroundSyncDelayMS: UInt64?
         
+        private let mediaCachePath: String
+        
         var syncLogger: os.Logger
         
         private var ignoreUserIds: [UserId] {
@@ -89,6 +91,23 @@ extension Matrix {
             self.syncRequestTask = nil
             self.backgroundSyncTask = nil
             //self.backgroundSyncDelayMS = 1_000
+            
+            // FIXME: Pick a better / more appropriate location for this cache
+            //        See https://www.swiftbysundell.com/articles/working-with-files-and-folders-in-swift/
+            let mediaCachePath = [
+                NSHomeDirectory(),
+                ".matrix",
+                Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift",
+                "\(creds.userId)",
+                "\(creds.deviceId)",
+                "media",
+                "cache",
+            ].joined(separator: "/")
+            self.mediaCachePath = mediaCachePath
+            if !FileManager.default.fileExists(atPath: mediaCachePath) {
+                try FileManager.default.createDirectory(at: URL(filePath: mediaCachePath), withIntermediateDirectories: true)
+            }
+            
             
             self.dataStore = try await GRDBDataStore(userId: creds.userId, type: storageType)
             
@@ -418,6 +437,7 @@ extension Matrix {
                     //print("/sync:\tMainActor updating sync token to \(responseBody.nextBatch)")
                     self.syncToken = responseBody.nextBatch
                 }
+                UserDefaults.standard.set(self.syncToken, forKey: "sync_token[\(creds.userId)::\(creds.deviceId)]")
                 
                 //print("/sync:\t\(creds.userId) Done!")
                 self.syncRequestTask = nil
@@ -931,6 +951,18 @@ extension Matrix {
             return try await super.sendMessageEvent(to: roomId,
                                                     type: M_ROOM_ENCRYPTED,
                                                     content: encryptedContent)
+        }
+        
+        // MARK: Media
+        
+        public override func downloadData(mxc: MXC) async throws -> Data {
+            // FIXME: First check to see if we already have the item in our cache
+            
+            let data = try await super.downloadData(mxc: mxc)
+            
+            // FIXME: Save the data in our cache
+            
+            return data
         }
 
         // MARK: Encrypted Media
