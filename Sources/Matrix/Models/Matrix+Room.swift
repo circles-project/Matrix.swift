@@ -86,7 +86,7 @@ extension Matrix {
             // FIXME: CRAZY DEBUGGING
             // For some reason, SwiftUI isn't updating views in Circles when we change our (published) avatar image
             // Let's test this to see what's going on
-            Task {
+            Task(priority: .background) {
                 while true {
                     let sec = Int.random(in: 10...30)
                     try await Task.sleep(for: .seconds(sec))
