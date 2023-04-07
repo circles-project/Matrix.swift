@@ -14,6 +14,7 @@ extension Matrix {
         @Published public var displayName: String?
         @Published public var avatarUrl: MXC?
         @Published public var avatar: NativeImage?
+        private var currentAvatarUrl: MXC?
         @Published public var statusMessage: String?
         private var refreshProfileTask: Task<Void,Swift.Error>?
         private var fetchAvatarImageTask: Task<Void,Swift.Error>?
@@ -43,16 +44,27 @@ extension Matrix {
         public func fetchAvatarImage() async throws {
             if let mxc = self.avatarUrl {
                 
+                if mxc == self.currentAvatarUrl && self.avatar != nil {
+                    logger.debug("User \(self.userId) already has the latest avatar")
+                    return
+                }
+                
                 self.fetchAvatarImageTask = self.fetchAvatarImageTask ?? .init(priority: .background, operation: {
                     logger.debug("Fetching avatar for user \(self.userId) from \(mxc)")
+                    let startTime = Date()
                     guard let data = try? await self.session.downloadData(mxc: mxc)
                     else {
                         logger.error("User \(self.userId) failed to download avatar from \(mxc)")
+                        self.fetchAvatarImageTask = nil
                         return
                     }
+                    let endTime = Date()
+                    let latencyMS = endTime.timeIntervalSince(startTime) * 1000
+                    logger.debug("User \(self.userId) fetched \(data.count) bytes of avatar data from \(mxc) in \(latencyMS) ms")
                     let newAvatar = Matrix.NativeImage(data: data)
                     await MainActor.run {
                         self.avatar = newAvatar
+                        self.currentAvatarUrl = mxc
                     }
                     
                     self.fetchAvatarImageTask = nil
