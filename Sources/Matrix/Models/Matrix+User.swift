@@ -11,9 +11,9 @@ extension Matrix {
     public class User: ObservableObject {
         public let userId: UserId
         public var session: Session
-        @Published public var displayName: String?
-        @Published public var avatarUrl: MXC?
-        @Published public var avatar: NativeImage?
+        @Published private(set) public var displayName: String?
+        private(set) public var avatarUrl: MXC?
+        @Published private(set) public var avatar: NativeImage?
         private var currentAvatarUrl: MXC?
         @Published public var statusMessage: String?
         private var refreshProfileTask: Task<Void,Swift.Error>?
@@ -32,16 +32,23 @@ extension Matrix {
                 let newAvatarUrl: MXC?
                 
                 (newDisplayName, newAvatarUrl) = try await self.session.getProfileInfo(userId: userId)
+                
+                let needToFetchAvatar = newAvatarUrl != self.avatarUrl
+
                 await MainActor.run {
                     self.displayName = newDisplayName
                     self.avatarUrl = newAvatarUrl
+                }
+                
+                if needToFetchAvatar {
+                    self.fetchAvatarImage()
                 }
                 
                 self.refreshProfileTask = nil
             })
         }
         
-        public func fetchAvatarImage() async throws {
+        public func fetchAvatarImage() {
             if let mxc = self.avatarUrl {
                 
                 if mxc == self.currentAvatarUrl && self.avatar != nil {
