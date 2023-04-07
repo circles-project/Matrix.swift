@@ -69,7 +69,7 @@ public class Client {
         mediaConfig.httpAdditionalHeaders = [
             "Authorization": "Bearer \(creds.accessToken)",
         ]
-        mediaConfig.urlCache = URLCache(memoryCapacity: 64*1024*1024, diskCapacity: 128*1024*1024, directory: mediaCacheDir)
+        mediaConfig.urlCache = URLCache(memoryCapacity: 64*1024*1024, diskCapacity: 512*1024*1024, directory: mediaCacheDir)
         mediaConfig.requestCachePolicy = .returnCacheDataElseLoad
         self.mediaUrlSession = URLSession(configuration: mediaConfig)
     }
