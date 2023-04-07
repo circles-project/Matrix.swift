@@ -401,6 +401,7 @@ extension Matrix {
                     guard let data = try? await self.session.downloadData(mxc: mxc)
                     else {
                         logger.error("Room \(self.roomId) failed to download avatar from \(mxc)")
+                        self.fetchAvatarImageTask = nil
                         return
                     }
                     let endTime = Date()
