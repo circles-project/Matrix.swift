@@ -173,6 +173,7 @@ extension Matrix {
                     syncLogger.debug("Got new sync token \(token)")
                     count += 1
                     if let delay = self.backgroundSyncDelayMS {
+                        syncLogger.debug("Sleeping for \(delay) ms before next sync")
                         let nano = delay * 1000
                         try await Task.sleep(nanoseconds: nano)
                     }
