@@ -52,20 +52,24 @@ public class Client {
         self.apiUrlSession = URLSession(configuration: apiConfig)
         
         // https://developer.apple.com/documentation/foundation/urlcache
-        let mediaCachePath = [
+        // Unfortunately this thing kind of sucks, and doesn't persist across restarts of the app
+        let urlCachePath = [
             NSHomeDirectory(),
             ".matrix",
             Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift",
             "\(creds.userId)",
             "\(creds.deviceId)",
-            "media"
+            "urlcache"
         ].joined(separator: "/")
-        let mediaCacheDir = URL(filePath: mediaCachePath)
+        let mediaCacheDir = URL(filePath: urlCachePath)
+        if !FileManager.default.fileExists(atPath: urlCachePath) {
+            try FileManager.default.createDirectory(at: mediaCacheDir, withIntermediateDirectories: true)
+        }
         let mediaConfig = URLSessionConfiguration.default
         mediaConfig.httpAdditionalHeaders = [
             "Authorization": "Bearer \(creds.accessToken)",
         ]
-        mediaConfig.urlCache = URLCache(memoryCapacity: 64*1024*1024, diskCapacity: 512*1024*1024, directory: mediaCacheDir)
+        mediaConfig.urlCache = URLCache(memoryCapacity: 64*1024*1024, diskCapacity: 128*1024*1024, directory: mediaCacheDir)
         mediaConfig.requestCachePolicy = .returnCacheDataElseLoad
         self.mediaUrlSession = URLSession(configuration: mediaConfig)
     }
