@@ -379,7 +379,13 @@ extension Matrix {
         }
         
         public func setAvatarImage(image: NativeImage) async throws {
-            try await self.session.setAvatarImage(roomId: self.roomId, image: image)
+            let (scaledImage, mxc) = try await self.session.setAvatarImage(roomId: self.roomId, image: image)
+            // When the server is lagging, the client can get really janky if we wait on the m.room.avatar to come down the /sync pipeline
+            // So instead we'll automatically update the in-memory data right now, since we know that the event was accepted by the server in the call above
+            await MainActor.run {
+                self.avatar = scaledImage
+                self.currentAvatarUrl = mxc
+            }
         }
         
         public func setTopic(newTopic: String) async throws {

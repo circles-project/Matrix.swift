@@ -679,7 +679,7 @@ public class Client {
     
     // MARK: Room Metadata
 
-    public func setAvatarImage(roomId: RoomId, image: NativeImage) async throws {
+    public func setAvatarImage(roomId: RoomId, image: NativeImage) async throws -> (NativeImage,MXC) {
         let maxSize = CGSize(width: 512, height: 512)
         
         guard let scaledImage = image.downscale(to: maxSize)
@@ -708,6 +708,8 @@ public class Client {
                               size: jpegData.count)
         
         let _ = try await sendStateEvent(to: roomId, type: M_ROOM_AVATAR, content: RoomAvatarContent(url: mxc, info: info))
+        
+        return (scaledImage,mxc)
     }
 
     
