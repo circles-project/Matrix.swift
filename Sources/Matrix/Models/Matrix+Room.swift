@@ -9,6 +9,12 @@ import Foundation
 //import Collections // Maybe one day we will get a SortedSet implementation for Swift...
 import OrderedCollections
 
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
+
 extension Matrix {
     open class Room: ObservableObject {
         public typealias HistoryVisibility = RoomHistoryVisibilityContent.HistoryVisibility
@@ -22,7 +28,7 @@ extension Matrix {
         @Published public var avatar: NativeImage?
         private var currentAvatarUrl: MXC?          // Remember where we got our current avatar image, so we can know when to fetch a new one (or not)
         
-        @Published private(set) public var timeline: OrderedDictionary<EventId,Matrix.Message> //[ClientEventWithoutRoomId]
+        private(set) public var timeline: OrderedDictionary<EventId,Matrix.Message> //[ClientEventWithoutRoomId]
         //@Published public var localEchoEvent: Event?
         @Published private(set) public var localEchoMessage: Message? // FIXME: Set this when we send a message
 
@@ -75,6 +81,26 @@ extension Matrix {
             self.timeline = [:]
             for event in initialTimeline {
                 self.timeline[event.eventId] = Matrix.Message(event: event, room: self)
+            }
+            
+            // FIXME: CRAZY DEBUGGING
+            // For some reason, SwiftUI isn't updating views in Circles when we change our (published) avatar image
+            // Let's test this to see what's going on
+            Task {
+                while true {
+                    let sec = Int.random(in: 10...30)
+                    try await Task.sleep(for: .seconds(sec))
+                    let imageName = ["diamond.fill", "circle.fill", "square.fill", "seal.fill", "shield.fill"].randomElement()!
+                    #if os(macOS)
+                    let newImage = NSImage(systemSymbolName: imageName, accessibilityDescription: nil)
+                    #else
+                    let newImage = UIImage(systemName: imageName)
+                    #endif
+                    await MainActor.run {
+                        print("Setting avatar for room \(self.roomId)")
+                        self.avatar = newImage
+                    }
+                }
             }
         }
         
