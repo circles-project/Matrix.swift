@@ -83,6 +83,7 @@ extension Matrix {
                 self.timeline[event.eventId] = Matrix.Message(event: event, room: self)
             }
             
+            /*
             // FIXME: CRAZY DEBUGGING
             // For some reason, SwiftUI isn't updating views in Circles when we change our (published) avatar image
             // Let's test this to see what's going on
@@ -102,6 +103,7 @@ extension Matrix {
                     }
                 }
             }
+            */
         }
         
         func updateUnreadCounts(notifications: Int, highlights: Int) async {
@@ -406,7 +408,8 @@ extension Matrix {
                     }
                     let endTime = Date()
                     let latencyMS = endTime.timeIntervalSince(startTime) * 1000
-                    logger.debug("Room \(self.roomId) fetched avatar image data from \(mxc) in \(latencyMS) ms")
+                    let sizeKB = Double(data.count) / 1024.0
+                    logger.debug("Room \(self.roomId.opaqueId) fetched \(sizeKB) KB of avatar image data from \(mxc.mediaId) in \(latencyMS) ms")
                     let newAvatar = Matrix.NativeImage(data: data)
                     logger.debug("Room \(self.roomId) setting new avatar from \(mxc)")
                     await MainActor.run {
