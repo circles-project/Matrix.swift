@@ -680,7 +680,7 @@ public class Client {
     // MARK: Room Metadata
 
     public func setAvatarImage(roomId: RoomId, image: NativeImage) async throws {
-        let maxSize = CGSize(width: 640, height: 640)
+        let maxSize = CGSize(width: 512, height: 512)
         
         guard let scaledImage = image.downscale(to: maxSize)
         else {
@@ -689,7 +689,7 @@ public class Client {
             throw Matrix.Error(msg)
         }
         
-        guard let jpegData = scaledImage.jpegData(compressionQuality: 0.90)
+        guard let jpegData = scaledImage.jpegData(compressionQuality: 0.80)
         else {
             let msg = "Failed to compress image"
             print(msg)
