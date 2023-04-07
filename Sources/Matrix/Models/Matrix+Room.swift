@@ -397,12 +397,15 @@ extension Matrix {
 
                 self.fetchAvatarImageTask = self.fetchAvatarImageTask ?? .init(priority: .background, operation: {
                     logger.debug("Room \(self.roomId) starting a new fetch task")
+                    let startTime = Date()
                     guard let data = try? await self.session.downloadData(mxc: mxc)
                     else {
                         logger.error("Room \(self.roomId) failed to download avatar from \(mxc)")
                         return
                     }
-                    logger.debug("Room \(self.roomId) got avatar image data from \(mxc)")
+                    let endTime = Date()
+                    let latencyMS = endTime.timeIntervalSince(startTime) * 1000
+                    logger.debug("Room \(self.roomId) fetched avatar image data from \(mxc) in \(latencyMS) ms")
                     let newAvatar = Matrix.NativeImage(data: data)
                     logger.debug("Room \(self.roomId) setting new avatar from \(mxc)")
                     await MainActor.run {
