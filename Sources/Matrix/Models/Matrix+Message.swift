@@ -17,7 +17,8 @@ extension Matrix {
         @Published public var thumbnail: NativeImage?
         @Published private(set) public var reactions: [String:UInt]
         @Published private(set) public var replies: [Message]
-        public var blur: NativeImage?
+        public var blurhashImage: NativeImage?
+        public var thumbhashImage: NativeImage?
         
         public var isEncrypted: Bool
         
@@ -30,14 +31,22 @@ extension Matrix {
             self.reactions = [:]
             self.replies = []
             
-            // Initialize the blurhash
-            if let messageContent = event.content as? Matrix.MessageContent,
-               let blurhash = messageContent.blurhash,
-               let thumbnailInfo = messageContent.thumbnail_info
-            {
-                self.blur = .init(blurHash: blurhash, size: CGSize(width: thumbnailInfo.w, height: thumbnailInfo.h))
-            } else {
-                self.blur = nil
+            if let messageContent = event.content as? Matrix.MessageContent {
+                // Initialize the blurhash
+                if let blurhash = messageContent.blurhash,
+                   let thumbnailInfo = messageContent.thumbnail_info
+                {
+                    self.blurhashImage = .init(blurHash: blurhash, size: CGSize(width: thumbnailInfo.w, height: thumbnailInfo.h))
+                } else {
+                    self.blurhashImage = nil
+                }
+                
+                // Initialize the thumbhash
+                if let thumbhashString = messageContent.thumbhash,
+                   let thumbhashData = Data(base64Encoded: thumbhashString)
+                {
+                    self.thumbhashImage = thumbHashToImage(hash: thumbhashData)
+                }
             }
             
             if event.type == M_ROOM_ENCRYPTED {
@@ -127,12 +136,20 @@ extension Matrix {
                 
                 // Now we also need to update our blurhash and thumbnail
                 
-                // Blurhash
-                if let messageContent = event.content as? Matrix.MessageContent,
-                   let blurhash = messageContent.blurhash,
-                   let thumbnailInfo = messageContent.thumbnail_info
-                {
-                    self.blur = .init(blurHash: blurhash, size: CGSize(width: thumbnailInfo.w, height: thumbnailInfo.h))
+                // Blurhash and Thumbhash
+                if let messageContent = event.content as? Matrix.MessageContent {
+                    // Blurhash
+                    if let blurhash = messageContent.blurhash,
+                       let thumbnailInfo = messageContent.thumbnail_info
+                    {
+                        self.blurhashImage = .init(blurHash: blurhash, size: CGSize(width: thumbnailInfo.w, height: thumbnailInfo.h))
+                    }
+                    // Thumbhash
+                    if let thumbhashString = messageContent.thumbhash,
+                       let thumbhashData = Data(base64Encoded: thumbhashString)
+                    {
+                        self.thumbhashImage = thumbHashToImage(hash: thumbhashData)
+                    }
                 }
                 
                 // Thumbnail

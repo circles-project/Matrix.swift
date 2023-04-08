@@ -77,6 +77,10 @@ extension Matrix {
         public var blurhash: String? {
             nil
         }
+        
+        public var thumbhash: String? {
+            nil
+        }
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-emote
@@ -133,6 +137,10 @@ extension Matrix {
         public var blurhash: String? {
             info.blurhash
         }
+        
+        public var thumbhash: String? {
+            info.thumbhash
+        }
     }
 
 
@@ -145,10 +153,15 @@ extension Matrix {
         public var thumbnail_file: mEncryptedFile?
         public var thumbnail_info: mThumbnailInfo?
         public var blurhash: String?
+        public var thumbhash: String?
         
         public init(h: Int, w: Int, mimetype: String, size: Int,
-                    thumbnail_url: MXC? = nil, thumbnail_file: mEncryptedFile? = nil,
-                    thumbnail_info: mThumbnailInfo? = nil, blurhash: String? = nil) {
+                    thumbnail_url: MXC? = nil,
+                    thumbnail_file: mEncryptedFile? = nil,
+                    thumbnail_info: mThumbnailInfo? = nil,
+                    blurhash: String? = nil,
+                    thumbhash: String? = nil
+        ) {
             self.h = h
             self.w = w
             self.mimetype = mimetype
@@ -157,6 +170,7 @@ extension Matrix {
             self.thumbnail_file = thumbnail_file
             self.thumbnail_info = thumbnail_info
             self.blurhash = blurhash
+            self.thumbhash = thumbhash
         }
     }
 
@@ -210,6 +224,10 @@ extension Matrix {
         public var blurhash: String? {
             info.blurhash
         }
+        
+        public var thumbhash: String? {
+            info.thumbhash
+        }
     }
 
     public struct mFileInfo: Codable {
@@ -219,15 +237,20 @@ extension Matrix {
         public var thumbnail_info: mThumbnailInfo
         public var thumbnail_url: MXC?
         public var blurhash: String?
+        public var thumbhash: String?
         
         public init(mimetype: String, size: UInt, thumbnail_file: mEncryptedFile?, thumbnail_url: MXC? = nil,
-                    thumbnail_info: mThumbnailInfo, blurhash: String? = nil) {
+                    thumbnail_info: mThumbnailInfo,
+                    blurhash: String? = nil,
+                    thumbhash: String? = nil
+        ) {
             self.mimetype = mimetype
             self.size = size
             self.thumbnail_info = thumbnail_info
             self.thumbnail_file = thumbnail_file
             self.thumbnail_url = thumbnail_url
             self.blurhash = blurhash
+            self.thumbhash = thumbhash
         }
     }
 
@@ -330,6 +353,10 @@ extension Matrix {
         public var blurhash: String? {
             nil
         }
+        
+        public var thumbhash: String? {
+            nil
+        }
     }
 
     public struct mAudioInfo: Codable {
@@ -378,6 +405,10 @@ extension Matrix {
         public var blurhash: String? {
             info.blurhash
         }
+        
+        public var thumbhash: String? {
+            info.thumbhash
+        }
     }
 
     public struct mLocationInfo: Codable {
@@ -385,13 +416,18 @@ extension Matrix {
         public var thumbnail_file: mEncryptedFile?
         public var thumbnail_info: mThumbnailInfo
         public var blurhash: String?
+        public var thumbhash: String?
         
         public init(thumbnail_url: MXC? = nil, thumbnail_file: mEncryptedFile? = nil,
-                    thumbnail_info: mThumbnailInfo, blurhash: String? = nil) {
+                    thumbnail_info: mThumbnailInfo,
+                    blurhash: String? = nil,
+                    thumbhash: String? = nil
+        ) {
             self.thumbnail_url = thumbnail_url
             self.thumbnail_file = thumbnail_file
             self.thumbnail_info = thumbnail_info
             self.blurhash = blurhash
+            self.thumbhash = thumbhash
         }
     }
 
@@ -443,6 +479,10 @@ extension Matrix {
         public var blurhash: String? {
             info.blurhash
         }
+        
+        public var thumbhash: String? {
+            info.thumbhash
+        }
     }
 
     public struct mVideoInfo: Codable {
@@ -455,10 +495,14 @@ extension Matrix {
         public var thumbnail_file: mEncryptedFile?
         public var thumbnail_info: mThumbnailInfo
         public var blurhash: String?
+        public var thumbhash: String?
         
         public init(duration: UInt, h: UInt, w: UInt, mimetype: String, size: UInt,
                     thumbnail_url: MXC? = nil, thumbnail_file: mEncryptedFile? = nil,
-                    thumbnail_info: mThumbnailInfo, blurhash: String? = nil) {
+                    thumbnail_info: mThumbnailInfo,
+                    blurhash: String? = nil,
+                    thumbhash: String? = nil
+        ) {
             self.duration = duration
             self.h = h
             self.w = w
@@ -468,6 +512,7 @@ extension Matrix {
             self.thumbnail_file = thumbnail_file
             self.thumbnail_info = thumbnail_info
             self.blurhash = blurhash
+            self.thumbhash = thumbhash
         }
     }
 

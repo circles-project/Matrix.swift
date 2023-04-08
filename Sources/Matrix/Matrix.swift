@@ -232,4 +232,5 @@ public protocol _MatrixMessageContent: Codable {
     var thumbnail_file: Matrix.mEncryptedFile? {get}
     var thumbnail_url: MXC? {get}
     var blurhash: String? {get}
+    var thumbhash: String? {get}
 }

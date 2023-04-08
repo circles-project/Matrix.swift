@@ -590,7 +590,8 @@ extension Matrix {
         
         public func sendImage(image: NativeImage,
                               thumbnailSize: (Int,Int)?=(800,600),
-                              withBlurhash: Bool=true
+                              withBlurhash: Bool=true,
+                              withThumbhash: Bool=true
         ) async throws -> EventId {
             guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
                 throw Matrix.Error("Couldn't create JPEG for image")
@@ -610,7 +611,7 @@ extension Matrix {
             
             let thumbnailData: Data?
             if let thumbnail = thumbnail {
-                thumbnailData = thumbnail.jpegData(compressionQuality: 0.9)
+                thumbnailData = thumbnail.jpegData(compressionQuality: 0.8)
                 guard thumbnailData != nil else {
                     throw Matrix.Error("Failed to create JPEG for thumbnail")
                 }
@@ -620,6 +621,12 @@ extension Matrix {
             
             if withBlurhash {
                 info.blurhash = image.blurHash(numberOfComponents: image.size.width > image.size.height ? (6,4) : (4,6))
+            }
+            
+            if withThumbhash,
+               let image100x100 = image.downscale(to: CGSize(width: 100, height: 100))
+            {
+                info.thumbhash = imageToThumbHash(image: image100x100).base64EncodedString()
             }
             
             if !self.isEncrypted {
