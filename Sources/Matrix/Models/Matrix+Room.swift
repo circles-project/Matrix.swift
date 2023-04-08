@@ -83,6 +83,11 @@ extension Matrix {
                 self.timeline[event.eventId] = Matrix.Message(event: event, room: self)
             }
             
+            // Use our thumbhash or blurhash as our avatar until the application decides it's worth fetching the actual image
+            Task {
+                await self.useBlurryPlaceholder()
+            }
+            
             /*
             // FIXME: CRAZY DEBUGGING
             // For some reason, SwiftUI isn't updating views in Circles when we change our (published) avatar image
@@ -410,6 +415,34 @@ extension Matrix {
             try await self.session.setTopic(roomId: self.roomId, topic: newTopic)
         }
         
+        // Set our avatar image from the thumbhash or blurhash, depending on what we have available.
+        // For use while loading the real image from the server.
+        func useBlurryPlaceholder() async {
+            if let thumbhash = self.thumbhash,
+               let thumbhashData = Data(base64Encoded: thumbhash)
+            {
+                let image = thumbHashToImage(hash: thumbhashData)
+                await MainActor.run {
+                    logger.debug("Room \(self.roomId) using thumbhash while loading")
+                    self.avatar = image
+                }
+            } else if let blurhash = self.blurhash {
+                
+                if let event = self.state[M_ROOM_AVATAR]?[""],
+                   let content = event.content as? RoomAvatarContent,
+                   let image = NativeImage(blurHash: blurhash,
+                                           size: CGSize(width: content.info.w,
+                                                        height: content.info.h))
+                {
+                    await MainActor.run {
+                        logger.debug("Room \(self.roomId) using blurhash while loading")
+                        self.avatar = image
+                    }
+                }
+
+            }
+        }
+        
         public func updateAvatarImage() {
             if let mxc = self.avatarUrl
             {
@@ -424,29 +457,7 @@ extension Matrix {
                     logger.debug("Room \(self.roomId) starting a new fetch task")
                     
                     // First, while we're loading the new image, set a place holder if we have one
-                    if let thumbhash = self.thumbhash,
-                       let thumbhashData = Data(base64Encoded: thumbhash)
-                    {
-                        let image = thumbHashToImage(hash: thumbhashData)
-                        await MainActor.run {
-                            logger.debug("Room \(self.roomId) using thumbhash while loading")
-                            self.avatar = image
-                        }
-                    } else if let blurhash = self.blurhash {
-                        
-                        if let event = self.state[M_ROOM_AVATAR]?[""],
-                           let content = event.content as? RoomAvatarContent,
-                           let image = NativeImage(blurHash: blurhash,
-                                                   size: CGSize(width: content.info.w,
-                                                                height: content.info.h))
-                        {
-                            await MainActor.run {
-                                logger.debug("Room \(self.roomId) using blurhash while loading")
-                                self.avatar = image
-                            }
-                        }
-
-                    }
+                    await self.useBlurryPlaceholder()
                     
                     // Now that we have things looking OK locally for now, we can actually load the real image
                     let startTime = Date()
