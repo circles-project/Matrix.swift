@@ -688,6 +688,7 @@ public class Client {
             print(msg)
             throw Matrix.Error(msg)
         }
+        logger.debug("Scaled image down to (\(scaledImage.size.width),\(scaledImage.size.height))")
         
         guard let jpegData = scaledImage.jpegData(compressionQuality: 0.80)
         else {
@@ -695,6 +696,7 @@ public class Client {
             print(msg)
             throw Matrix.Error(msg)
         }
+        logger.debug("Compressed image down to \(Double(jpegData.count)/1024) KB")
         
         guard let mxc = try? await uploadData(data: jpegData, contentType: "image/jpeg") else {
             let msg = "Failed to upload image for room avatar"
