@@ -288,6 +288,24 @@ extension Matrix {
             return content.url
         }
         
+        public var blurhash: String? {
+            guard let event = state[M_ROOM_AVATAR]?[""],
+                  let content = event.content as? RoomAvatarContent
+            else {
+                return nil
+            }
+            return content.info.blurhash
+        }
+        
+        public var thumbhash: String? {
+            guard let event = state[M_ROOM_AVATAR]?[""],
+                  let content = event.content as? RoomAvatarContent
+            else {
+                return nil
+            }
+            return content.info.thumbhash
+        }
+        
         public var predecessorRoomId: RoomId? {
             guard let event = state[M_ROOM_CREATE]?[""],
                   let content = event.content as? RoomCreateContent
@@ -402,9 +420,35 @@ extension Matrix {
                 }
                 logger.debug("Room \(self.roomId) fetching avatar for from \(mxc)")
 
-
                 self.fetchAvatarImageTask = self.fetchAvatarImageTask ?? .init(priority: .background, operation: {
                     logger.debug("Room \(self.roomId) starting a new fetch task")
+                    
+                    // First, while we're loading the new image, set a place holder if we have one
+                    if let thumbhash = self.thumbhash,
+                       let thumbhashData = Data(base64Encoded: thumbhash)
+                    {
+                        let image = thumbHashToImage(hash: thumbhashData)
+                        await MainActor.run {
+                            logger.debug("Room \(self.roomId) using thumbhash while loading")
+                            self.avatar = image
+                        }
+                    } else if let blurhash = self.blurhash {
+                        
+                        if let event = self.state[M_ROOM_AVATAR]?[""],
+                           let content = event.content as? RoomAvatarContent,
+                           let image = NativeImage(blurHash: blurhash,
+                                                   size: CGSize(width: content.info.w,
+                                                                height: content.info.h))
+                        {
+                            await MainActor.run {
+                                logger.debug("Room \(self.roomId) using blurhash while loading")
+                                self.avatar = image
+                            }
+                        }
+
+                    }
+                    
+                    // Now that we have things looking OK locally for now, we can actually load the real image
                     let startTime = Date()
                     guard let data = try? await self.session.downloadData(mxc: mxc)
                     else {
