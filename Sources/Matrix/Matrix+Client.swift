@@ -679,10 +679,13 @@ public class Client {
     
     // MARK: Room Metadata
 
-    public func setAvatarImage(roomId: RoomId, image: NativeImage) async throws -> (NativeImage,MXC) {
-        let maxSize = CGSize(width: 512, height: 512)
+    public func setAvatarImage(roomId: RoomId,
+                               image: NativeImage,
+                               size: CGSize = .init(width: 400, height: 400),
+                               quality: CGFloat = .init(0.70)
+    ) async throws -> (NativeImage,MXC) {
         
-        guard let scaledImage = image.downscale(to: maxSize)
+        guard let scaledImage = image.downscale(to: size)
         else {
             let msg = "Failed to downscale image"
             print(msg)
@@ -690,7 +693,7 @@ public class Client {
         }
         logger.debug("Scaled image down to (\(scaledImage.size.width),\(scaledImage.size.height))")
         
-        guard let jpegData = scaledImage.jpegData(compressionQuality: 0.80)
+        guard let jpegData = scaledImage.jpegData(compressionQuality: quality)
         else {
             let msg = "Failed to compress image"
             print(msg)
@@ -1013,7 +1016,7 @@ public class Client {
         return data
     }
     
-    public func uploadImage(_ original: NativeImage, maxSize: CGSize, quality: CGFloat = 0.90) async throws -> MXC {
+    public func uploadImage(_ original: NativeImage, maxSize: CGSize, quality: CGFloat = 0.80) async throws -> MXC {
         guard let scaled = original.downscale(to: maxSize)
         else {
             let msg = "Failed to downscale image"
@@ -1026,7 +1029,7 @@ public class Client {
     }
 
     
-    public func uploadImage(_ image: NativeImage, quality: CGFloat = 0.90) async throws -> MXC {
+    public func uploadImage(_ image: NativeImage, quality: CGFloat = 0.80) async throws -> MXC {
 
         guard let jpeg = image.jpegData(compressionQuality: quality)
         else {
