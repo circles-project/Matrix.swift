@@ -171,6 +171,13 @@ extension Matrix {
             var tmpTimeline = self.timeline
             for event in events {
                 tmpTimeline[event.eventId] = Matrix.Message(event: event, room: self)
+                
+                // When we receive the "real" version of a message, we can remove the local echo
+                if event.eventId == self.localEchoMessage?.eventId {
+                    await MainActor.run {
+                        self.localEchoMessage = nil
+                    }
+                }
             }
             let newTimeline = tmpTimeline
             
@@ -644,8 +651,17 @@ extension Matrix {
         // MARK: Sending messages
         
         public func sendText(text: String) async throws -> EventId {
-                let content = mTextContent(msgtype: .text, body: text)
-                return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
+            let content = mTextContent(msgtype: .text, body: text)
+            let eventId = try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
+            let localEchoEvent = try ClientEventWithoutRoomId(content: content,
+                                                              eventId: eventId,
+                                                              originServerTS: UInt64(Date().timeIntervalSince1970),
+                                                              sender: session.creds.userId,
+                                                              type: M_ROOM_MESSAGE)
+            await MainActor.run {
+                self.localEchoMessage = Matrix.Message(event: localEchoEvent, room: self)
+            }
+            return eventId
         }
         
         public func sendImage(image: NativeImage,
@@ -702,7 +718,16 @@ extension Matrix {
                     info.thumbnail_url = thumbnailMXC
                 }
                 let content = mImageContent(msgtype: .image, body: "\(mxc.mediaId).jpeg", url: mxc, info: info)
-                return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
+                let eventId =  try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
+                let localEchoEvent = try ClientEventWithoutRoomId(content: content,
+                                                                  eventId: eventId,
+                                                                  originServerTS: UInt64(Date().timeIntervalSince1970),
+                                                                  sender: session.creds.userId,
+                                                                  type: M_ROOM_MESSAGE)
+                await MainActor.run {
+                    self.localEchoMessage = Matrix.Message(event: localEchoEvent, room: self)
+                }
+                return eventId
             }
             else {
                 let encryptedFile = try await self.session.encryptAndUploadData(plaintext: jpegData, contentType: "image/jpeg")
@@ -719,7 +744,16 @@ extension Matrix {
                 }
                 
                 let content = mImageContent(msgtype: .image, body: "\(encryptedFile.url.mediaId).jpeg", file: encryptedFile, info: info)
-                return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
+                let eventId = try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
+                let localEchoEvent = try ClientEventWithoutRoomId(content: content,
+                                                                  eventId: eventId,
+                                                                  originServerTS: UInt64(Date().timeIntervalSince1970),
+                                                                  sender: session.creds.userId,
+                                                                  type: M_ROOM_MESSAGE)
+                await MainActor.run {
+                    self.localEchoMessage = Matrix.Message(event: localEchoEvent, room: self)
+                }
+                return eventId
             }
         }
 
