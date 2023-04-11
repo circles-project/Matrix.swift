@@ -20,14 +20,14 @@ public protocol DataStore {
     
     func close() async throws
     
-    func saveTimeline(events: [ClientEvent]) async throws
+    //func saveTimeline(events: [ClientEvent]) async throws
     func saveTimeline(events: [ClientEventWithoutRoomId], in roomId: RoomId) async throws
     
     func saveState(events: [ClientEvent]) async throws
     func saveState(events: [ClientEventWithoutRoomId], in roomId: RoomId) async throws
     func saveStrippedState(events: [StrippedStateEvent], roomId: RoomId) async throws
 
-    func loadTimeline(for roomId: RoomId, limit: Int, offset: Int?) async throws -> [ClientEvent]
+    func loadTimeline(for roomId: RoomId, limit: Int, offset: Int?) async throws -> [ClientEventWithoutRoomId]
     
     func loadState(for roomId: RoomId, limit: Int, offset: Int?) async throws -> [ClientEventWithoutRoomId]
     func loadEssentialState(for roomId: RoomId) async throws -> [ClientEventWithoutRoomId]

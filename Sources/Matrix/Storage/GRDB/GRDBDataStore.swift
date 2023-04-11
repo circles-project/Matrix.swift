@@ -187,7 +187,7 @@ public struct GRDBDataStore: DataStore {
     
     public func loadTimeline(for roomId: RoomId,
                              limit: Int = 25, offset: Int? = nil
-    ) async throws -> [ClientEvent] {
+    ) async throws -> [ClientEventWithoutRoomId] {
         let roomIdColumn = ClientEvent.Columns.roomId
         let timestampColumn = ClientEvent.Columns.originServerTS
         let events = try await dbQueue.read { db -> [ClientEvent] in
@@ -196,6 +196,14 @@ public struct GRDBDataStore: DataStore {
                 .order(timestampColumn.desc)
                 .limit(limit, offset: offset)
                 .fetchAll(db)
+        }.map { event in
+            try ClientEventWithoutRoomId(content: event.content,
+                                         eventId: event.eventId,
+                                         originServerTS: event.originServerTS,
+                                         sender: event.sender,
+                                         stateKey: event.stateKey,
+                                         type: event.type,
+                                         unsigned: event.unsigned)
         }
         return events
     }
