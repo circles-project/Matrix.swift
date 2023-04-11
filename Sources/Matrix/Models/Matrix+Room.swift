@@ -615,17 +615,15 @@ extension Matrix {
         }
         
         // MARK: Pagination
-        
-        public func canPaginate() -> Bool {
-            // FIXME: TODO:
-            return false
-        }
+
+        private(set) public var canPaginate: Bool = true
                 
         public func paginate(limit: UInt?=nil) async throws {
             let response = try await self.session.getMessages(roomId: roomId, forward: false, from: self.backwardToken, limit: limit)
             // The timeline messages are in the "chunk" piece of the response
             try await self.updateTimeline(from: response.chunk)
             self.backwardToken = response.end ?? self.backwardToken
+            self.canPaginate = response.end != nil
         }
         
         // MARK: Encryption
