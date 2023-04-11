@@ -655,7 +655,7 @@ extension Matrix {
             let eventId = try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             let localEchoEvent = try ClientEventWithoutRoomId(content: content,
                                                               eventId: eventId,
-                                                              originServerTS: UInt64(Date().timeIntervalSince1970),
+                                                              originServerTS: UInt64(1000*Date().timeIntervalSince1970),
                                                               sender: session.creds.userId,
                                                               type: M_ROOM_MESSAGE)
             await MainActor.run {
@@ -721,7 +721,7 @@ extension Matrix {
                 let eventId =  try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
                 let localEchoEvent = try ClientEventWithoutRoomId(content: content,
                                                                   eventId: eventId,
-                                                                  originServerTS: UInt64(Date().timeIntervalSince1970),
+                                                                  originServerTS: UInt64(1000*Date().timeIntervalSince1970),
                                                                   sender: session.creds.userId,
                                                                   type: M_ROOM_MESSAGE)
                 await MainActor.run {
@@ -747,7 +747,7 @@ extension Matrix {
                 let eventId = try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
                 let localEchoEvent = try ClientEventWithoutRoomId(content: content,
                                                                   eventId: eventId,
-                                                                  originServerTS: UInt64(Date().timeIntervalSince1970),
+                                                                  originServerTS: UInt64(1000*Date().timeIntervalSince1970),
                                                                   sender: session.creds.userId,
                                                                   type: M_ROOM_MESSAGE)
                 await MainActor.run {
