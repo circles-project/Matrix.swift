@@ -122,10 +122,12 @@ extension Matrix {
         // MARK: Timeline
         
         open func updateTimeline(from events: [ClientEventWithoutRoomId]) async throws {
+            logger.debug("Updating timeline: \(self.timeline.count) existing events vs \(events.count) new events")
 
             guard !events.isEmpty
             else {
                 // No new events.  All done!
+                logger.debug("No new events; Done!")
                 return
             }
             
@@ -133,6 +135,7 @@ extension Matrix {
             let stateEvents = events.filter({$0.stateKey != nil})
             await self.updateState(from: stateEvents)
             
+            /*
             let messages = events.map {
                 Matrix.Message(event: $0, room: self)
             }
@@ -140,9 +143,11 @@ extension Matrix {
             let newKeysAndValues = messages.map {
                 ($0.eventId, $0)
             }
+            */
             
             guard !self.timeline.isEmpty
             else {
+                logger.debug("No existing events.  Starting from scratch with the new events")
                 // No old events.  Start from scratch with the new stuff.
                 var tmpTimeline: OrderedDictionary<EventId,Matrix.Message> = [:]
                 for event in events {
@@ -155,10 +160,18 @@ extension Matrix {
                 return
             }
             
+            logger.debug("Merging old and new events")
+            /*
             var tmpTimeline = self.timeline.merging(newKeysAndValues, uniquingKeysWith: { m1,m2 -> Matrix.Message in
                 m1
             })
             tmpTimeline.sort()
+            let newTimeline = tmpTimeline
+            */
+            var tmpTimeline = self.timeline
+            for event in events {
+                tmpTimeline[event.eventId] = Matrix.Message(event: event, room: self)
+            }
             let newTimeline = tmpTimeline
             
             await MainActor.run {
@@ -174,13 +187,7 @@ extension Matrix {
             }
             
             // Also update our actual image, if necessary
-            Task {
-                do {
-                    try await updateAvatarImage()
-                } catch {
-                    logger.error("Failed to fetch avatar for room \(self.roomId)")
-                }
-            }
+            self.updateAvatarImage()
         }
         
         open func updateState(from event: ClientEventWithoutRoomId) async {
