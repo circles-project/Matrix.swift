@@ -702,11 +702,12 @@ extension Matrix {
             // Do we have this room in our data store?
             if let store = self.dataStore {
                 logger.debug("\(tag)\tLoading room from data store")
-                let events = try await store.loadEssentialState(for: roomId)
-                logger.debug("\(tag)\tLoaded \(events.count) events")
-                if events.count > 0 {
+                let stateEvents = try await store.loadEssentialState(for: roomId)
+                logger.debug("\(tag)\tLoaded \(stateEvents.count) events")
+                let timelineEvents = try await store.loadTimeline(for: roomId, limit: 25, offset: 0)
+                if stateEvents.count > 0 {
                     logger.debug("\(tag)\tConstructing the room")
-                    if let room = try? T(roomId: roomId, session: self, initialState: events) {
+                    if let room = try? T(roomId: roomId, session: self, initialState: stateEvents, initialTimeline: timelineEvents) {
                         logger.debug("\(tag)\tAdding new room to the cache")
                         await MainActor.run {
                             self.rooms[roomId] = room
