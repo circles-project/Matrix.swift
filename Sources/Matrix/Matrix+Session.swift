@@ -703,8 +703,13 @@ extension Matrix {
             if let store = self.dataStore {
                 logger.debug("\(tag)\tLoading room from data store")
                 let stateEvents = try await store.loadEssentialState(for: roomId)
-                logger.debug("\(tag)\tLoaded \(stateEvents.count) events")
+                logger.debug("\(tag)\tLoaded \(stateEvents.count) state events")
+                /*
                 let timelineEvents = try await store.loadTimeline(for: roomId, limit: 25, offset: 0)
+                logger.debug("\(tag)\tLoaded \(stateEvents.count) timeline events")
+                */
+                let timelineEvents = [ClientEventWithoutRoomId]()
+                 
                 if stateEvents.count > 0 {
                     logger.debug("\(tag)\tConstructing the room")
                     if let room = try? T(roomId: roomId, session: self, initialState: stateEvents, initialTimeline: timelineEvents) {
