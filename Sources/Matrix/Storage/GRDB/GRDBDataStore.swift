@@ -11,7 +11,8 @@ import GRDB
 
 public struct GRDBDataStore: DataStore {
     //let db: Database
-    let dbQueue: DatabaseQueue
+    //let dbQueue: DatabaseQueue
+    let database: DatabaseWriter & DatabaseReader // This might be a DatabaseQueue or a DatabasePool, depending on if we're in-memory or persistent
     var migrator: DatabaseMigrator
         
     // MARK: Migrations
@@ -121,7 +122,7 @@ public struct GRDBDataStore: DataStore {
             */
         }
         
-        try migrator.migrate(dbQueue)
+        try migrator.migrate(database)
     }
     
     // MARK: init()
@@ -129,7 +130,7 @@ public struct GRDBDataStore: DataStore {
     public init(userId: UserId, type: StorageType) async throws {
         switch type {
         case .inMemory:
-            self.dbQueue = DatabaseQueue()
+            self.database = DatabaseQueue()
         case .persistent(let preserve):
             let dirPath = [
                 NSHomeDirectory(),
@@ -144,14 +145,14 @@ public struct GRDBDataStore: DataStore {
             }
             
             Matrix.logger.debug("Trying to open database at [\(filePath)]")
-            if let queue = try? DatabaseQueue(path: filePath) {
-                self.dbQueue = queue
+            if let pool = try? DatabasePool(path: filePath) {
+                self.database = pool
             } else {
                 Matrix.logger.debug("Failed to open database.  Maybe it doesn't exist?  Trying to create the path now...")
                 let url = URL(fileURLWithPath: dirPath)
                 try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
                 Matrix.logger.debug("Now trying again to create database")
-                self.dbQueue = try DatabaseQueue(path: filePath)
+                self.database = try DatabasePool(path: filePath)
             }
         }
         
@@ -161,13 +162,13 @@ public struct GRDBDataStore: DataStore {
     }
     
     public func close() async throws {
-        try dbQueue.close()
+        try database.close()
     }
     
     // MARK: Events
     
     public func saveTimeline(events: [ClientEvent]) async throws {
-        try await dbQueue.write { db in
+        try await database.write { db in
             for event in events {
                 try event.save(db)
             }
@@ -178,7 +179,7 @@ public struct GRDBDataStore: DataStore {
         let clientEvents = try events.map {
             try ClientEvent(from: $0, roomId: roomId)
         }
-        try await dbQueue.write { db in
+        try await database.write { db in
             for clientEvent in clientEvents {
                 try clientEvent.save(db)
             }
@@ -190,7 +191,7 @@ public struct GRDBDataStore: DataStore {
     ) async throws -> [ClientEventWithoutRoomId] {
         let roomIdColumn = ClientEvent.Columns.roomId
         let timestampColumn = ClientEvent.Columns.originServerTS
-        let events = try await dbQueue.read { db -> [ClientEvent] in
+        let events = try await database.read { db -> [ClientEvent] in
             try ClientEvent
                 .filter(roomIdColumn == "\(roomId)")
                 .order(timestampColumn.desc)
@@ -217,7 +218,7 @@ public struct GRDBDataStore: DataStore {
         
         let typeStrings = types.map { "\($0)" }
         
-        let records = try await dbQueue.read { db -> [StateEventRecord] in
+        let records = try await database.read { db -> [StateEventRecord] in
             try StateEventRecord
                 .filter(roomIdColumn == "\(roomId)")
                 .filter(typeStrings.contains(typeColumn))
@@ -247,7 +248,7 @@ public struct GRDBDataStore: DataStore {
         let baseRequest = StateEventRecord.filter(roomIdColumn == "\(roomId)")
                                         .order(timestampColumn.desc)
         let request = limit > 0 ? baseRequest.limit(limit, offset: offset) : baseRequest
-        let records = try await dbQueue.read { db -> [StateEventRecord] in
+        let records = try await database.read { db -> [StateEventRecord] in
             try request.fetchAll(db)
         }
         let events = records.compactMap {
@@ -280,7 +281,7 @@ public struct GRDBDataStore: DataStore {
         let request = table.filter(sql: query)
         */
         let request = StateEventRecord.filter(roomIdColumn == roomId)
-        let events = try await dbQueue.read { db in
+        let events = try await database.read { db in
             try request.fetchAll(db)
         }
         return events.compactMap {
@@ -297,7 +298,7 @@ public struct GRDBDataStore: DataStore {
         let stateEvents = events.compactMap { event in
             try? StateEventRecord(from: event, in: roomId)
         }
-        try await dbQueue.write { db in
+        try await database.write { db in
             for stateEvent in stateEvents {
                 try stateEvent.save(db)
             }
@@ -308,7 +309,7 @@ public struct GRDBDataStore: DataStore {
         let stateEvents = events.compactMap { event in
             try? StateEventRecord(from: event)
         }
-        try await dbQueue.write { db in
+        try await database.write { db in
             for stateEvent in stateEvents {
                 try stateEvent.save(db)
             }
@@ -316,7 +317,7 @@ public struct GRDBDataStore: DataStore {
     }
     
     public func saveStrippedState(events: [StrippedStateEvent], roomId: RoomId) async throws {
-        try await dbQueue.write { db in
+        try await database.write { db in
             for event in events {
                 let record = StrippedStateEventRecord(from: event, in: roomId)
                 try record.save(db)
@@ -326,7 +327,7 @@ public struct GRDBDataStore: DataStore {
     
     public func loadStrippedState(for roomId: RoomId) async throws -> [StrippedStateEvent] {
         let roomIdColumn = StrippedStateEventRecord.Columns.roomId
-        let records = try await dbQueue.read { db in
+        let records = try await database.read { db in
             try StrippedStateEventRecord
                     .filter(roomIdColumn == "\(roomId)")
                     .fetchAll(db)
@@ -344,7 +345,7 @@ public struct GRDBDataStore: DataStore {
     
     public func getRecentRoomIds(limit: Int=20, offset: Int? = nil) async throws -> [RoomId] {
         let timestampColumn = RoomRecord.Columns.timestamp
-        let records = try await dbQueue.read { db -> [RoomRecord] in
+        let records = try await database.read { db -> [RoomRecord] in
             try RoomRecord
                 .order(timestampColumn.desc)
                 .limit(limit, offset: offset)
@@ -356,7 +357,7 @@ public struct GRDBDataStore: DataStore {
     public func getRoomIds(of roomType: String, limit: Int=20, offset: Int?=nil) async throws -> [RoomId] {
         let eventTypeColumn = StateEventRecord.Columns.type
         let stateKeyColumn = StateEventRecord.Columns.stateKey
-        let records = try await dbQueue.read { db in
+        let records = try await database.read { db in
             let baseQuery = StateEventRecord
                 .filter(eventTypeColumn == M_ROOM_CREATE)
                 .filter(stateKeyColumn == roomType)
@@ -370,7 +371,7 @@ public struct GRDBDataStore: DataStore {
     public func getJoinedRoomIds(for userId: UserId, limit: Int=20, offset: Int?=nil) async throws -> [RoomId] {
         let eventTypeColumn = StateEventRecord.Columns.type
         let stateKeyColumn = StateEventRecord.Columns.stateKey
-        let records = try await dbQueue.read { db in
+        let records = try await database.read { db in
             let baseQuery = StateEventRecord
                 .filter(eventTypeColumn == M_ROOM_MEMBER)
                 .filter(stateKeyColumn == "\(userId)")
@@ -400,7 +401,7 @@ public struct GRDBDataStore: DataStore {
                                   state: RoomMemberContent.Membership,
                                   timestamp: UInt64
     ) async throws {
-        try await dbQueue.write { db in
+        try await database.write { db in
             let rec = RoomRecord(roomId: roomId, joinState: state, timestamp: timestamp)
             try rec.save(db)
         }
@@ -412,7 +413,7 @@ public struct GRDBDataStore: DataStore {
     public func loadProfileItem(_ item: String, for userId: UserId) async throws -> String? {
         let userIdColumn = UserProfileRecord.Columns.userId
         let keyColumn = UserProfileRecord.Columns.key
-        let record = try await dbQueue.read { db -> UserProfileRecord? in
+        let record = try await database.read { db -> UserProfileRecord? in
             try UserProfileRecord
                 .filter(userIdColumn == "\(userId)")
                 .filter(keyColumn == item)
@@ -439,7 +440,7 @@ public struct GRDBDataStore: DataStore {
     
     public func saveProfileItem(_ item: String, _ value: String, for userId: UserId) async throws {
         let record = UserProfileRecord(userId: userId, key: item, value: value)
-        try await dbQueue.write { db in
+        try await database.write { db in
             try record.save(db)
         }
     }
