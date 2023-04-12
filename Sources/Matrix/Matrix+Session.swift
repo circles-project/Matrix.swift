@@ -150,21 +150,23 @@ extension Matrix {
         // MARK: Sync
         
         public func startBackgroundSync() async throws {
-            keepSyncing = true
-            if backgroundSyncTask != nil {
+            self.keepSyncing = true
+            if self.backgroundSyncTask != nil {
                 logger.warning("Session:\tCan't start background sync when it's already running!")
                 return
             }
-            backgroundSyncTask = .init(priority: .background) {
+            self.backgroundSyncTask = self.backgroundSyncTask ?? .init(priority: .background) {
+                syncLogger.debug("Starting background sync")
                 var count: UInt = 0
                 var failureCount: UInt = 0
-                while keepSyncing {
+                while self.keepSyncing {
+                    syncLogger.debug("Keeping on syncing...")
                     guard let token = try? await sync()
                     else {
                         syncLogger.warning("Sync failed with token \(self.syncToken ?? "(none)")")
                         failureCount += 1
                         if failureCount > 3 {
-                            keepSyncing = false
+                            self.keepSyncing = false
                         }
                         try await Task.sleep(for: .seconds(1))
                         continue
@@ -178,7 +180,7 @@ extension Matrix {
                         try await Task.sleep(nanoseconds: nano)
                     }
                 }
-                backgroundSyncTask = nil
+                self.backgroundSyncTask = nil
                 return count
             }
         }
