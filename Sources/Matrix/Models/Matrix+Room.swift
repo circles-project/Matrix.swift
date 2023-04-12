@@ -701,26 +701,34 @@ extension Matrix {
                 thumbnailData = nil
             }
             
-            if withBlurhash {
-                let blurhashStart = Date()
-                info.blurhash = image.blurHash(numberOfComponents: image.size.width > image.size.height ? (6,4) : (4,6))
-                let blurhashEnd = Date()
-                let blurhashTime = blurhashEnd.timeIntervalSince(blurhashStart)
-                logger.debug("\(blurhashTime) sec to create blurhash")
-            }
-            
-            let tinyStart = Date()
-            if withThumbhash,
-               let image100x100 = image.downscale(to: CGSize(width: 100, height: 100))
-            {
+            if withBlurhash || withThumbhash {
+                let tinyStart = Date()
+                guard let image100x100 = image.downscale(to: CGSize(width: 100, height: 100))
+                else {
+                    logger.error("Failed to create tiny 100x100 image for blurhash/thumbhash")
+                    throw Matrix.Error("Failed to create tiny 100x100 image for blurhash/thumbhash")
+                }
                 let tinyEnd = Date()
                 let tinyTime = tinyEnd.timeIntervalSince(tinyStart)
-                logger.debug("\(tinyTime) sec to create tiny 100x100 image for thumbhash")
-                let thumbhashStart = Date()
-                info.thumbhash = imageToThumbHash(image: image100x100).base64EncodedString()
-                let thumbhashEnd = Date()
-                let thumbhashTime = thumbhashEnd.timeIntervalSince(thumbhashStart)
-                logger.debug("\(thumbhashTime) sec to create thumbhash")
+                logger.debug("\(tinyTime) sec to create tiny 100x100 image for blurhash/thumbhash")
+
+                
+                if withBlurhash {
+                    let blurhashStart = Date()
+                    info.blurhash = image100x100.blurHash(numberOfComponents: image100x100.size.width > image100x100.size.height ? (6,4) : (4,6))
+                    let blurhashEnd = Date()
+                    let blurhashTime = blurhashEnd.timeIntervalSince(blurhashStart)
+                    logger.debug("\(blurhashTime) sec to create blurhash")
+                }
+                
+                if withThumbhash
+                {
+                    let thumbhashStart = Date()
+                    info.thumbhash = imageToThumbHash(image: image100x100).base64EncodedString()
+                    let thumbhashEnd = Date()
+                    let thumbhashTime = thumbhashEnd.timeIntervalSince(thumbhashStart)
+                    logger.debug("\(thumbhashTime) sec to create thumbhash")
+                }
             }
             
             if !self.isEncrypted {
