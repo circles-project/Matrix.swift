@@ -200,7 +200,7 @@ extension Matrix {
                 }
             }
             
-            //logger.debug("User \(self.creds.userId) syncing with token \(self.syncToken ?? "(none)")")
+            logger.debug("User \(self.creds.userId) syncing with token \(self.syncToken ?? "(none)")")
             let url = "/_matrix/client/v3/sync"
             var params = [
                 "timeout": "\(syncRequestTimeout)",
@@ -211,8 +211,8 @@ extension Matrix {
             let (data, response) = try await self.call(method: "GET", path: url, params: params)
             //logger.debug("User \(self.creds.userId) got sync response")
             
-            let rawDataString = String(data: data, encoding: .utf8)
-            print("\n\n\(rawDataString!)\n\n")
+            //let rawDataString = String(data: data, encoding: .utf8)
+            //print("\n\n\(rawDataString!)\n\n")
             
             guard response.statusCode == 200 else {
                 logger.error("\(self.creds.userId) Error: got HTTP \(response.statusCode) \(response.description)")
@@ -315,21 +315,21 @@ extension Matrix {
                         // Then save the state events that came in during the timeline
                         // We do both in a single call so it all happens in one transaction in the database
                         if !allStateEvents.isEmpty {
-                            logger.debug("Saving state for room \(roomId)")
+                            //logger.debug("Saving state for room \(roomId)")
                             try await store.saveState(events: allStateEvents, in: roomId)
                         }
                         if !timelineEvents.isEmpty {
                             // Save the whole timeline so it can be displayed later
-                            logger.debug("Saving timeline for room \(roomId)")
+                            //logger.debug("Saving timeline for room \(roomId)")
                             try await store.saveTimeline(events: timelineEvents, in: roomId)
                         }
                         
                         // Save the room summary with the latest timestamp
                         if let timestamp = roomTimestamp {
-                            logger.debug("Saving timestamp for room \(roomId)")
+                            //logger.debug("Saving timestamp for room \(roomId)")
                             try await store.saveRoomTimestamp(roomId: roomId, state: .join, timestamp: timestamp)
                         } else {
-                            logger.debug("No update to timestamp for room \(roomId)")
+                            //logger.debug("No update to timestamp for room \(roomId)")
                         }
                     }
                     
@@ -348,7 +348,7 @@ extension Matrix {
                         $0.stateKey
                     }
                     if !leftUsers.isEmpty {
-                        logger.debug("CRYPTO: Discarding/invalidating old Megolm session for room \(roomId) because \(leftUsers.count) users have left")
+                        //logger.debug("CRYPTO: Discarding/invalidating old Megolm session for room \(roomId) because \(leftUsers.count) users have left")
                         try await cryptoQueue.run {
                             try self.crypto.discardRoomKey(roomId: "\(roomId)")
                         }
@@ -369,7 +369,7 @@ extension Matrix {
                         $0.stateKey
                     }
                     if !newUsers.isEmpty {
-                        logger.debug("Updating crypto state with \(newUsers.count) potentially-new users")
+                        //logger.debug("Updating crypto state with \(newUsers.count) potentially-new users")
                         try await cryptoQueue.run {
                             try self.crypto.updateTrackedUsers(users: newUsers)
                         }
@@ -377,14 +377,14 @@ extension Matrix {
 
 
                     if let room = self.rooms[roomId] {
-                        logger.debug("\tWe know this room already: \(stateEvents.count) new state events, \(timelineEvents.count) new timeline events")
+                        //logger.debug("\tWe know this room already: \(stateEvents.count) new state events, \(timelineEvents.count) new timeline events")
 
                         // Update the room with the latest data from `info`
                         await room.updateState(from: stateEvents)
                         try await room.updateTimeline(from: timelineEvents)
                         
                         if let unread = info.unreadNotifications {
-                            logger.debug("\t\(unread.notificationCount) notifications, \(unread.highlightCount) highlights")
+                            //logger.debug("\t\(unread.notificationCount) notifications, \(unread.highlightCount) highlights")
                             //room.notificationCount = unread.notificationCount
                             //room.highlightCount = unread.highlightCount
                             await room.updateUnreadCounts(notifications: unread.notificationCount, highlights: unread.highlightCount)

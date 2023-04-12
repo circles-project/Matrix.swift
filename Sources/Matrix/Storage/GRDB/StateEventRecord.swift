@@ -65,16 +65,18 @@ struct StateEventRecord: Codable {
     }
     
     init(from decoder: Decoder) throws {
-        Matrix.logger.debug("Decoding a StateEventRecord")
+        //Matrix.logger.debug("Decoding a StateEventRecord")
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         let roomId = try container.decode(RoomId.self, forKey: .roomId)
-        Matrix.logger.debug("roomId = \(roomId)")
+        //Matrix.logger.debug("roomId = \(roomId)")
         self.roomId = roomId
         
         let type = try container.decode(String.self, forKey: .type)
-        Matrix.logger.debug("type = \(type)")
+        //Matrix.logger.debug("type = \(type)")
         self.type = type
+        
+        Matrix.logger.debug("Decoding a StateEventRecord:  roomId = \(roomId)  type = \(type)")
         
         self.stateKey = try container.decode(String.self, forKey: .stateKey)
         self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)

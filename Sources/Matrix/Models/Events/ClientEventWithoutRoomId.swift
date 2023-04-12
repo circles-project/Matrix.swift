@@ -53,11 +53,11 @@ public struct ClientEventWithoutRoomId: Matrix.Event, Codable {
     }
     
     public init(from decoder: Decoder) throws {
-        Matrix.logger.debug("Decoding ClientEventWithoutRoomId")
+        //Matrix.logger.debug("Decoding ClientEventWithoutRoomId")
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         let eventId = try container.decode(String.self, forKey: .eventId)
-        Matrix.logger.debug("  eventId = \(eventId)")
+        //Matrix.logger.debug("  eventId = \(eventId)")
         self.eventId = eventId
         
         self.originServerTS = try container.decode(UInt64.self, forKey: .originServerTS)
@@ -66,13 +66,13 @@ public struct ClientEventWithoutRoomId: Matrix.Event, Codable {
         self.stateKey = try container.decodeIfPresent(String.self, forKey: .stateKey)
         
         let type = try container.decode(String.self, forKey: .type)
-        Matrix.logger.debug("  type = \(type)")
+        //Matrix.logger.debug("  type = \(type)")
         self.type = type
         
         self.unsigned = try container.decodeIfPresent(UnsignedData.self, forKey: .unsigned)
          
         self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
-        Matrix.logger.debug("  done with event \(eventId)")
+        //Matrix.logger.debug("  done with event \(eventId)")
     }
     
     public func encode(to encoder: Encoder) throws {
