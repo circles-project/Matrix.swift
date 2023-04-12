@@ -189,32 +189,26 @@ extension Matrix {
         // MARK: State
         
         open func updateState(from events: [ClientEventWithoutRoomId]) async {
+            // Compute the new state from the old state and the new events
+            var tmpState = self.state
             for event in events {
-                await updateState(from: event)
+                guard let stateKey = event.stateKey
+                else {
+                    logger.debug("No state key for \"state\" even of type \(event.type)")
+                    continue
+                }
+                
+                var d = tmpState[event.type] ?? [:]
+                d[stateKey] = event
+                tmpState[event.type] = d
+            }
+            let newState = tmpState
+            await MainActor.run {
+                self.state = newState
             }
             
             // Also update our actual image, if necessary
             self.updateAvatarImage()
-        }
-        
-        open func updateState(from event: ClientEventWithoutRoomId) async {
-            guard let stateKey = event.stateKey
-            else {
-                let msg = "No state key for \"state\" event of type \(event.type)"
-                print("updateState:\t\(msg)")
-                //throw Matrix.Error(msg)
-                //continue
-                return
-            }
-            
-            // Update our local copy of the state to include this event
-            await MainActor.run {
-                var d = self.state[event.type] ?? [:]
-                d[stateKey] = event
-                self.state[event.type] = d
-            }
-            
-
         }
         
         
