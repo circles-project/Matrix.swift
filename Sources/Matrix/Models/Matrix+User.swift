@@ -44,6 +44,10 @@ extension Matrix {
                     self.fetchAvatarImage()
                 }
                 
+                // Dirty hack 😈 - Hold the "lock" to keep the application from constantly / repeatedly
+                // trying to fetch a displayname or avatar_url that doesn't exist
+                try await Task.sleep(for: .seconds(30))
+                
                 self.refreshProfileTask = nil
             })
         }
