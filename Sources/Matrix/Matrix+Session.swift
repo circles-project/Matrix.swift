@@ -85,7 +85,8 @@ extension Matrix {
             self.spaceChildRooms = [:]
             self.users = [:]
             self.accountData = [:]
-                        
+
+            self.syncToken = syncToken
             self.keepSyncing = startSyncing
             // Initialize the sync tasks to nil so we can run super.init()
             self.syncRequestTask = nil
