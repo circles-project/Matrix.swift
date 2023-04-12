@@ -663,9 +663,13 @@ extension Matrix {
                               withBlurhash: Bool=true,
                               withThumbhash: Bool=true
         ) async throws -> EventId {
+            let jpegStart = Date()
             guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
                 throw Matrix.Error("Couldn't create JPEG for image")
             }
+            let jpegEnd = Date()
+            let jpegTime = jpegEnd.timeIntervalSince(jpegStart)
+            logger.debug("\(jpegTime) sec to compress \(image.size.width)x\(image.size.height) JPEG")
             
             var info = mImageInfo(h: Int(image.size.height),
                                   w: Int(image.size.width),
@@ -674,14 +678,22 @@ extension Matrix {
             
             let thumbnail: NativeImage?
             if let (thumbWidth, thumbHeight) = thumbnailSize {
+                let thumbnailStart = Date()
                 thumbnail = image.downscale(to: CGSize(width: thumbWidth, height: thumbHeight))
+                let thumbnailEnd = Date()
+                let thumbnailTime = thumbnailEnd.timeIntervalSince(thumbnailStart)
+                logger.debug("\(thumbnailTime) sec to resize \(thumbnail!.size.width)x\(thumbnail!.size.height) thumbnail")
             } else {
                 thumbnail = nil
             }
             
             let thumbnailData: Data?
             if let thumbnail = thumbnail {
+                let thumbJpegStart = Date()
                 thumbnailData = thumbnail.jpegData(compressionQuality: 0.8)
+                let thumbJpegEnd = Date()
+                let thumbJpegTime = thumbJpegEnd.timeIntervalSince(thumbJpegStart)
+                logger.debug("\(thumbJpegTime) sec to compress thumbnail JPEG")
                 guard thumbnailData != nil else {
                     throw Matrix.Error("Failed to create JPEG for thumbnail")
                 }
@@ -690,13 +702,25 @@ extension Matrix {
             }
             
             if withBlurhash {
+                let blurhashStart = Date()
                 info.blurhash = image.blurHash(numberOfComponents: image.size.width > image.size.height ? (6,4) : (4,6))
+                let blurhashEnd = Date()
+                let blurhashTime = blurhashEnd.timeIntervalSince(blurhashStart)
+                logger.debug("\(blurhashTime) sec to create blurhash")
             }
             
+            let tinyStart = Date()
             if withThumbhash,
                let image100x100 = image.downscale(to: CGSize(width: 100, height: 100))
             {
+                let tinyEnd = Date()
+                let tinyTime = tinyEnd.timeIntervalSince(tinyStart)
+                logger.debug("\(tinyTime) sec to create tiny 100x100 image for thumbhash")
+                let thumbhashStart = Date()
                 info.thumbhash = imageToThumbHash(image: image100x100).base64EncodedString()
+                let thumbhashEnd = Date()
+                let thumbhashTime = thumbhashEnd.timeIntervalSince(thumbhashStart)
+                logger.debug("\(thumbhashTime) sec to create thumbhash")
             }
             
             if !self.isEncrypted {
