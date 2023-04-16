@@ -14,6 +14,7 @@ extension Matrix {
         public let state: [String: [String:StrippedStateEvent]]  // From /sync
         public let creator: UserId
         @Published public var avatar: NativeImage?
+        private var fetchAvatarImageTask: Task<Void,Swift.Error>?
                         
         public init(session: Session, roomId: RoomId, stateEvents: [StrippedStateEvent]) throws {
             
@@ -104,6 +105,24 @@ extension Matrix {
             return content.url
         }
         
+        public var blurhash: String? {
+            guard let event = state[M_ROOM_AVATAR]?[""],
+                  let content = event.content as? RoomAvatarContent
+            else {
+                return nil
+            }
+            return content.info.blurhash
+        }
+        
+        public var thumbhash: String? {
+            guard let event = state[M_ROOM_AVATAR]?[""],
+                  let content = event.content as? RoomAvatarContent
+            else {
+                return nil
+            }
+            return content.info.thumbhash
+        }
+        
         public var members: [UserId] {
             guard let events = state[M_ROOM_MEMBER]?.values.filter( { event in
                 guard let content = event.content as? RoomMemberContent
@@ -139,6 +158,73 @@ extension Matrix {
             
             await MainActor.run {
                 self.avatar = image
+            }
+        }
+        
+        // Set our avatar image from the thumbhash or blurhash, depending on what we have available.
+        // For use while loading the real image from the server.
+        func useBlurryPlaceholder() async {
+            if let thumbhash = self.thumbhash,
+               let thumbhashData = Data(base64Encoded: thumbhash)
+            {
+                let image = thumbHashToImage(hash: thumbhashData)
+                await MainActor.run {
+                    logger.debug("Room \(self.roomId) using thumbhash while loading")
+                    self.avatar = image
+                }
+            } else if let blurhash = self.blurhash {
+                
+                if let event = self.state[M_ROOM_AVATAR]?[""],
+                   let content = event.content as? RoomAvatarContent,
+                   let image = NativeImage(blurHash: blurhash,
+                                           size: CGSize(width: content.info.w,
+                                                        height: content.info.h))
+                {
+                    await MainActor.run {
+                        logger.debug("Room \(self.roomId) using blurhash while loading")
+                        self.avatar = image
+                    }
+                }
+
+            }
+        }
+        
+        public func updateAvatarImage() {
+            if let mxc = self.avatarUrl
+            {
+                logger.debug("Room \(self.roomId) fetching avatar for from \(mxc)")
+
+                self.fetchAvatarImageTask = self.fetchAvatarImageTask ?? .init(priority: .background, operation: {
+                    logger.debug("Room \(self.roomId) starting a new fetch task")
+                    
+                    // First, while we're loading the new image, set a place holder if we have one
+                    await self.useBlurryPlaceholder()
+                    
+                    // Now that we have things looking OK locally for now, we can actually load the real image
+                    let startTime = Date()
+                    guard let data = try? await self.session.downloadData(mxc: mxc)
+                    else {
+                        logger.error("Room \(self.roomId) failed to download avatar from \(mxc)")
+                        self.fetchAvatarImageTask = nil
+                        return
+                    }
+                    let endTime = Date()
+                    let latencyMS = endTime.timeIntervalSince(startTime) * 1000
+                    let sizeKB = Double(data.count) / 1024.0
+                    logger.debug("Room \(self.roomId.opaqueId) fetched \(sizeKB) KB of avatar image data from \(mxc.mediaId) in \(latencyMS) ms")
+                    let newAvatar = Matrix.NativeImage(data: data)
+                    logger.debug("Room \(self.roomId) setting new avatar from \(mxc)")
+                    await MainActor.run {
+                        print("Room \(self.roomId) updating avatar NOW")
+                        self.avatar = newAvatar
+                    }
+                    
+                    self.fetchAvatarImageTask = nil
+                    logger.debug("Room \(self.roomId) done fetching avatar image")
+                })
+                
+            } else {
+                logger.debug("Can't fetch avatar for room \(self.roomId) because we have no avatar_url")
             }
         }
     }
