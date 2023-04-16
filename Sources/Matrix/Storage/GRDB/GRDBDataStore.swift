@@ -316,6 +316,8 @@ public struct GRDBDataStore: DataStore {
         }
     }
     
+    // MARK: Stripped State
+    
     public func saveStrippedState(events: [StrippedStateEvent], roomId: RoomId) async throws {
         try await database.write { db in
             for event in events {
@@ -340,6 +342,17 @@ public struct GRDBDataStore: DataStore {
         }
         return events
     }
+    
+    public func deleteStrippedState(for roomId: RoomId) async throws -> Int {
+        let roomIdColumn = StrippedStateEventRecord.Columns.roomId
+        let count = try await database.write { db in
+            try StrippedStateEventRecord
+                .filter(roomIdColumn == "\(roomId)")
+                .deleteAll(db)
+        }
+        return count
+    }
+
     
     // MARK: Rooms
     

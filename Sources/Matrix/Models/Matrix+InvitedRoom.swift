@@ -13,5 +13,17 @@ extension Matrix {
             let event = state[M_ROOM_MEMBER]!["\(session.creds.userId)"]!
             return event.sender
         }
+        
+        public func accept(reason: String? = nil) async throws {
+            try await join(reason: reason)
+        }
+        
+        public func reject(reason: String? = nil) async throws {
+            try await session.leave(roomId: self.roomId, reason: reason)
+        }
+        
+        public func ignore() async throws {
+            try await session.deleteInvitedRoom(roomId: roomId)
+        }
     }
 }

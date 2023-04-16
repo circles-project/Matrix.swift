@@ -396,18 +396,8 @@ extension Matrix {
                     } else {
                         // Clearly the room is no longer in the 'invited' state
                         invitations.removeValue(forKey: roomId)
-                        // FIXME Also purge any stripped state that we had been storing for this room
-                        
-                        /*
-                        if let room = try? Matrix.Room(roomId: roomId, session: self, initialState: stateEvents+timelineStateEvents, initialTimeline: timelineEvents) {
-                            logger.debug("Initialized new Room object for \(roomId)")
-                            await MainActor.run {
-                                self.rooms[roomId] = room
-                            }
-                        } else {
-                            logger.error("Failed to initialize Room object for \(roomId)")
-                        }
-                        */
+                        // Also purge any stripped state that we had been storing for this room
+                        try await deleteInvitedRoom(roomId: roomId)
                     }
                 }
             } else {
@@ -803,6 +793,13 @@ extension Matrix {
             
             // Whoops, looks like we couldn't find what we needed
             return nil
+        }
+        
+        public func deleteInvitedRoom(roomId: RoomId) async throws {
+            if let store = self.dataStore {
+                let count = try await store.deleteStrippedState(for: roomId)
+                logger.debug("Purged \(count) stripped state events for invited room \(roomId)")
+            }
         }
         
         public func getSpaceChildRoom(roomId: RoomId) async throws -> Matrix.SpaceChildRoom? {

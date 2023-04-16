@@ -41,4 +41,6 @@ public protocol DataStore {
     //func loadRoom(_ roomId: RoomId) async throws -> Matrix.Room?
     
     func saveRoomTimestamp(roomId: RoomId, state: RoomMemberContent.Membership, timestamp: UInt64) async throws
+    
+    func deleteStrippedState(for roomId: RoomId) async throws -> Int
 }
