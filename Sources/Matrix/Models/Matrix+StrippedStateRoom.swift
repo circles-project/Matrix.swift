@@ -15,6 +15,7 @@ extension Matrix {
         public let creator: UserId
         @Published public var avatar: NativeImage?
         private var fetchAvatarImageTask: Task<Void,Swift.Error>?
+        private var currentAvatarUrl: MXC?
                         
         public init(session: Session, roomId: RoomId, stateEvents: [StrippedStateEvent]) throws {
             
@@ -192,6 +193,11 @@ extension Matrix {
         public func updateAvatarImage() {
             if let mxc = self.avatarUrl
             {
+                guard currentAvatarUrl == nil
+                else {
+                    logger.debug("Don't need to fetch the avatar for room \(self.roomId) -- we already have it")
+                    return
+                }
                 logger.debug("Room \(self.roomId) fetching avatar for from \(mxc)")
 
                 self.fetchAvatarImageTask = self.fetchAvatarImageTask ?? .init(priority: .background, operation: {
@@ -218,6 +224,7 @@ extension Matrix {
                         print("Room \(self.roomId) updating avatar NOW")
                         self.avatar = newAvatar
                     }
+                    self.currentAvatarUrl = mxc
                     
                     self.fetchAvatarImageTask = nil
                     logger.debug("Room \(self.roomId) done fetching avatar image")
