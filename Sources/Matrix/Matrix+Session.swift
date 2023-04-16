@@ -85,7 +85,7 @@ extension Matrix {
             self.spaceChildRooms = [:]
             self.users = [:]
             self.accountData = [:]
-
+            
             self.syncToken = syncToken
             self.keepSyncing = startSyncing
             // Initialize the sync tasks to nil so we can run super.init()
@@ -125,9 +125,9 @@ extension Matrix {
                                          path: cryptoStorePath,
                                          passphrase: nil)
             self.cryptoQueue = TicketTaskQueue<Void>()
-
+            
             try await super.init(creds: creds)
-
+            
             // --------------------------------------------------------------------------------------------------------
             // Phase 1 init is done -- Now we can reference `self`
             
@@ -138,10 +138,25 @@ extension Matrix {
                     try await self.sendCryptoRequest(request: request)
                 }
                 let uia = try await self.setupCrossSigning()
-                // Hopefully uia is nil -- Meaning we don't have to re-authenticate so soon 
+                // Hopefully uia is nil -- Meaning we don't have to re-authenticate so soon
             }
             
             // Ok now we're initialized as a valid Matrix.Client (super class)
+            
+            // Load our list of existing invited rooms
+            if let store = self.dataStore {
+                logger.debug("Looking for previously-saved invited rooms")
+                let invitedRoomIds = try await store.getInvitedRoomIds(for: creds.userId)
+                logger.debug("Found \(invitedRoomIds.count) invited room id's")
+                for roomId in invitedRoomIds {
+                    logger.debug("Attempting to load stripped state for invited room \(roomId)")
+                    let strippedStateEvents = try await store.loadStrippedState(for: roomId)
+                    if let room = try? InvitedRoom(session: self, roomId: roomId, stateEvents: strippedStateEvents) {
+                        self.invitations[roomId] = room
+                    }
+                }
+            }
+            
             // Are we supposed to start syncing?
             if startSyncing {
                 try await startBackgroundSync()

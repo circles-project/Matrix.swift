@@ -403,6 +403,27 @@ public struct GRDBDataStore: DataStore {
         return roomIds
     }
     
+    public func getInvitedRoomIds(for userId: UserId) async throws -> [RoomId] {
+        //let roomIdColumn = StrippedStateEventRecord.Columns.roomId
+        let typeColumn = StrippedStateEventRecord.Columns.type
+        let stateKeyColumn = StrippedStateEventRecord.Columns.stateKey
+        let records = try await database.read { db in
+            try StrippedStateEventRecord
+                .filter(typeColumn == M_ROOM_MEMBER)
+                .filter(stateKeyColumn == "\(userId)")
+                .fetchAll(db)
+        }
+        let roomIds = records.compactMap { record -> RoomId? in
+            guard let content = record.content as? RoomMemberContent,
+                  content.membership == .invite
+            else {
+                return nil
+            }
+            return record.roomId
+        }
+        return roomIds
+    }
+    
     /* // Moving this up into the Session layer
     public func loadRoom(_ roomId: RoomId) async throws -> Matrix.Room? {
         let stateEvents = try await loadState(for: roomId)

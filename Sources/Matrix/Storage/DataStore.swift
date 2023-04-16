@@ -36,6 +36,7 @@ public protocol DataStore {
     func getRecentRoomIds(limit: Int, offset: Int?) async throws -> [RoomId]
     func getRoomIds(of roomType: String, limit: Int, offset: Int?) async throws -> [RoomId]
     func getJoinedRoomIds(for userId: UserId, limit: Int, offset: Int?) async throws -> [RoomId]
+    func getInvitedRoomIds(for userId: UserId) async throws -> [RoomId]
     
     //func loadRooms(of type: String?, limit: Int, offset: Int?) async throws -> [Matrix.Room]
     //func loadRoom(_ roomId: RoomId) async throws -> Matrix.Room?
