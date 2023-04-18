@@ -299,6 +299,41 @@ public class Client {
         return (profileInfo.displayName, profileInfo.avatarUrl)
     }
     
+    // MARK: User Directory
+    // https://spec.matrix.org/v1.6/client-server-api/#user-directory
+    
+    public func searchUserDirectory(term: String, limit: Int = 10) async throws -> [UserId] {
+        let path = "/_matrix/client/v3/user_directory/search"
+        let body = [
+            "limit": "\(limit)",
+            "search_term": term,
+        ]
+        let (data, response) = try await call(method: "POST", path: path, body: body)
+        
+        struct UserDirectorySearchResult: Codable {
+            var limited: Bool
+            var results: [User]
+            
+            struct User: Codable {
+                var avatarUrl: MXC?
+                var displayname: String?
+                var userId: UserId
+                
+                enum CodingKeys: String, CodingKey {
+                    case avatarUrl = "avatar_url"
+                    case displayname = "display_name"
+                    case userId = "user_id"
+                }
+            }
+        }
+        let decoder = JSONDecoder()
+        let result = try decoder.decode(UserDirectorySearchResult.self, from: data)
+        return result.results.compactMap {
+            $0.userId
+        }
+    }
+    
+    
     // MARK: Account Data
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3useruseridaccount_datatype
