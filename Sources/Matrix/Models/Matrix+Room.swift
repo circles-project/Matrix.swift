@@ -791,11 +791,29 @@ extension Matrix {
             throw Matrix.Error("Not implemented")
         }
         
-        public func sendReply(to eventId: EventId, text: String) async throws -> EventId {
+        public func sendReply(to event: ClientEventWithoutRoomId, text: String, threaded: Bool = true) async throws -> EventId {
+            let relatesTo: mRelatesTo
+            // Is this a threaded reply?  If so, extract the thread id from the parent event, or use its id as the new thread id.
+            // Otherwise, just send the m.in_reply_to relation
+            if threaded {
+                if let relatedContent = event.content as? RelatedEventContent,
+                   relatedContent.relationshipType == M_THREAD,
+                   let threadId = relatedContent.relatedEventId
+                {
+                    relatesTo = mRelatesTo(relType: M_THREAD, eventId: threadId, inReplyTo: event.eventId)
+
+                } else {
+                    relatesTo = mRelatesTo(relType: M_THREAD, eventId: event.eventId, inReplyTo: event.eventId)
+                }
+            
+            } else {
+                relatesTo = mRelatesTo(inReplyTo: event.eventId)
+            }
             
             let content = mTextContent(msgtype: .text,
                                        body: text,
-                                       relatesTo: mRelatesTo(inReplyTo: eventId))
+                                       relatesTo: relatesTo)
+            
             return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
         }
         

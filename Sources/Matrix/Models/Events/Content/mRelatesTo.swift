@@ -23,7 +23,7 @@ public struct mRelatesTo: Codable {
     public let key: String?
     public let inReplyTo: mInReplyTo?
     
-    public init(relType: String, eventId: EventId, key: String? = nil, inReplyTo: EventId? = nil) {
+    public init(relType: String?, eventId: EventId?, key: String? = nil, inReplyTo: EventId? = nil) {
         self.relType = relType
         self.eventId = eventId
         self.key = key
