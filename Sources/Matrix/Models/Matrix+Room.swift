@@ -28,9 +28,10 @@ extension Matrix {
         @Published public var avatar: NativeImage?
         private var currentAvatarUrl: MXC?          // Remember where we got our current avatar image, so we can know when to fetch a new one (or not)
         
-        private(set) public var timeline: OrderedDictionary<EventId,Matrix.Message> //[ClientEventWithoutRoomId]
+        private(set) public var timeline: OrderedDictionary<EventId,Message> //[ClientEventWithoutRoomId]
         //@Published public var localEchoEvent: Event?
-        @Published private(set) public var localEchoMessage: Message? // FIXME: Set this when we send a message
+        @Published private(set) public var localEchoMessage: Message?
+        private(set) public var reactions: [EventId: Message]
 
         @Published private(set) public var state: [String: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
         
@@ -48,6 +49,7 @@ extension Matrix {
             self.roomId = roomId
             self.session = session
             self.timeline = [:] // Set this to empty for starters, because we need `self` to create instances of Matrix.Message
+            self.reactions = [:]
             self.state = [:]
             
             // Ugh, sometimes all of our state is actually in the timeline.
@@ -790,9 +792,10 @@ extension Matrix {
         }
         
         public func sendReply(to eventId: EventId, text: String) async throws -> EventId {
+            
             let content = mTextContent(msgtype: .text,
                                        body: text,
-                                       relates_to: mRelatesTo(inReplyTo: .init(eventId: eventId)))
+                                       relatesTo: mRelatesTo(inReplyTo: eventId))
             return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
         }
         

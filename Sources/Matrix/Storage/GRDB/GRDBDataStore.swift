@@ -31,6 +31,8 @@ public struct GRDBDataStore: DataStore {
                 t.column("origin_server_ts", .integer).notNull()
                 t.column("content", .blob).notNull()
                 t.column("unsigned", .blob)
+                t.column("rel_type", .text)
+                t.column("related_eventid", .text)
                 t.primaryKey(["event_id"])
             }
             
@@ -168,9 +170,10 @@ public struct GRDBDataStore: DataStore {
     // MARK: Events
     
     public func saveTimeline(events: [ClientEvent]) async throws {
+        let records = events.compactMap { try? ClientEventRecord(event: $0) }
         try await database.write { db in
-            for event in events {
-                try event.save(db)
+            for record in records {
+                try record.save(db)
             }
         }
     }
@@ -179,9 +182,13 @@ public struct GRDBDataStore: DataStore {
         let clientEvents = try events.map {
             try ClientEvent(from: $0, roomId: roomId)
         }
+        // This is stupid but it works
+        let records = clientEvents.compactMap {
+            try? ClientEventRecord(event: $0)
+        }
         try await database.write { db in
-            for clientEvent in clientEvents {
-                try clientEvent.save(db)
+            for record in records {
+                try record.save(db)
             }
         }
     }
@@ -189,23 +196,16 @@ public struct GRDBDataStore: DataStore {
     public func loadTimeline(for roomId: RoomId,
                              limit: Int = 25, offset: Int? = nil
     ) async throws -> [ClientEventWithoutRoomId] {
-        let roomIdColumn = ClientEvent.Columns.roomId
-        let timestampColumn = ClientEvent.Columns.originServerTS
-        let events = try await database.read { db -> [ClientEvent] in
-            try ClientEvent
+        let roomIdColumn = ClientEventRecord.Columns.roomId
+        let timestampColumn = ClientEventRecord.Columns.originServerTS
+        let records = try await database.read { db -> [ClientEventRecord] in
+            try ClientEventRecord
                 .filter(roomIdColumn == "\(roomId)")
                 .order(timestampColumn.desc)
                 .limit(limit, offset: offset)
                 .fetchAll(db)
-        }.map { event in
-            try ClientEventWithoutRoomId(content: event.content,
-                                         eventId: event.eventId,
-                                         originServerTS: event.originServerTS,
-                                         sender: event.sender,
-                                         stateKey: event.stateKey,
-                                         type: event.type,
-                                         unsigned: event.unsigned)
         }
+        let events = records.map { $0 as ClientEventWithoutRoomId }
         return events
     }
     

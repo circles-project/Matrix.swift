@@ -222,7 +222,7 @@ public enum _MatrixMessageType: String, Codable {
 }
 
 // MARK: MessageContent
-public protocol _MatrixMessageContent: Codable {
+public protocol _MatrixMessageContent: Codable, RelatedEventContent {
     var body: String {get}
     var msgtype: Matrix.MessageType {get}
     
@@ -233,4 +233,7 @@ public protocol _MatrixMessageContent: Codable {
     var thumbnail_url: MXC? {get}
     var blurhash: String? {get}
     var thumbhash: String? {get}
+
+    var relationshipType: String? {get}
+    var relatedEventId: EventId? {get}
 }

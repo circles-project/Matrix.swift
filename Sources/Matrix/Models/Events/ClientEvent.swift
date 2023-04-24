@@ -8,99 +8,39 @@
 import Foundation
 import AnyCodable
 
-public struct ClientEvent: Matrix.Event, Codable {
-    public let content: Codable
-    public let eventId: String
-    public let originServerTS: UInt64
+public class ClientEvent: ClientEventWithoutRoomId {
     public let roomId: RoomId
-    public let sender: UserId
-    public let stateKey: String?
-    public let type: String
-    public let unsigned: UnsignedData?
+
     
     public enum CodingKeys: String, CodingKey {
-        case content
-        case eventId = "event_id"
-        case originServerTS = "origin_server_ts"
         case roomId = "room_id"
-        case sender
-        case stateKey = "state_key"
-        case type
-        case unsigned
     }
     
     public init(content: Codable, eventId: String, originServerTS: UInt64, roomId: RoomId,
                 sender: UserId, stateKey: String? = nil, type: String,
                 unsigned: UnsignedData? = nil) throws {
-        self.content = content
-        self.eventId = eventId
-        self.originServerTS = originServerTS
         self.roomId = roomId
-        self.sender = sender
-        self.stateKey = stateKey
-        self.type = type
-        self.unsigned = unsigned
+        try super.init(content: content, eventId: eventId, originServerTS: originServerTS, sender: sender, stateKey: stateKey, type: type, unsigned: unsigned)
     }
     
-    public init(from: ClientEventWithoutRoomId, roomId: RoomId) throws {
+    public convenience init(from: ClientEventWithoutRoomId, roomId: RoomId) throws {
         try self.init(content: from.content, eventId: from.eventId,
                       originServerTS: from.originServerTS, roomId: roomId,
                       sender: from.sender, type: from.type,
                       unsigned: from.unsigned)
     }
     
-    public init(from decoder: Decoder) throws {
+    public required init(from decoder: Decoder) throws {
         //Matrix.logger.debug("Decoding ClientEvent")
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        let eventId = try container.decode(String.self, forKey: .eventId)
-        //Matrix.logger.debug("\teventId = \(eventId)")
-        self.eventId = eventId
-        
-        self.originServerTS = try container.decode(UInt64.self, forKey: .originServerTS)
-        //Matrix.logger.debug("\toriginserverTs")
-
         self.roomId = try container.decode(RoomId.self, forKey: .roomId)
         //Matrix.logger.debug("\troomid")
-
-        self.sender = try container.decode(UserId.self, forKey: .sender)
-        //Matrix.logger.debug("\tsender")
-
-        self.stateKey = try container.decodeIfPresent(String.self, forKey: .stateKey)
-        //Matrix.logger.debug("\tstateKey")
-
-        let type = try container.decode(String.self, forKey: .type)
-        //Matrix.logger.debug("\ttype = \(type)")
-        self.type = type
-
-        self.unsigned = try container.decodeIfPresent(UnsignedData.self, forKey: .unsigned)
-        //Matrix.logger.debug("\tunsigned")
-
-        self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
-        //Matrix.logger.debug("\tcontent")
-
+        try super.init(from: decoder)
     }
     
-    public func encode(to encoder: Encoder) throws {
+    public override func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(eventId, forKey: .eventId)
-        try container.encode(originServerTS, forKey: .originServerTS)
         try container.encode(roomId, forKey: .roomId)
-        try container.encode(sender, forKey: .sender)
-        try container.encodeIfPresent(stateKey, forKey: .stateKey)
-        try container.encode(type, forKey: .type)
-        try container.encodeIfPresent(unsigned, forKey: .unsigned)
-        try container.encode(AnyCodable(content), forKey: .content)
-    }
-}
-
-extension ClientEvent: Hashable {
-    public static func == (lhs: ClientEvent, rhs: ClientEvent) -> Bool {
-        lhs.eventId == rhs.eventId
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        //hasher.combine(roomId)
-        hasher.combine(eventId)
+        try super.encode(to: encoder)
     }
 }

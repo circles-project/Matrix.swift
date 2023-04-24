@@ -65,3 +65,9 @@ public let M_SECRET_STORAGE_KEY = "m.secret_storage_key" // Ugh this one is FUBA
 
 // MARK: Room types
 public let M_SPACE = "m.space"
+
+// MARK: Relationship types
+public let M_ANNOTATION = "m.annotation"
+public let M_THREAD = "m.thread"
+public let M_REPLACE = "m.replace"
+public let M_REFERENCE = "m.reference"

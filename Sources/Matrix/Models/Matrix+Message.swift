@@ -96,17 +96,17 @@ extension Matrix {
         public var relatesToId: EventId? {
             guard let content = event.content as? mTextContent
             else { return nil }
-            return content.relates_to?.inReplyTo?.eventId
+            return content.relatesTo?.inReplyTo?.eventId
         }
         
         // https://github.com/uhoreg/matrix-doc/blob/aggregations-reactions/proposals/2677-reactions.md
         public func addReaction(message: Message) async {
             guard let content = message.event.content as? ReactionContent,
-                  content.relatesTo.eventId == self.eventId
+                  content.relatesTo.eventId == self.eventId,
+                  let reaction = content.relatesTo.key
             else {
                 return
             }
-            let reaction  = content.relatesTo.key
             await MainActor.run {
                 let count = self.reactions[reaction] ?? 0
                 self.reactions[reaction] = count + 1
