@@ -99,32 +99,36 @@ public struct OlmCiphertext: MatrixCiphertext {
     }
 }
 
-public struct EncryptedEventContent: Codable {
+public struct EncryptedEventContent: RelatedEventContent {
     public let algorithm: EncryptionAlgorithm
     public let ciphertext: MatrixCiphertext
     public let deviceId: String?
     public let senderKey: String?
     public let sessionId: String?
-    
+    public var relatesTo: mRelatesTo?
+
     public enum CodingKeys: String, CodingKey {
         case algorithm
         case ciphertext
         case deviceId = "device_id"
         case senderKey = "sender_key"
         case sessionId = "session_id"
+        case relatesTo = "m.relates_to"
     }
     
     public init(algorithm: EncryptionAlgorithm,
                 ciphertext: MatrixCiphertext,
                 deviceId: String?,
                 senderKey: String?,
-                sessionId: String?
+                sessionId: String?,
+                relatesTo: mRelatesTo?
     ) {
         self.algorithm = algorithm
         self.senderKey = senderKey
         self.deviceId = deviceId
         self.sessionId = sessionId
         self.ciphertext = ciphertext
+        self.relatesTo = relatesTo
     }
     
     public init(from decoder: Decoder) throws {
@@ -141,6 +145,7 @@ public struct EncryptedEventContent: Codable {
         self.deviceId = try container.decodeIfPresent(String.self, forKey: .deviceId)
         self.senderKey = try container.decodeIfPresent(String.self, forKey: .senderKey)
         self.sessionId = try container.decodeIfPresent(String.self, forKey: .sessionId)
+        self.relatesTo = try container.decodeIfPresent(mRelatesTo.self, forKey: .relatesTo)
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -152,5 +157,18 @@ public struct EncryptedEventContent: Codable {
         try container.encodeIfPresent(deviceId, forKey: .deviceId)
         try container.encodeIfPresent(senderKey, forKey: .senderKey)
         try container.encodeIfPresent(sessionId, forKey: .sessionId)
+        try container.encodeIfPresent(relatesTo, forKey: .relatesTo)
+    }
+    
+    public var relationType: String? {
+        self.relatesTo?.relType
+    }
+    
+    public var relatedEventId: EventId? {
+        self.relatesTo?.eventId
+    }
+    
+    public var replyToEventId: EventId? {
+        self.relatesTo?.inReplyTo?.eventId
     }
 }
