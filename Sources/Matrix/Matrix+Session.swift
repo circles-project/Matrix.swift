@@ -667,6 +667,8 @@ extension Matrix {
             throw Matrix.Error("Not implemented yet")
         }
         
+        
+        
         // MARK: Recovery
         
         public func createRecovery(privateKey: Data) async throws {
@@ -1185,6 +1187,20 @@ extension Matrix {
             }
 
             // FIXME: Also upload the signature request in `result.signatureRequest`
+        }
+        
+        // MARK: logout
+        
+        public override func logout() async throws {
+            self.syncRequestTask?.cancel()
+            self.backgroundSyncTask?.cancel()
+            self.users = [:]
+            self.rooms = [:]
+            self.invitations = [:]
+            self.spaceChildRooms = [:]
+            self.accountData = [:]
+            try await super.logout()
+            try await dataStore?.close()
         }
     }
 }

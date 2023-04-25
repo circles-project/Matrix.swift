@@ -1114,6 +1114,12 @@ public class Client {
         }
         return mxc
     }
+    
+    public func logout() async throws {
+        let path = "/_matrix/client/v3/logout"
+        let (data, response) = try await call(method: "POST", path: path)
+    }
+    
 }
 
 } // end extension Matrix
