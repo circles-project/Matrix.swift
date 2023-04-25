@@ -102,34 +102,46 @@ extension Matrix {
             event.stateKey
         }
         
-        public var content: MessageContent? {
-            event.content as? MessageContent
+        public var content: Codable? {
+            event.content
         }
         
         public var mimetype: String? {
-            return content?.mimetype
+            if let content = self.content as? MessageContent {
+                return content.mimetype
+            } else {
+                return nil
+            }
         }
         
         public lazy var timestamp: Date = Date(timeIntervalSince1970: TimeInterval(event.originServerTS)/1000.0)
         
         public var relatedEventId: EventId? {
-            content?.relatedEventId
+            if let content = self.content as? RelatedEventContent {
+                content.relatedEventId
+            }
+            return nil
         }
         
         public var relationType: String? {
-            content?.relationType
+            if let content = self.content as? RelatedEventContent {
+                content.relationType
+            }
+            return nil
         }
         
         public var replyToEventId: EventId? {
-            content?.replyToEventId
+            if let content = self.content as? RelatedEventContent {
+                content.replyToEventId
+            }
+            return nil
         }
         
         public var threadId: EventId? {
             if self.relationType == M_THREAD {
                 return self.relatedEventId
-            } else {
-                return nil
             }
+            return nil
         }
         
         // https://github.com/uhoreg/matrix-doc/blob/aggregations-reactions/proposals/2677-reactions.md
