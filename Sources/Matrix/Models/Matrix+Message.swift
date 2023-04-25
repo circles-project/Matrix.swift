@@ -15,10 +15,8 @@ extension Matrix {
         public var sender: User
         
         @Published public var thumbnail: NativeImage?
-        @Published private(set) public var reactions: [String:UInt]
+        @Published private(set) public var reactions: [String:Set<UserId>]
         @Published private(set) public var replies: [Message]
-        public var blurhashImage: NativeImage?
-        public var thumbhashImage: NativeImage?
         
         public var isEncrypted: Bool
         
@@ -31,21 +29,22 @@ extension Matrix {
             self.reactions = [:]
             self.replies = []
             
+            // Initialize the thumbnail
             if let messageContent = event.content as? Matrix.MessageContent {
-                // Initialize the blurhash
-                if let blurhash = messageContent.blurhash,
-                   let thumbnailInfo = messageContent.thumbnail_info
-                {
-                    self.blurhashImage = .init(blurHash: blurhash, size: CGSize(width: thumbnailInfo.w, height: thumbnailInfo.h))
-                } else {
-                    self.blurhashImage = nil
-                }
                 
-                // Initialize the thumbhash
+                // Try thumbhash first
                 if let thumbhashString = messageContent.thumbhash,
                    let thumbhashData = Data(base64Encoded: thumbhashString)
                 {
-                    self.thumbhashImage = thumbHashToImage(hash: thumbhashData)
+                    self.thumbnail = thumbHashToImage(hash: thumbhashData)
+                } else if let blurhash = messageContent.blurhash,
+                          let thumbnailInfo = messageContent.thumbnail_info
+                {
+                    // Initialize from the blurhash
+                    self.thumbnail = .init(blurHash: blurhash, size: CGSize(width: thumbnailInfo.w, height: thumbnailInfo.h))
+                } else {
+                    // No thumbhash, no blurhash, so we have nothing until we can fetch the real image
+                    self.thumbnail = nil
                 }
             }
             
@@ -60,6 +59,26 @@ extension Matrix {
             } else {
                 self.isEncrypted = false
                 self.encryptedEvent = nil
+            }
+            
+            // Swift Phase 1 init is complete ///////////////////////////////////////////////
+            
+            // Initialize reactions
+            if let allReactions = room.relations[M_REACTION]?[event.eventId] {
+                for reaction in allReactions {
+                    if let content = reaction.content as? ReactionContent,
+                       content.relationType == M_REACTION,
+                       content.relatedEventId == event.eventId,
+                       let key = content.relatesTo.key
+                    {
+                        // Ok, this is one we can use
+                        if self.reactions[key] == nil {
+                            self.reactions[key] = [reaction.sender.userId]
+                        } else {
+                            self.reactions[key]!.insert(reaction.sender.userId)
+                        }
+                    }
+                }
             }
         }
         
@@ -93,29 +112,46 @@ extension Matrix {
         
         public lazy var timestamp: Date = Date(timeIntervalSince1970: TimeInterval(event.originServerTS)/1000.0)
         
-        public var relatesToId: EventId? {
-            guard let content = event.content as? mTextContent
-            else { return nil }
-            return content.relates_to?.inReplyTo?.eventId
+        public var relatedEventId: EventId? {
+            content?.relatedEventId
+        }
+        
+        public var relationType: String? {
+            content?.relationType
+        }
+        
+        public var replyToEventId: EventId? {
+            content?.replyToEventId
+        }
+        
+        public var threadId: EventId? {
+            if self.relationType == M_THREAD {
+                return self.relatedEventId
+            } else {
+                return nil
+            }
         }
         
         // https://github.com/uhoreg/matrix-doc/blob/aggregations-reactions/proposals/2677-reactions.md
         public func addReaction(message: Message) async {
             guard let content = message.event.content as? ReactionContent,
-                  content.relatesTo.eventId == self.eventId
+                  content.relatesTo.eventId == self.eventId,
+                  let key = content.relatesTo.key
             else {
                 return
             }
-            let reaction  = content.relatesTo.key
             await MainActor.run {
-                let count = self.reactions[reaction] ?? 0
-                self.reactions[reaction] = count + 1
+                if reactions[key] == nil {
+                    reactions[key] = [message.sender.userId]
+                } else {
+                    reactions[key]!.insert(message.sender.userId)
+                }
             }
             
         }
         
         public func addReply(message: Message) async {
-            if message.relatesToId == self.eventId && !self.replies.contains(message) {
+            if message.replyToEventId == self.eventId && !self.replies.contains(message) {
                 await MainActor.run {
                     self.replies.append(message)
                 }
@@ -134,22 +170,23 @@ extension Matrix {
                     self.event = decryptedEvent
                 }
                 
-                // Now we also need to update our blurhash and thumbnail
-                
-                // Blurhash and Thumbhash
+                // Now we also need to update our thumbnail
+                // Look for a placeholder
                 if let messageContent = event.content as? Matrix.MessageContent {
-                    // Blurhash
-                    if let blurhash = messageContent.blurhash,
-                       let thumbnailInfo = messageContent.thumbnail_info
-                    {
-                        self.blurhashImage = .init(blurHash: blurhash, size: CGSize(width: thumbnailInfo.w, height: thumbnailInfo.h))
-                    }
-                    // Thumbhash
                     if let thumbhashString = messageContent.thumbhash,
                        let thumbhashData = Data(base64Encoded: thumbhashString)
                     {
-                        self.thumbhashImage = thumbHashToImage(hash: thumbhashData)
+                        // Use the thumbhash if it's available
+                        self.thumbnail = thumbHashToImage(hash: thumbhashData)
+                    } else if let blurhash = messageContent.blurhash,
+                              let thumbnailInfo = messageContent.thumbnail_info
+                    {
+                        // Fall back to blurhash
+                        self.thumbnail = .init(blurHash: blurhash, size: CGSize(width: thumbnailInfo.w, height: thumbnailInfo.h))
+                    } else {
+                        self.thumbnail = nil
                     }
+
                 }
                 
                 // Thumbnail
@@ -215,5 +252,11 @@ extension Matrix {
 extension Matrix.Message: Equatable {
     public static func == (lhs: Matrix.Message, rhs: Matrix.Message) -> Bool {
         lhs.eventId == rhs.eventId && lhs.type == rhs.type
+    }
+}
+
+extension Matrix.Message: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        self.event.hash(into: &hasher)
     }
 }

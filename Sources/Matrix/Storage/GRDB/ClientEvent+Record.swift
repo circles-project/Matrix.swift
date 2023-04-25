@@ -8,6 +8,8 @@
 import Foundation
 import GRDB
 
+/*
+
 extension ClientEvent: FetchableRecord, TableRecord {
     
     enum Columns: String, ColumnExpression {
@@ -28,3 +30,4 @@ extension ClientEvent: FetchableRecord, TableRecord {
 extension ClientEvent: PersistableRecord {
     
 }
+*/

@@ -9,27 +9,6 @@ import Foundation
 
 extension Matrix {
 
-    public struct mInReplyTo: Codable {
-        public var eventId: EventId
-        enum CodingKeys: String, CodingKey {
-            case eventId = "event_id"
-        }
-        public init(eventId: EventId) {
-            self.eventId = eventId
-        }
-    }
-    public struct mRelatesTo: Codable {
-        public var inReplyTo: mInReplyTo?
-
-        public init(inReplyTo: mInReplyTo? = nil) {
-            self.inReplyTo = inReplyTo
-        }
-        
-        public enum CodingKeys: String, CodingKey {
-            case inReplyTo = "m.in_reply_to"
-        }
-    }
-
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-text
     public struct mTextContent: Matrix.MessageContent {
         public var msgtype: Matrix.MessageType
@@ -39,15 +18,15 @@ extension Matrix {
 
         // https://matrix.org/docs/spec/client_server/r0.6.0#rich-replies
         // Maybe should have made the "Rich replies" functionality a protocol...
-        public var relates_to: mRelatesTo?
+        public var relatesTo: mRelatesTo?
 
         public init(msgtype: Matrix.MessageType, body: String, format: String? = nil,
-                    formatted_body: String? = nil, relates_to: mRelatesTo? = nil) {
+                    formatted_body: String? = nil, relatesTo: mRelatesTo? = nil) {
             self.msgtype = msgtype
             self.body = body
             self.format = format
             self.formatted_body = formatted_body
-            self.relates_to = relates_to
+            self.relatesTo = relatesTo
         }
         
         public enum CodingKeys : String, CodingKey {
@@ -55,7 +34,7 @@ extension Matrix {
             case body
             case format
             case formatted_body
-            case relates_to = "m.relates_to"
+            case relatesTo = "m.relates_to"
         }
         
         public var mimetype: String? {
@@ -81,6 +60,18 @@ extension Matrix {
         public var thumbhash: String? {
             nil
         }
+        
+        public var relationType: String? {
+            self.relatesTo?.relType
+        }
+        
+        public var relatedEventId: EventId? {
+            self.relatesTo?.eventId
+        }
+        
+        public var replyToEventId: EventId? {
+            self.relatesTo?.inReplyTo?.eventId
+        }
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-emote
@@ -99,23 +90,38 @@ extension Matrix {
         public var url: MXC?
         public var info: mImageInfo
         public var caption: String?
+        public var relatesTo: mRelatesTo?
         
-        public init(msgtype: Matrix.MessageType, body: String, url: MXC? = nil, info: mImageInfo, caption: String? = nil) {
+        public init(msgtype: Matrix.MessageType,
+                    body: String,
+                    url: MXC? = nil,
+                    info: mImageInfo,
+                    caption: String? = nil,
+                    relatesTo: mRelatesTo? = nil
+        ) {
             self.msgtype = msgtype
             self.body = body
             self.file = nil
             self.url = url
             self.info = info
             self.caption = caption
+            self.relatesTo = relatesTo
         }
 
-        public init(msgtype: Matrix.MessageType, body: String, file: mEncryptedFile? = nil, info: mImageInfo, caption: String? = nil) {
+        public init(msgtype: Matrix.MessageType,
+                    body: String,
+                    file: mEncryptedFile? = nil,
+                    info: mImageInfo,
+                    caption: String? = nil,
+                    relatesTo: mRelatesTo? = nil
+        ) {
             self.msgtype = msgtype
             self.body = body
             self.file = file
             self.url = nil
             self.info = info
             self.caption = caption
+            self.relatesTo = relatesTo
         }
         
         public var mimetype: String? {
@@ -140,6 +146,18 @@ extension Matrix {
         
         public var thumbhash: String? {
             info.thumbhash
+        }
+        
+        public var relationType: String? {
+            self.relatesTo?.relType
+        }
+        
+        public var relatedEventId: EventId? {
+            self.relatesTo?.eventId
+        }
+        
+        public var replyToEventId: EventId? {
+            self.relatesTo?.inReplyTo?.eventId
         }
     }
 
@@ -195,14 +213,21 @@ extension Matrix {
         public var filename: String
         public var info: mFileInfo
         public var file: mEncryptedFile
+        public var relatesTo: mRelatesTo?
         
-        public init(msgtype: Matrix.MessageType, body: String, filename: String,
-                    info: mFileInfo, file: mEncryptedFile) {
+        public init(msgtype: Matrix.MessageType,
+                    body: String,
+                    filename: String,
+                    info: mFileInfo,
+                    file: mEncryptedFile,
+                    relatesTo: mRelatesTo? = nil
+        ) {
             self.msgtype = msgtype
             self.body = body
             self.filename = filename
             self.info = info
             self.file = file
+            self.relatesTo = relatesTo
         }
         
         public var mimetype: String? {
@@ -227,6 +252,18 @@ extension Matrix {
         
         public var thumbhash: String? {
             info.thumbhash
+        }
+        
+        public var relationType: String? {
+            self.relatesTo?.relType
+        }
+        
+        public var relatedEventId: EventId? {
+            self.relatesTo?.eventId
+        }
+        
+        public var replyToEventId: EventId? {
+            self.relatesTo?.inReplyTo?.eventId
         }
     }
 
@@ -315,23 +352,34 @@ extension Matrix {
         public var info: mAudioInfo
         public var file: mEncryptedFile?
         public var url: MXC?
+        public var relatesTo: mRelatesTo?
         
-        public init(msgtype: Matrix.MessageType, body: String, info: mAudioInfo,
-                    file: mEncryptedFile) {
+        public init(msgtype: Matrix.MessageType,
+                    body: String,
+                    info: mAudioInfo,
+                    file: mEncryptedFile,
+                    relatesTo: mRelatesTo? = nil
+        ) {
             self.msgtype = msgtype
             self.body = body
             self.info = info
             self.file = file
             self.url = nil
+            self.relatesTo = relatesTo
         }
         
-        public init(msgtype: Matrix.MessageType, body: String, info: mAudioInfo,
-                    url: MXC) {
+        public init(msgtype: Matrix.MessageType,
+                    body: String,
+                    info: mAudioInfo,
+                    url: MXC,
+                    relatesTo: mRelatesTo? = nil
+        ) {
             self.msgtype = msgtype
             self.body = body
             self.info = info
             self.file = nil
             self.url = url
+            self.relatesTo = relatesTo
         }
         
         public var mimetype: String? {
@@ -357,6 +405,18 @@ extension Matrix {
         public var thumbhash: String? {
             nil
         }
+        
+        public var relationType: String? {
+            self.relatesTo?.relType
+        }
+        
+        public var relatedEventId: EventId? {
+            self.relatesTo?.eventId
+        }
+        
+        public var replyToEventId: EventId? {
+            self.relatesTo?.inReplyTo?.eventId
+        }
     }
 
     public struct mAudioInfo: Codable {
@@ -377,13 +437,19 @@ extension Matrix {
         public var body: String
         public var geo_uri: String
         public var info: mLocationInfo
+        public var relatesTo: mRelatesTo?
         
-        public init(msgtype: Matrix.MessageType, body: String, geo_uri: String,
-                    info: mLocationInfo) {
+        public init(msgtype: Matrix.MessageType,
+                    body: String,
+                    geo_uri: String,
+                    info: mLocationInfo,
+                    relatesTo: mRelatesTo? = nil
+        ) {
             self.msgtype = msgtype
             self.body = body
             self.geo_uri = geo_uri
             self.info = info
+            self.relatesTo = relatesTo
         }
         
         public var mimetype: String? {
@@ -408,6 +474,18 @@ extension Matrix {
         
         public var thumbhash: String? {
             info.thumbhash
+        }
+        
+        public var relationType: String? {
+            self.relatesTo?.relType
+        }
+        
+        public var relatedEventId: EventId? {
+            self.relatesTo?.eventId
+        }
+        
+        public var replyToEventId: EventId? {
+            self.relatesTo?.inReplyTo?.eventId
         }
     }
 
@@ -439,25 +517,38 @@ extension Matrix {
         public var file: mEncryptedFile?
         public var url: MXC?
         public var caption: String?
+        public var relatesTo: mRelatesTo?
         
-        public init(msgtype: Matrix.MessageType, body: String, info: mVideoInfo,
-                    file: mEncryptedFile, caption: String? = nil) {
+        public init(msgtype: Matrix.MessageType,
+                    body: String,
+                    info: mVideoInfo,
+                    file: mEncryptedFile,
+                    caption: String? = nil,
+                    relatesTo: mRelatesTo? = nil
+        ) {
             self.msgtype = msgtype
             self.body = body
             self.info = info
             self.file = file
             self.url = nil
             self.caption = caption
+            self.relatesTo = relatesTo
         }
         
-        public init(msgtype: Matrix.MessageType, body: String, info: mVideoInfo,
-                    url: MXC, caption: String? = nil) {
+        public init(msgtype: Matrix.MessageType,
+                    body: String,
+                    info: mVideoInfo,
+                    url: MXC,
+                    caption: String? = nil,
+                    relatesTo: mRelatesTo? = nil
+        ) {
             self.msgtype = msgtype
             self.body = body
             self.info = info
             self.file = nil
             self.url = url
             self.caption = caption
+            self.relatesTo = relatesTo
         }
         
         public var mimetype: String? {
@@ -482,6 +573,18 @@ extension Matrix {
         
         public var thumbhash: String? {
             info.thumbhash
+        }
+        
+        public var relationType: String? {
+            self.relatesTo?.relType
+        }
+        
+        public var relatedEventId: EventId? {
+            self.relatesTo?.eventId
+        }
+        
+        public var replyToEventId: EventId? {
+            self.relatesTo?.inReplyTo?.eventId
         }
     }
 

@@ -28,9 +28,12 @@ extension Matrix {
         @Published public var avatar: NativeImage?
         private var currentAvatarUrl: MXC?          // Remember where we got our current avatar image, so we can know when to fetch a new one (or not)
         
-        private(set) public var timeline: OrderedDictionary<EventId,Matrix.Message> //[ClientEventWithoutRoomId]
+        private(set) public var timeline: OrderedDictionary<EventId,Message> //[ClientEventWithoutRoomId]
         //@Published public var localEchoEvent: Event?
-        @Published private(set) public var localEchoMessage: Message? // FIXME: Set this when we send a message
+        @Published private(set) public var localEchoMessage: Message?
+        //private(set) public var reactions: [EventId: Message]
+        private(set) public var relations: [String: [EventId: Set<Message>]]
+        private(set) public var replies: [EventId: Set<Message>]
 
         @Published private(set) public var state: [String: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
         
@@ -48,6 +51,13 @@ extension Matrix {
             self.roomId = roomId
             self.session = session
             self.timeline = [:] // Set this to empty for starters, because we need `self` to create instances of Matrix.Message
+            //self.reactions = [:]
+            self.relations = [
+                M_REACTION: [:],
+                M_THREAD: [:],
+                M_REFERENCE: [:],
+            ]
+            self.replies = [:]
             self.state = [:]
             
             // Ugh, sometimes all of our state is actually in the timeline.
@@ -82,6 +92,9 @@ extension Matrix {
             for event in initialTimeline {
                 self.timeline[event.eventId] = Matrix.Message(event: event, room: self)
             }
+            
+            // 
+            self.updateRelations(events: initialTimeline)
             
             // Use our thumbhash or blurhash as our avatar until the application decides it's worth fetching the actual image
             Task {
@@ -134,17 +147,7 @@ extension Matrix {
             // It's possible that we can get some state events in our timeline, especially when the room is new
             let stateEvents = events.filter({$0.stateKey != nil})
             await self.updateState(from: stateEvents)
-            
-            /*
-            let messages = events.map {
-                Matrix.Message(event: $0, room: self)
-            }
-            
-            let newKeysAndValues = messages.map {
-                ($0.eventId, $0)
-            }
-            */
-            
+                        
             guard !self.timeline.isEmpty
             else {
                 logger.debug("No existing events.  Starting from scratch with the new events")
@@ -161,13 +164,7 @@ extension Matrix {
             }
             
             logger.debug("Merging old and new events")
-            /*
-            var tmpTimeline = self.timeline.merging(newKeysAndValues, uniquingKeysWith: { m1,m2 -> Matrix.Message in
-                m1
-            })
-            tmpTimeline.sort()
-            let newTimeline = tmpTimeline
-            */
+
             var tmpTimeline = self.timeline
             for event in events {
                 tmpTimeline[event.eventId] = Matrix.Message(event: event, room: self)
@@ -183,6 +180,34 @@ extension Matrix {
             
             await MainActor.run {
                 self.timeline = newTimeline
+            }
+        }
+        
+        // MARK: Relations
+        func updateRelations(events: [ClientEventWithoutRoomId]) {
+            for event in events {
+                if let content = event.content as? RelatedEventContent {
+                    
+                    let message = self.timeline[event.eventId] ?? Message(event: event, room: self)
+                    
+                    // Check relType
+                    if let relType = content.relationType,
+                       let eventId = content.relatedEventId
+                    {
+                        if var set = self.relations[relType]?[eventId] {
+                            set.insert(message)
+                        } else {
+                            self.relations[relType] = self.relations[relType] ?? [:]
+                            self.relations[relType]![eventId] = [message]
+                        }
+                    }
+                    
+                    // Check for inReplyTo, which is distinct from relType
+                    if let parentEventId = content.replyToEventId {
+                        self.replies[parentEventId] = self.replies[parentEventId] ?? []
+                        self.replies[parentEventId]?.insert(message)
+                    }
+                }
             }
         }
         
@@ -789,10 +814,29 @@ extension Matrix {
             throw Matrix.Error("Not implemented")
         }
         
-        public func sendReply(to eventId: EventId, text: String) async throws -> EventId {
+        public func sendReply(to event: ClientEventWithoutRoomId, text: String, threaded: Bool = true) async throws -> EventId {
+            let relatesTo: mRelatesTo
+            // Is this a threaded reply?  If so, extract the thread id from the parent event, or use its id as the new thread id.
+            // Otherwise, just send the m.in_reply_to relation
+            if threaded {
+                if let relatedContent = event.content as? RelatedEventContent,
+                   relatedContent.relationType == M_THREAD,
+                   let threadId = relatedContent.relatedEventId
+                {
+                    relatesTo = mRelatesTo(relType: M_THREAD, eventId: threadId, inReplyTo: event.eventId)
+
+                } else {
+                    relatesTo = mRelatesTo(relType: M_THREAD, eventId: event.eventId, inReplyTo: event.eventId)
+                }
+            
+            } else {
+                relatesTo = mRelatesTo(inReplyTo: event.eventId)
+            }
+            
             let content = mTextContent(msgtype: .text,
                                        body: text,
-                                       relates_to: mRelatesTo(inReplyTo: .init(eventId: eventId)))
+                                       relatesTo: relatesTo)
+            
             return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
         }
         
