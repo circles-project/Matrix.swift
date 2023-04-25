@@ -24,11 +24,15 @@ public struct ReactionContent: RelatedEventContent {
         self.relatesTo = relatesTo
     }
     
-    public var relationshipType: String? {
+    public var relationType: String? {
         self.relatesTo.relType
     }
     
     public var relatedEventId: EventId? {
         self.relatesTo.eventId
+    }
+    
+    public var replyToEventId: EventId? {
+        nil
     }
 }

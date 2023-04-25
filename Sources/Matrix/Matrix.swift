@@ -234,6 +234,6 @@ public protocol _MatrixMessageContent: Codable, RelatedEventContent {
     var blurhash: String? {get}
     var thumbhash: String? {get}
 
-    var relationshipType: String? {get}
+    var relationType: String? {get}
     var relatedEventId: EventId? {get}
 }

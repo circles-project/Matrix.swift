@@ -61,12 +61,16 @@ extension Matrix {
             nil
         }
         
-        public var relationshipType: String? {
+        public var relationType: String? {
             self.relatesTo?.relType
         }
         
         public var relatedEventId: EventId? {
             self.relatesTo?.eventId
+        }
+        
+        public var replyToEventId: EventId? {
+            self.relatesTo?.inReplyTo?.eventId
         }
     }
 
@@ -144,12 +148,16 @@ extension Matrix {
             info.thumbhash
         }
         
-        public var relationshipType: String? {
+        public var relationType: String? {
             self.relatesTo?.relType
         }
         
         public var relatedEventId: EventId? {
             self.relatesTo?.eventId
+        }
+        
+        public var replyToEventId: EventId? {
+            self.relatesTo?.inReplyTo?.eventId
         }
     }
 
@@ -246,12 +254,16 @@ extension Matrix {
             info.thumbhash
         }
         
-        public var relationshipType: String? {
+        public var relationType: String? {
             self.relatesTo?.relType
         }
         
         public var relatedEventId: EventId? {
             self.relatesTo?.eventId
+        }
+        
+        public var replyToEventId: EventId? {
+            self.relatesTo?.inReplyTo?.eventId
         }
     }
 
@@ -394,12 +406,16 @@ extension Matrix {
             nil
         }
         
-        public var relationshipType: String? {
+        public var relationType: String? {
             self.relatesTo?.relType
         }
         
         public var relatedEventId: EventId? {
             self.relatesTo?.eventId
+        }
+        
+        public var replyToEventId: EventId? {
+            self.relatesTo?.inReplyTo?.eventId
         }
     }
 
@@ -460,12 +476,16 @@ extension Matrix {
             info.thumbhash
         }
         
-        public var relationshipType: String? {
+        public var relationType: String? {
             self.relatesTo?.relType
         }
         
         public var relatedEventId: EventId? {
             self.relatesTo?.eventId
+        }
+        
+        public var replyToEventId: EventId? {
+            self.relatesTo?.inReplyTo?.eventId
         }
     }
 
@@ -555,12 +575,16 @@ extension Matrix {
             info.thumbhash
         }
         
-        public var relationshipType: String? {
+        public var relationType: String? {
             self.relatesTo?.relType
         }
         
         public var relatedEventId: EventId? {
             self.relatesTo?.eventId
+        }
+        
+        public var replyToEventId: EventId? {
+            self.relatesTo?.inReplyTo?.eventId
         }
     }
 

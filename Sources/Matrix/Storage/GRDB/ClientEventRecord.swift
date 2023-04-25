@@ -33,7 +33,7 @@ class ClientEventRecord: ClientEvent, FetchableRecord, TableRecord, PersistableR
     
     var relationshipType: String? {
         if let relatedContent = self.content as? RelatedEventContent {
-            return relatedContent.relationshipType
+            return relatedContent.relationType
         } else {
             return nil
         }

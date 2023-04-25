@@ -8,6 +8,7 @@
 import Foundation
 
 public protocol RelatedEventContent: Codable {
-    var relationshipType: String? {get}
+    var relationType: String? {get}
     var relatedEventId: EventId? {get}
+    var replyToEventId: EventId? {get}
 }
