@@ -58,6 +58,7 @@ extension Matrix {
             self.relations = [
                 M_REACTION: [:],
                 M_THREAD: [:],
+                M_ANNOTATION: [:],
                 M_REFERENCE: [:],
             ]
             self.replies = [:]
@@ -212,11 +213,11 @@ extension Matrix {
                         // FIXME: We only support m.reaction relations for now
                         if let relatedMessage = self.timeline[relatedEventId]
                         {
-                            if relType == M_REACTION,
+                            if relType == M_ANNOTATION && event.type == M_REACTION /*,
                                let reactionContent = event.content as? ReactionContent,
-                               let key = reactionContent.relatesTo.key
+                               let key = reactionContent.relatesTo.key */
                             {
-                                logger.debug("Adding reaction [\(key)] to message \(relatedEventId)")
+                                logger.debug("Adding event \(event.eventId) as a reaction to message \(relatedEventId)")
                                 Task {
                                     await relatedMessage.addReaction(event: event)
                                 }
