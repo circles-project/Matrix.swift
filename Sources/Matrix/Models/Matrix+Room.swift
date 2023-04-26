@@ -99,11 +99,12 @@ extension Matrix {
                 self.timeline[event.eventId] = Matrix.Message(event: event, room: self)
             }
             
-            // 
-            self.updateRelations(events: initialTimeline)
-            
-            // Use our thumbhash or blurhash as our avatar until the application decides it's worth fetching the actual image
+            // Now run all the async stuff that we can't run in a sync context
             Task {
+                // Update replies, reactions, and other relations for our messages
+                await self.updateRelations(events: initialTimeline)
+                
+                // Use our thumbhash or blurhash as our avatar until the application decides it's worth fetching the actual image
                 await self.useBlurryPlaceholder()
             }
             
@@ -187,10 +188,13 @@ extension Matrix {
             await MainActor.run {
                 self.timeline = newTimeline
             }
+            
+            // Also update our reactions, replies, and other relations
+            await self.updateRelations(events: events)
         }
         
         // MARK: Relations
-        func updateRelations(events: [ClientEventWithoutRoomId]) {
+        func updateRelations(events: [ClientEventWithoutRoomId]) async {
             for event in events {
                 if let content = event.content as? RelatedEventContent {
                     logger.debug("Updating relations with event \(event.eventId) (\(event.type))")
@@ -218,9 +222,7 @@ extension Matrix {
                                let key = reactionContent.relatesTo.key */
                             {
                                 logger.debug("Adding event \(event.eventId) as a reaction to message \(relatedEventId)")
-                                Task {
-                                    await relatedMessage.addReaction(event: event)
-                                }
+                                await relatedMessage.addReaction(event: event)
                             } else {
                                 logger.debug("Event \(event.eventId) doesn't look like a reaction")
                             }
@@ -237,9 +239,7 @@ extension Matrix {
                         self.replies[parentEventId]?.insert(message)
                         if let parentMessage = self.timeline[parentEventId] {
                             logger.debug("Adding reply to message \(parentEventId)")
-                            Task {
-                                await parentMessage.addReply(message: message)
-                            }
+                            await parentMessage.addReply(message: message)
                         }
                     } else {
                         logger.debug("Event \(event.eventId) doesn't look like a rich reply")
