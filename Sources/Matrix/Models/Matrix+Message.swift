@@ -117,22 +117,22 @@ extension Matrix {
         public lazy var timestamp: Date = Date(timeIntervalSince1970: TimeInterval(event.originServerTS)/1000.0)
         
         public var relatedEventId: EventId? {
-            if let content = self.content as? RelatedEventContent {
-                content.relatedEventId
+            if let content = event.content as? RelatedEventContent {
+                return content.relatedEventId
             }
             return nil
         }
         
         public var relationType: String? {
-            if let content = self.content as? RelatedEventContent {
-                content.relationType
+            if let content = event.content as? RelatedEventContent {
+                return content.relationType
             }
             return nil
         }
         
         public var replyToEventId: EventId? {
-            if let content = self.content as? RelatedEventContent {
-                content.replyToEventId
+            if let content = event.content as? RelatedEventContent {
+                return content.replyToEventId
             }
             return nil
         }
