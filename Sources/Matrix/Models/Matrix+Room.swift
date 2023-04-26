@@ -192,13 +192,26 @@ extension Matrix {
                     
                     // Check relType
                     if let relType = content.relationType,
-                       let eventId = content.relatedEventId
+                       let relatedEventId = content.relatedEventId
                     {
-                        if var set = self.relations[relType]?[eventId] {
+                        // Update our state here in the Room
+                        if var set = self.relations[relType]?[relatedEventId] {
                             set.insert(message)
                         } else {
                             self.relations[relType] = self.relations[relType] ?? [:]
-                            self.relations[relType]![eventId] = [message]
+                            self.relations[relType]![relatedEventId] = [message]
+                        }
+                        
+                        // Also update the Message if we have it in memory
+                        // FIXME: We only support m.reaction relations for now
+                        if let relatedMessage = self.timeline[relatedEventId],
+                           relType == M_REACTION,
+                           let reactionContent = event.content as? ReactionContent,
+                           let key = reactionContent.relatesTo.key
+                        {
+                            Task {
+                                try await relatedMessage.addReaction(key)
+                            }
                         }
                     }
                     
@@ -206,6 +219,11 @@ extension Matrix {
                     if let parentEventId = content.replyToEventId {
                         self.replies[parentEventId] = self.replies[parentEventId] ?? []
                         self.replies[parentEventId]?.insert(message)
+                        if let parentMessage = self.timeline[parentEventId] {
+                            Task {
+                                try await parentMessage.addReply(message: message)
+                            }
+                        }
                     }
                 }
             }
