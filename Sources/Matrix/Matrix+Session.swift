@@ -881,6 +881,13 @@ extension Matrix {
                                                         content: content)
             }
             
+            // Reactions are also not encrypted, even if the room itself is encrypted
+            if type == M_REACTION {
+                return try await super.sendMessageEvent(to: roomId,
+                                                        type: type,
+                                                        content: content)
+            }
+            
             // -------------------------------------------------------------------------------------------------------
             // If we're still here, then we need to encrypt the message before we can send it
             
@@ -908,18 +915,15 @@ extension Matrix {
             /// After the room key is shared steps 1 and 2 will become noops, unless
             /// there's some changes in the room membership or in the list of devices a
             /// member has.
-            
-            /*
-            let users: [String] = room.joinedMembers.map {
-                $0.description
-            }
-            */
+
+            let logger = self.cryptoLogger
+
             let users: [String] = try await room.getJoinedMembers().map { $0.description }
-            print("CRYPTO:\t\(creds.userId) Found \(users.count) users in the room: \(users)")
+            logger.debug("Found \(users.count) users in the room: \(users)")
             try await cryptoQueue.run {
                 if let missingSessionsRequest = try self.crypto.getMissingSessions(users: users) {
                     // Send the missing sessions request
-                    print("CRYPTO:\t\(self.creds.userId) Sending missing sessions request")
+                    logger.debug("Sending missing sessions request")
                     try await self.sendCryptoRequest(request: missingSessionsRequest)
                 }
             }
@@ -954,11 +958,11 @@ extension Matrix {
                                               onlyAllowTrustedDevices: onlyTrusted)
                     
             try await cryptoQueue.run {
-                print("CRYPTO:\t\(self.creds.userId) Computing room key sharing")
+                logger.debug("Computing room key sharing")
                 let shareRoomKeyRequests = try self.crypto.shareRoomKey(roomId: roomId.description,
                                                                         users: users,
                                                                         settings: settings)
-                print("CRYPTO:\t\(self.creds.userId) Sending \(shareRoomKeyRequests.count) share room key requests")
+                logger.debug("Sending \(shareRoomKeyRequests.count) share room key requests")
                 for request in shareRoomKeyRequests {
                     try await self.sendCryptoRequest(request: request)
                 }
@@ -967,6 +971,7 @@ extension Matrix {
             let encoder = JSONEncoder()
             let binaryContent = try encoder.encode(content)
             let stringContent = String(data: binaryContent, encoding: .utf8)!
+            logger.debug("Encrypting plaintext message content = [\(stringContent)]")
             let encryptedString = try self.crypto.encrypt(roomId: roomId.description,
                                                           eventType: type,
                                                           content: stringContent)
@@ -1104,7 +1109,7 @@ extension Matrix {
                 throw Matrix.Error("Failed to decrypt")
             }
             let decryptedString = decryptedStruct.clearEvent
-            //logger.debug("Decrypted event:\t\(decryptedString)")
+            logger.debug("Decrypted event:\t[\(decryptedString)]")
             
             let decoder = JSONDecoder()
             guard let decryptedMinimalEvent = try? decoder.decode(MinimalEvent.self, from: decryptedString.data(using: .utf8)!)
@@ -1113,11 +1118,12 @@ extension Matrix {
                 throw Matrix.Error("Failed to decode decrypted event")
             }
             return try ClientEventWithoutRoomId(content: decryptedMinimalEvent.content,
-                                            eventId: encryptedEvent.eventId,
-                                            originServerTS: encryptedEvent.originServerTS,
-                                            sender: encryptedEvent.sender,
-                                            // stateKey should be nil, since we decrypted something; must not be a state event.
-                                            type: decryptedMinimalEvent.type)
+                                                eventId: encryptedEvent.eventId,
+                                                originServerTS: encryptedEvent.originServerTS,
+                                                sender: encryptedEvent.sender,
+                                                // stateKey should be nil, since we decrypted something; must not be a state event.
+                                                type: decryptedMinimalEvent.type,
+                                                unsigned: encryptedEvent.unsigned)
         }
         
         // MARK: Devices
