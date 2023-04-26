@@ -145,29 +145,37 @@ extension Matrix {
         }
         
         // https://github.com/uhoreg/matrix-doc/blob/aggregations-reactions/proposals/2677-reactions.md
-        public func addReaction(message: Message) async {
-            guard let content = message.event.content as? ReactionContent,
+        public func addReaction(event: ClientEventWithoutRoomId) async {
+            Matrix.logger.debug("Adding reaction message \(event.eventId) to message \(self.eventId)")
+            guard let content = event.content as? ReactionContent,
                   content.relatesTo.eventId == self.eventId,
                   let key = content.relatesTo.key
             else {
+                Matrix.logger.error("Not adding reaction: Couldn't parse reaction message content")
                 return
             }
             await MainActor.run {
                 if reactions[key] == nil {
-                    reactions[key] = [message.sender.userId]
+                    reactions[key] = [event.sender]
                 } else {
-                    reactions[key]!.insert(message.sender.userId)
+                    reactions[key]!.insert(event.sender)
                 }
             }
-            
+            Matrix.logger.debug("Message \(self.eventId) now has \(self.reactions.keys.count) distinct reactions")
+        }
+        
+        public func addReaction(message: Message) async {
+            await self.addReaction(event: message.event)
         }
         
         public func addReply(message: Message) async {
+            Matrix.logger.debug("Adding reply message \(message.eventId) to message \(self.eventId)")
             if message.replyToEventId == self.eventId && !self.replies.contains(message) {
                 await MainActor.run {
                     self.replies.append(message)
                 }
             }
+            Matrix.logger.debug("Message \(self.eventId) now has \(self.replies.count) replies")
         }
         
         public func decrypt() async throws {
@@ -255,7 +263,7 @@ extension Matrix {
             }
         }
         
-        public func addReaction(_ reaction: String) async throws -> EventId {
+        public func sendReaction(_ reaction: String) async throws -> EventId {
             try await self.room.addReaction(reaction, to: eventId)
         }
     }

@@ -8,6 +8,7 @@
 import Foundation
 //import Collections // Maybe one day we will get a SortedSet implementation for Swift...
 import OrderedCollections
+import os
 
 #if os(macOS)
 import AppKit
@@ -45,6 +46,8 @@ extension Matrix {
         
         private var fetchAvatarImageTask: Task<Void,Swift.Error>?
         
+        private var logger: os.Logger
+        
         // MARK: init
         
         public required init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialTimeline: [ClientEventWithoutRoomId] = []) throws {
@@ -59,6 +62,8 @@ extension Matrix {
             ]
             self.replies = [:]
             self.state = [:]
+            
+            self.logger = os.Logger(subsystem: "matrix", category: "room \(roomId)")
             
             // Ugh, sometimes all of our state is actually in the timeline.
             // This can happen especially for an initial sync when there are new rooms and very few messages.
@@ -187,6 +192,7 @@ extension Matrix {
         func updateRelations(events: [ClientEventWithoutRoomId]) {
             for event in events {
                 if let content = event.content as? RelatedEventContent {
+                    logger.debug("Updating relations for event \(event.eventId)")
                     
                     let message = self.timeline[event.eventId] ?? Message(event: event, room: self)
                     
@@ -209,8 +215,9 @@ extension Matrix {
                            let reactionContent = event.content as? ReactionContent,
                            let key = reactionContent.relatesTo.key
                         {
+                            logger.debug("Adding reaction [\(key)] to message \(relatedEventId)")
                             Task {
-                                try await relatedMessage.addReaction(key)
+                                await relatedMessage.addReaction(event: event)
                             }
                         }
                     }
@@ -220,8 +227,9 @@ extension Matrix {
                         self.replies[parentEventId] = self.replies[parentEventId] ?? []
                         self.replies[parentEventId]?.insert(message)
                         if let parentMessage = self.timeline[parentEventId] {
+                            logger.debug("Adding reply to message \(parentEventId)")
                             Task {
-                                try await parentMessage.addReply(message: message)
+                                await parentMessage.addReply(message: message)
                             }
                         }
                     }
