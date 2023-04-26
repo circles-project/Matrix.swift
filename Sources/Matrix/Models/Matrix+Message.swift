@@ -203,6 +203,15 @@ extension Matrix {
             
             self.loadReactionsTask = Task {
                 let reactionEvents = try await self.room.loadReactions(for: self.eventId)
+                Matrix.logger.debug("Loaded \(reactionEvents.count) reactions for message \(self.eventId)")
+                
+                // If we didn't find anything, and we didn't have anything before,
+                // set our local var to non-nil in order to signal that we've already tried loading
+                if reactionEvents.isEmpty && self.reactions == nil {
+                    await MainActor.run {
+                        self.reactions = [:]
+                    }
+                }
                 
                 self.loadReactionsTask = nil
                 return reactionEvents.count
