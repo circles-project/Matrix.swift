@@ -35,15 +35,20 @@ public struct UserId: LosslessStringConvertible, Codable, Identifiable, Equatabl
                 return false
             }
         }
-        // Finally, does it look like we have a valid hostname?
-        // There's really not a lot that we can do here, given that hostnames may not be FQDN's
-        //     e.g. for testing, the hostname is often 'localhost'
-        let host = toks[1]
-        guard !host.isEmpty
-        else {
+        if toks.count >= 2 {
+            // Does it look like we have a valid hostname?
+            // There's really not a lot that we can do here, given that hostnames may not be FQDN's
+            //     e.g. for testing, the hostname is often 'localhost'
+            let host = toks[1]
+            guard !host.isEmpty
+            else {
+                return false
+            }
+            return true
+        } else {
             return false
         }
-        return true
+
     }
     
     // for LosslessStringConvertible
