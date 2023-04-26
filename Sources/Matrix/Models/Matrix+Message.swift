@@ -15,12 +15,13 @@ extension Matrix {
         public var sender: User
         
         @Published public var thumbnail: NativeImage?
-        @Published private(set) public var reactions: [String:Set<UserId>]
-        @Published private(set) public var replies: [Message]
+        @Published private(set) public var reactions: [String:Set<UserId>]?
+        @Published private(set) public var replies: [Message]?
         
         public var isEncrypted: Bool
         
         private var fetchThumbnailTask: Task<Void,Swift.Error>?
+        private var loadReactionsTask: Task<Int,Swift.Error>?
         
         public init(event: ClientEventWithoutRoomId, room: Room) {
             self.event = event
@@ -65,6 +66,7 @@ extension Matrix {
             
             // Initialize reactions
             if let allReactions = room.relations[M_REACTION]?[event.eventId] {
+                self.reactions = [:]
                 for reaction in allReactions {
                     if let content = reaction.content as? ReactionContent,
                        content.relationType == M_REACTION,
@@ -72,10 +74,10 @@ extension Matrix {
                        let key = content.relatesTo.key
                     {
                         // Ok, this is one we can use
-                        if self.reactions[key] == nil {
-                            self.reactions[key] = [reaction.sender.userId]
+                        if self.reactions?[key] == nil {
+                            self.reactions?[key] = [reaction.sender.userId]
                         } else {
-                            self.reactions[key]!.insert(reaction.sender.userId)
+                            self.reactions?[key]!.insert(reaction.sender.userId)
                         }
                     }
                 }
@@ -155,13 +157,16 @@ extension Matrix {
                 return
             }
             await MainActor.run {
-                if reactions[key] == nil {
-                    reactions[key] = [event.sender]
+                if self.reactions == nil {
+                    self.reactions = [:]
+                }
+                if reactions![key] == nil {
+                    reactions![key] = [event.sender]
                 } else {
-                    reactions[key]!.insert(event.sender)
+                    reactions![key]!.insert(event.sender)
                 }
             }
-            Matrix.logger.debug("Message \(self.eventId) now has \(self.reactions.keys.count) distinct reactions")
+            Matrix.logger.debug("Message \(self.eventId) now has \(self.reactions?.keys.count ?? 0) distinct reactions")
         }
         
         public func addReaction(message: Message) async {
@@ -170,13 +175,41 @@ extension Matrix {
         
         public func addReply(message: Message) async {
             Matrix.logger.debug("Adding reply message \(message.eventId) to message \(self.eventId)")
-            if message.replyToEventId == self.eventId && !self.replies.contains(message) {
+            if message.replyToEventId == self.eventId {
+                if let replies = self.replies,
+                   replies.contains(message)
+                {
+                    Matrix.logger.debug("We already have this one; Not adding \(message.eventId) to \(self.eventId)")
+                    return
+                }
                 await MainActor.run {
-                    self.replies.append(message)
+                    if self.replies == nil {
+                        self.replies = []
+                    }
+                    self.replies!.append(message)
                 }
             }
-            Matrix.logger.debug("Message \(self.eventId) now has \(self.replies.count) replies")
+            Matrix.logger.debug("Message \(self.eventId) now has \(self.replies?.count ?? 0) replies")
         }
+        
+        public func loadReactions() {
+            if self.reactions != nil {
+                return
+            }
+            
+            if let task = self.loadReactionsTask {
+                return
+            }
+            
+            self.loadReactionsTask = Task {
+                let reactionEvents = try await self.room.loadReactions(for: self.eventId)
+                
+                self.loadReactionsTask = nil
+                return reactionEvents.count
+            }
+        }
+        
+        // MARK: decrypt
         
         public func decrypt() async throws {
             guard self.event.type == M_ROOM_ENCRYPTED

@@ -238,6 +238,27 @@ public struct GRDBDataStore: DataStore {
         return events
     }
     
+    public func loadRelatedEvents(for eventId: EventId, in roomId: RoomId, relType: String, type: String? = nil) async throws -> [ClientEventWithoutRoomId] {
+        let roomIdColumn = ClientEventRecord.Columns.roomId
+        let relTypeColumn = ClientEventRecord.Columns.relationshipType
+        let relatedEventColumn = ClientEventRecord.Columns.relatedEventId
+        let typeColumn = ClientEventRecord.Columns.type
+        
+        let records = try await database.read { db -> [ClientEventRecord] in
+            var query = ClientEventRecord
+                .filter(roomIdColumn == "\(roomId)")
+                .filter(relTypeColumn == relType)
+                .filter(relatedEventColumn == eventId)
+            if let eventType = type {
+                query = query.filter(typeColumn == eventType)
+            }
+            return try query.fetchAll(db)
+        }
+        let events = records.map { $0 as ClientEventWithoutRoomId }
+        return events
+    }
+
+    
     public func loadState(for roomId: RoomId,
                           limit: Int = 0,
                           offset: Int? = nil

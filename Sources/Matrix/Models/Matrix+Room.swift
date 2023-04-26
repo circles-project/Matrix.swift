@@ -248,6 +248,12 @@ extension Matrix {
             }
         }
         
+        public func loadReactions(for eventId: EventId) async throws -> [ClientEventWithoutRoomId] {
+            let reactionEvents = try await self.session.loadRelatedEvents(for: eventId, in: self.roomId, relType: M_ANNOTATION, type: M_REACTION)
+            try await self.updateTimeline(from: reactionEvents)
+            return reactionEvents
+        }
+        
         // MARK: State
         
         open func updateState(from events: [ClientEventWithoutRoomId]) async {

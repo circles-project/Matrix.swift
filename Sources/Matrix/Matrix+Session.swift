@@ -1088,6 +1088,15 @@ extension Matrix {
             return responseBody
         }
         
+        public func loadRelatedEvents(for eventId: EventId, in roomId: RoomId, relType: String, type: String?) async throws -> [ClientEventWithoutRoomId] {
+            if let store = self.dataStore {
+                let reactionEvents = try await store.loadRelatedEvents(for: eventId, in: roomId, relType: M_ANNOTATION, type: type)
+                return reactionEvents
+            } else {
+                return []
+            }
+        }
+        
         // MARK: Decrypting Messsages
         
         public func decryptMessageEvent(_ encryptedEvent: ClientEventWithoutRoomId,
