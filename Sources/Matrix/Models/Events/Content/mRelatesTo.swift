@@ -17,6 +17,10 @@ public struct mRelatesTo: Codable {
         public init(eventId: EventId) {
             self.eventId = eventId
         }
+        public init(from decoder: Decoder) throws {
+            let container: KeyedDecodingContainer<mRelatesTo.mInReplyTo.CodingKeys> = try decoder.container(keyedBy: mRelatesTo.mInReplyTo.CodingKeys.self)
+            self.eventId = try container.decode(EventId.self, forKey: mRelatesTo.mInReplyTo.CodingKeys.eventId)
+        }
     }
     public let relType: String?
     public let eventId: EventId?
@@ -46,6 +50,14 @@ public struct mRelatesTo: Codable {
         case eventId = "event_id"
         case key
         case inReplyTo = "m.in_reply_to"
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.relType = try container.decodeIfPresent(String.self, forKey: .relType)
+        self.eventId = try container.decodeIfPresent(EventId.self, forKey: .eventId)
+        self.key = try container.decodeIfPresent(String.self, forKey: .key)
+        self.inReplyTo = try container.decodeIfPresent(mRelatesTo.mInReplyTo.self, forKey: .inReplyTo)
     }
 }
 
