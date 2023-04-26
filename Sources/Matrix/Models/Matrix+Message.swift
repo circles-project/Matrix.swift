@@ -30,8 +30,8 @@ extension Matrix {
             self.event = event
             self.room = room
             self.sender = room.session.getUser(userId: event.sender)
-            self.reactions = [:]
-            self.replies = []
+            self.reactions = nil
+            self.replies = nil
             
             self.logger = os.Logger(subsystem: "matrix", category: "message \(event.eventId)")
             
