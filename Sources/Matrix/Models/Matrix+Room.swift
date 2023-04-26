@@ -192,7 +192,7 @@ extension Matrix {
         func updateRelations(events: [ClientEventWithoutRoomId]) {
             for event in events {
                 if let content = event.content as? RelatedEventContent {
-                    logger.debug("Updating relations with event \(event.eventId) (\(event.type)")
+                    logger.debug("Updating relations with event \(event.eventId) (\(event.type))")
                     
                     let message = self.timeline[event.eventId] ?? Message(event: event, room: self)
                     
@@ -210,15 +210,21 @@ extension Matrix {
                         
                         // Also update the Message if we have it in memory
                         // FIXME: We only support m.reaction relations for now
-                        if let relatedMessage = self.timeline[relatedEventId],
-                           relType == M_REACTION,
-                           let reactionContent = event.content as? ReactionContent,
-                           let key = reactionContent.relatesTo.key
+                        if let relatedMessage = self.timeline[relatedEventId]
                         {
-                            logger.debug("Adding reaction [\(key)] to message \(relatedEventId)")
-                            Task {
-                                await relatedMessage.addReaction(event: event)
+                            if relType == M_REACTION,
+                               let reactionContent = event.content as? ReactionContent,
+                               let key = reactionContent.relatesTo.key
+                            {
+                                logger.debug("Adding reaction [\(key)] to message \(relatedEventId)")
+                                Task {
+                                    await relatedMessage.addReaction(event: event)
+                                }
+                            } else {
+                                logger.debug("Event \(event.eventId) doesn't look like a reaction")
                             }
+                        } else {
+                            logger.debug("Couldn't find relation parent message \(relatedEventId)")
                         }
                     } else {
                         logger.debug("Event \(event.eventId) doesn't look like a standard relation")
