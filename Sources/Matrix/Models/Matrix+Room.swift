@@ -192,7 +192,7 @@ extension Matrix {
         func updateRelations(events: [ClientEventWithoutRoomId]) {
             for event in events {
                 if let content = event.content as? RelatedEventContent {
-                    logger.debug("Updating relations for event \(event.eventId)")
+                    logger.debug("Updating relations with event \(event.eventId) (\(event.type)")
                     
                     let message = self.timeline[event.eventId] ?? Message(event: event, room: self)
                     
@@ -220,6 +220,8 @@ extension Matrix {
                                 await relatedMessage.addReaction(event: event)
                             }
                         }
+                    } else {
+                        logger.debug("Event \(event.eventId) doesn't look like a standard relation")
                     }
                     
                     // Check for inReplyTo, which is distinct from relType
@@ -232,6 +234,8 @@ extension Matrix {
                                 await parentMessage.addReply(message: message)
                             }
                         }
+                    } else {
+                        logger.debug("Event \(event.eventId) doesn't look like a rich reply")
                     }
                 }
             }
