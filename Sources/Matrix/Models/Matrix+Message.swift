@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 
 extension Matrix {
     public class Message: ObservableObject, Identifiable {
@@ -23,12 +24,16 @@ extension Matrix {
         private var fetchThumbnailTask: Task<Void,Swift.Error>?
         private var loadReactionsTask: Task<Int,Swift.Error>?
         
+        private var logger: os.Logger
+        
         public init(event: ClientEventWithoutRoomId, room: Room) {
             self.event = event
             self.room = room
             self.sender = room.session.getUser(userId: event.sender)
             self.reactions = [:]
             self.replies = []
+            
+            self.logger = os.Logger(subsystem: "matrix", category: "message \(event.eventId)")
             
             // Initialize the thumbnail
             if let messageContent = event.content as? Matrix.MessageContent {
@@ -148,12 +153,12 @@ extension Matrix {
         
         // https://github.com/uhoreg/matrix-doc/blob/aggregations-reactions/proposals/2677-reactions.md
         public func addReaction(event: ClientEventWithoutRoomId) async {
-            Matrix.logger.debug("Adding reaction message \(event.eventId) to message \(self.eventId)")
+            logger.debug("Adding reaction message \(event.eventId)")
             guard let content = event.content as? ReactionContent,
                   content.relatesTo.eventId == self.eventId,
                   let key = content.relatesTo.key
             else {
-                Matrix.logger.error("Not adding reaction: Couldn't parse reaction message content")
+                logger.error("Not adding reaction: Couldn't parse reaction message content")
                 return
             }
             await MainActor.run {
@@ -166,7 +171,7 @@ extension Matrix {
                     reactions![key]!.insert(event.sender)
                 }
             }
-            Matrix.logger.debug("Message \(self.eventId) now has \(self.reactions?.keys.count ?? 0) distinct reactions")
+            logger.debug("Now we have \(self.reactions?.keys.count ?? 0) distinct reactions")
         }
         
         public func addReaction(message: Message) async {
@@ -174,12 +179,12 @@ extension Matrix {
         }
         
         public func addReply(message: Message) async {
-            Matrix.logger.debug("Adding reply message \(message.eventId) to message \(self.eventId)")
+            logger.debug("Adding reply message \(message.eventId)")
             if message.replyToEventId == self.eventId {
                 if let replies = self.replies,
                    replies.contains(message)
                 {
-                    Matrix.logger.debug("We already have this one; Not adding \(message.eventId) to \(self.eventId)")
+                    logger.debug("We already have this one; Not adding \(message.eventId) as a reply")
                     return
                 }
                 await MainActor.run {
@@ -189,30 +194,37 @@ extension Matrix {
                     self.replies!.append(message)
                 }
             }
-            Matrix.logger.debug("Message \(self.eventId) now has \(self.replies?.count ?? 0) replies")
+            logger.debug("Now we have \(self.replies?.count ?? 0) replies")
         }
         
         public func loadReactions() {
+            logger.debug("Loading reactions")
+            
             if self.reactions != nil {
+                logger.debug("We already have reactions; Not loading after all.")
                 return
             }
             
             if let task = self.loadReactionsTask {
+                logger.debug("Load reactions task is already running.  Not starting a new one.")
                 return
             }
             
             self.loadReactionsTask = Task {
+                logger.debug("Load reactions task starting...")
                 let reactionEvents = try await self.room.loadReactions(for: self.eventId)
-                Matrix.logger.debug("Loaded \(reactionEvents.count) reactions for message \(self.eventId)")
+                logger.debug("Loaded \(reactionEvents.count) reactions")
                 
                 // If we didn't find anything, and we didn't have anything before,
                 // set our local var to non-nil in order to signal that we've already tried loading
                 if reactionEvents.isEmpty && self.reactions == nil {
+                    logger.debug("Setting our local stored reactions to non-nil")
                     await MainActor.run {
                         self.reactions = [:]
                     }
                 }
                 
+                logger.debug("Load reactions task is done")
                 self.loadReactionsTask = nil
                 return reactionEvents.count
             }
