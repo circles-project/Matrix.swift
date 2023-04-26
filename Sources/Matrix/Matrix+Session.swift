@@ -1097,6 +1097,16 @@ extension Matrix {
             }
         }
         
+        public override func getRelatedEvents(roomId: RoomId, eventId: EventId, relType: String) async throws -> [ClientEventWithoutRoomId] {
+            let events = try await super.getRelatedEvents(roomId: roomId, eventId: eventId, relType: relType)
+            
+            if let store = dataStore {
+                try await store.saveTimeline(events: events, in: roomId)
+            }
+            
+            return events
+        }
+        
         // MARK: Decrypting Messsages
         
         public func decryptMessageEvent(_ encryptedEvent: ClientEventWithoutRoomId,

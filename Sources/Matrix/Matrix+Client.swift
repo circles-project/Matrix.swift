@@ -814,6 +814,30 @@ public class Client {
         return responseBody
     }
     
+    open func getRelatedEvents(roomId: RoomId,
+                                 eventId: EventId,
+                                 relType: String
+    ) async throws -> [ClientEventWithoutRoomId] {
+        let path = "/_matrix/client/v1/rooms/\(roomId)/relations/\(eventId)/\(relType)"
+
+        let (data, response) = try await call(method: "GET", path: path)
+        
+        struct ResponseBody: Codable {
+            var chunk: [ClientEventWithoutRoomId]
+            // blah blah plus some other crap that we don't care about right now
+        }
+        
+        let decoder = JSONDecoder()
+        guard let responseBody = try? decoder.decode(RoomMessagesResponseBody.self, from: data)
+        else {
+            throw Matrix.Error("Failed to decode response body")
+        }
+        return responseBody.chunk
+    }
+    
+    
+    // MARK: Room State
+    
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3roomsroomidjoined_members
     public func getJoinedMembers(roomId: RoomId) async throws -> [UserId] {
         let path = "/_matrix/client/\(version)/rooms/\(roomId)/joined_members"
