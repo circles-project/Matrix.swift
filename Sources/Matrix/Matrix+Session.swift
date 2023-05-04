@@ -1177,14 +1177,33 @@ extension Matrix {
             //
             // FIXME: Until we check for this, we can't have multiple devices per account
             //
+            let store = SecretStore(session: self, key: "12345")
             
             
+            if let privateMSK = try await store.getSecret(type: M_CROSS_SIGNING_MASTER) as? String,
+               let privateSSK = try await store.getSecret(type: M_CROSS_SIGNING_SELF_SIGNING) as? String,
+               let privateUSK = try await store.getSecret(type: M_CROSS_SIGNING_USER_SIGNING) as? String
+            {
+                let export = CrossSigningKeyExport(masterKey: privateMSK, selfSigningKey: privateSSK, userSigningKey: privateUSK)
+                try self.crypto.importCrossSigningKeys(export: export)
+                // Success!  And no need to do UIA!
+                return nil
+            }
             
             // If we're still here, then we need to bootstrap our cross signing
             
             let result = try self.crypto.bootstrapCrossSigning()
             
-            // Upload the signing key
+            guard let export = self.crypto.exportCrossSigningKeys(),
+                  let privateMSK = export.masterKey,
+                  let privateSSK = export.selfSigningKey,
+                  let privateUSK = export.userSigningKey
+            else {
+                cryptoLogger.error("Failed to export new cross-signing keys")
+                throw Matrix.Error("Failed to export new cross-signing keys")
+            }
+            
+            // Upload the signing keys
             let decoder = JSONDecoder()
             let masterKey = try decoder.decode(CrossSigningKey.self, from: result.uploadSigningKeysRequest.userSigningKey.data(using: .utf8)!)
             let selfSigningKey = try decoder.decode(CrossSigningKey.self, from: result.uploadSigningKeysRequest.selfSigningKey.data(using: .utf8)!)
@@ -1199,7 +1218,20 @@ extension Matrix {
                 "master_key": masterKey,
                 "self_signing_key": selfSigningKey,
                 "user_signing_key": userSigningKey,
-            ])
+            ]) { _ in
+                // Completion handler that runs after the UIA completes successfully
+                
+                // Upload the new cross-signing keys to secret storage, so we can use them on other devices
+                try await store.saveSecret(privateMSK, type: M_CROSS_SIGNING_MASTER)
+                try await store.saveSecret(privateSSK, type: M_CROSS_SIGNING_SELF_SIGNING)
+                try await store.saveSecret(privateUSK, type: M_CROSS_SIGNING_USER_SIGNING)
+                
+                // Also upload the signature request in `result.signatureRequest`
+                // WTF man, why do we have Request.signatureUpload AND SignatureUploadRequest ???
+                let requestId = UInt16.random(in: 0...UInt16.max)
+                let request: Request = .signatureUpload(requestId: "\(requestId)", body: result.signatureRequest.body)
+                try await self.sendCryptoRequest(request: request)
+            }
             try await uia.connect()
             switch uia.state {
             case .finished(_):
@@ -1210,7 +1242,6 @@ extension Matrix {
                 return uia
             }
 
-            // FIXME: Also upload the signature request in `result.signatureRequest`
         }
         
         // MARK: logout

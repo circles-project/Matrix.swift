@@ -166,6 +166,8 @@ public enum Matrix {
         M_ROOM_KEY_REQUEST : RoomKeyRequestContent.self,
         M_FORWARDED_ROOM_KEY : ForwardedRoomKeyContent.self,
         M_ROOM_KEY_WITHHELD : RoomKeyWithheldContent.self,
+        M_SECRET_REQUEST : SecretRequestContent.self,
+        M_SECRET_SEND : SecretSendContent.self,
     ]
     static var messageTypes: [String: Codable.Type] = [
         M_TEXT : mTextContent.self,
@@ -184,6 +186,10 @@ public enum Matrix {
         M_IGNORED_USER_LIST : IgnoredUserListContent.self,
         M_PUSH_RULES : PushRulesContent.self,
         M_TAG : TagContent.self,
+        M_SECRET_STORAGE_DEFAULT_KEY : DefaultKeyContent.self,
+        M_CROSS_SIGNING_MASTER : String.self,
+        M_CROSS_SIGNING_USER_SIGNING : String.self,
+        M_CROSS_SIGNING_SELF_SIGNING : String.self,
     ]
     static var cryptoKeyTypes: [String: Codable.Type] = [
         : // FIXME

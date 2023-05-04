@@ -61,6 +61,7 @@ public let M_DIRECT = "m.direct"
 public let M_IGNORED_USER_LIST = "m.ignored_user_list"
 public let M_PUSH_RULES = "m.push_rules"
 public let M_SECRET_STORAGE_KEY = "m.secret_storage_key" // Ugh this one is FUBAR.  The actual format is "m.secret_storage.key.[key ID]"
+public let M_SECRET_STORAGE_DEFAULT_KEY = "m.secret_storage.default_key"
 // We already have M_TAG = "m.tag"
 
 // MARK: Room types
@@ -71,3 +72,14 @@ public let M_ANNOTATION = "m.annotation"
 public let M_THREAD = "m.thread"
 public let M_REPLACE = "m.replace"
 public let M_REFERENCE = "m.reference"
+
+// MARK: Secret storage
+public let M_SECRET_STORAGE_V1_AES_HMAC_SHA2 = "m.secret_storage.v1.aes-hmac-sha2"
+public let M_DEFAULT = "m.default"
+public let M_CROSS_SIGNING_MASTER = "m.cross_signing.master"
+public let M_CROSS_SIGNING_USER_SIGNING = "m.cross_signing.user_signing"
+public let M_CROSS_SIGNING_SELF_SIGNING = "m.cross_signing.self_signing"
+
+// MARK: Secret sharing
+public let M_SECRET_REQUEST = "m.secret.request"
+public let M_SECRET_SEND = "m.secret.send"
