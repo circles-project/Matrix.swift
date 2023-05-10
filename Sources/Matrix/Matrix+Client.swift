@@ -337,9 +337,18 @@ public class Client {
     // MARK: Account Data
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3useruseridaccount_datatype
-    public func getAccountData<T>(for eventType: String, of dataType: T.Type) async throws -> T where T: Decodable {
+    public func getAccountData<T>(for eventType: String, of dataType: T.Type) async throws -> T? where T: Decodable {
         let path = "/_matrix/client/v3/user/\(creds.userId)/account_data/\(eventType)"
-        let (data, response) = try await call(method: "GET", path: path)
+        let (data, response) = try await call(method: "GET", path: path, expectedStatuses: [200,404])
+        
+        // If we get a 404 it's no big deal.  Just means that the user doesn't have any account data of that type.
+        // Just return nil and move on with life.
+        if response.statusCode == 404 {
+            return nil
+        }
+        
+        // Otherwise we know the status code must be 200
+        // Look at the data that we received, decode it, and return the result
         
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
