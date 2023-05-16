@@ -640,4 +640,22 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         try await doUIAuthStage(auth: args)
     }
     
+    func getBSSpekeClient() -> BlindSaltSpeke.ClientSession? {
+        // NOTE: It's possible that we might have more than one BS-SPEKE client here
+        //       If we just changed our password, then we would have one client to authenticate with the old password,
+        //       and one client to enroll with the new one.
+        //       When this happens, we prefer the newer "enroll" client that used the most current password,
+        //       so that we can generate the most current version of our encryption key(s).
+        
+        if let bss = self.storage[AUTH_TYPE_ENROLL_BSSPEKE_OPRF+".state"] as? BlindSaltSpeke.ClientSession {
+            return bss
+        }
+        
+        if let bss = self.storage[AUTH_TYPE_LOGIN_BSSPEKE_OPRF+".state"] as? BlindSaltSpeke.ClientSession {
+            return bss
+        }
+        
+        return nil
+    }
+    
 }
