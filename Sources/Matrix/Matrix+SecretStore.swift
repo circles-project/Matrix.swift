@@ -31,12 +31,57 @@ extension Matrix {
         private var logger: os.Logger
         var keys: [String: Data]
     
-        public init(session: Session, key: Data) {
+        public init(session: Session, keys: [String: Data]) {
             self.session = session
             self.logger = Matrix.logger
-            self.keys = [
-                "m.default" : key,
-            ]
+            self.keys = keys
+        }
+        
+        func encrypt(name: String,
+                     data: Data,
+                     key: Data
+        ) throws -> EncryptedData {
+            // Keygen - Use HKDF to derive encryption key and MAC key from master key
+            let salt = Array<UInt8>(repeating: 0, count: 32)
+                        
+            let hac: HashedAuthenticationCode = HKDF<CryptoKit.SHA256>.extract(inputKeyMaterial: SymmetricKey(data: key), salt: salt)
+            let keyMaterial = HKDF<CryptoKit.SHA256>.expand(pseudoRandomKey: hac, info: name.data(using: .utf8), outputByteCount: 64)
+            
+            let (encryptionKey, macKey) = keyMaterial.withUnsafeBytes { bytes in
+                let kE = Array(bytes[0..<32])
+                let kM = Array(bytes[33..<64])
+                return (kE, kM)
+            }
+            
+            // Generate random IV
+            let iv = try Random.generateBytes(byteCount: 16)
+            
+            // Encrypt data with encryption key and IV to create ciphertext
+            let cryptor = Cryptor(operation: .encrypt,
+                                  algorithm: .aes,
+                                  mode: .CTR,
+                                  padding: .NoPadding,
+                                  key: encryptionKey,
+                                  iv: iv
+            )
+            
+            guard let ciphertext = cryptor.update(data)?.final()
+            else {
+                logger.error("Failed to encrypt")
+                throw Matrix.Error("Failed to encrypt")
+            }
+            
+            // MAC ciphertext with MAC key
+            guard let mac = HMAC(algorithm: .sha256, key: macKey).update(ciphertext)?.final()
+            else {
+                logger.error("Couldn't compute HMAC")
+                throw Matrix.Error("Couldn't compute HMAC")
+            }
+            
+            return EncryptedData(iv: Data(iv).base64EncodedString(),
+                                 ciphertext: Data(ciphertext).base64EncodedString(),
+                                 mac: Data(mac).base64EncodedString()
+            )
         }
         
         func decrypt(name: String,
@@ -112,23 +157,6 @@ extension Matrix {
             
             return Data(decryptedBytes)
         }
-        
-        public func getKey(keyId: String) async throws -> Data? {
-            // First: Do we know this one already?
-            if let existingKey = self.keys[keyId] {
-                return existingKey
-            } else {
-                // Next: Can we get it from the secret storage on the server?
-                // (To do this, it must be something that we can decrypt with the keys that we already know.  Or that we can decrypt with another key that we can decrypt.  it's turtles all the way down.)
-                let longId = "m.secret_storage.key.\(keyId)"
-                if let string = try await getSecret(type: longId) as? String {
-                    let key = Data(base64Encoded: string)
-                    self.keys[keyId] = key
-                    return key
-                }
-                return nil
-            }
-        }
             
         public func getSecret(type: String) async throws -> Codable? {
             
@@ -150,7 +178,7 @@ extension Matrix {
             // Now we have the encrypted secret downloaded
             // Look at all of the encryptions, and see if there's one where we know the key -- or where we can get the key
             for (keyId, encryptedData) in secret.encrypted {
-                guard let key = try await getKey(keyId: keyId)
+                guard let key = self.keys[keyId]
                 else {
                     logger.warning("Couldn't get key for id \(keyId)")
                     continue
