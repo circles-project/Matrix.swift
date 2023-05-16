@@ -35,6 +35,9 @@ extension Matrix {
         
         // cvw: Stuff that we need to add, but haven't got to yet
         @Published public var accountData: [String: Codable]
+        
+        // Our current active UIA session, if any
+        @Published public var uiaSession: UIASession?
 
         // Need some private stuff that outside callers can't see
         private var dataStore: DataStore?
@@ -58,6 +61,8 @@ extension Matrix {
             return content.ignoredUsers
         }
 
+        // Secret Storage
+        private var secretStore: SecretStore?
         // We need to use the Matrix 'recovery' feature to back up crypto keys etc
         // This saves us from struggling with UISI errors and unverified devices
         private var recoverySecretKey: Data?
@@ -74,7 +79,9 @@ extension Matrix {
                     syncToken: String? = nil, startSyncing: Bool = true,
                     displayname: String? = nil, avatarUrl: MXC? = nil, statusMessage: String? = nil,
                     recoverySecretKey: Data? = nil, recoveryTimestamp: Data? = nil,
-                    storageType: StorageType = .persistent(preserve: true)
+                    storageType: StorageType = .persistent(preserve: true),
+                    useCrossSigning: Bool = true,
+                    secretStorageKeys: [String: Data]? = nil
         ) async throws {
             
             self.syncLogger = os.Logger(subsystem: "matrix", category: "sync \(creds.userId)")
@@ -92,6 +99,8 @@ extension Matrix {
             self.syncRequestTask = nil
             self.backgroundSyncTask = nil
             //self.backgroundSyncDelayMS = 1_000
+            
+            self.uiaSession = nil
             
             // FIXME: Pick a better / more appropriate location for this cache
             //        See https://www.swiftbysundell.com/articles/working-with-files-and-folders-in-swift/
@@ -130,18 +139,32 @@ extension Matrix {
             
             // --------------------------------------------------------------------------------------------------------
             // Phase 1 init is done -- Now we can reference `self`
+            // Ok now we're initialized as a valid Matrix.Client (super class)
+
             
+            // Set up crypto stuff
+            // Secret storage
+            if let keys = secretStorageKeys {
+                self.secretStore = .init(session: self, keys: keys)
+            }
             try await cryptoQueue.run {
                 let cryptoRequests = try self.crypto.outgoingRequests()
                 print("Session:\tSending initial crypto requests (\(cryptoRequests.count))")
                 for request in cryptoRequests {
                     try await self.sendCryptoRequest(request: request)
                 }
-                let uia = try await self.setupCrossSigning()
-                // Hopefully uia is nil -- Meaning we don't have to re-authenticate so soon
+                if useCrossSigning {
+                    // Hopefully uia is nil -- Meaning we don't have to re-authenticate so soon.
+                    // But it's possible that we might get stuck doing UIA right off the bat.
+                    // No big deal.  Handle it like any ohter UIA.
+                    if let uia = try await self.setupCrossSigning() {
+                        await MainActor.run {
+                            self.uiaSession = uia
+                        }
+                    }
+                }
             }
             
-            // Ok now we're initialized as a valid Matrix.Client (super class)
             
             // Load our list of existing invited rooms
             if let store = self.dataStore {
@@ -851,11 +874,14 @@ extension Matrix {
         }
         
         public func ignoreUser(userId: UserId) async throws {
+            throw Matrix.Error("Not implemented")
+            /*
             var content = try await self.getAccountData(for: M_IGNORED_USER_LIST, of: IgnoredUserListContent.self)
             if !content.ignoredUsers.contains(userId) {
                 content.ignoredUsers.append(userId)
                 try await self.putAccountData(content, for: M_IGNORED_USER_LIST)
             }
+            */
         }
         
         
@@ -1174,23 +1200,20 @@ extension Matrix {
             
             // If we don't have our keys, maybe they are on the server
             // (Maybe we created them on another device and uploaded them)
-            //
-            // FIXME: Until we check for this, we can't have multiple devices per account
-            //
-            let store = SecretStore(session: self, key: "12345")
-            
-            
-            if let privateMSK = try await store.getSecret(type: M_CROSS_SIGNING_MASTER) as? String,
-               let privateSSK = try await store.getSecret(type: M_CROSS_SIGNING_SELF_SIGNING) as? String,
-               let privateUSK = try await store.getSecret(type: M_CROSS_SIGNING_USER_SIGNING) as? String
-            {
-                let export = CrossSigningKeyExport(masterKey: privateMSK, selfSigningKey: privateSSK, userSigningKey: privateUSK)
-                try self.crypto.importCrossSigningKeys(export: export)
-                // Success!  And no need to do UIA!
-                return nil
+            if let store = self.secretStore {
+                // Look in the secret store for our cross-signing keys
+                if let privateMSK = try await store.getSecret(type: M_CROSS_SIGNING_MASTER) as? String,
+                   let privateSSK = try await store.getSecret(type: M_CROSS_SIGNING_SELF_SIGNING) as? String,
+                   let privateUSK = try await store.getSecret(type: M_CROSS_SIGNING_USER_SIGNING) as? String
+                {
+                    let export = CrossSigningKeyExport(masterKey: privateMSK, selfSigningKey: privateSSK, userSigningKey: privateUSK)
+                    try self.crypto.importCrossSigningKeys(export: export)
+                    // Success!  And no need to do UIA!
+                    return nil
+                }
             }
             
-            // If we're still here, then we need to bootstrap our cross signing
+            // If we're still here, then we need to bootstrap our cross signing, ie generate a new set of keys
             
             let result = try self.crypto.bootstrapCrossSigning()
             
@@ -1221,10 +1244,12 @@ extension Matrix {
             ]) { _ in
                 // Completion handler that runs after the UIA completes successfully
                 
-                // Upload the new cross-signing keys to secret storage, so we can use them on other devices
-                try await store.saveSecret(privateMSK, type: M_CROSS_SIGNING_MASTER)
-                try await store.saveSecret(privateSSK, type: M_CROSS_SIGNING_SELF_SIGNING)
-                try await store.saveSecret(privateUSK, type: M_CROSS_SIGNING_USER_SIGNING)
+                if let store = self.secretStore {
+                    // Upload the new cross-signing keys to secret storage, so we can use them on other devices
+                    try await store.saveSecret(privateMSK, type: M_CROSS_SIGNING_MASTER)
+                    try await store.saveSecret(privateSSK, type: M_CROSS_SIGNING_SELF_SIGNING)
+                    try await store.saveSecret(privateUSK, type: M_CROSS_SIGNING_USER_SIGNING)
+                }
                 
                 // Also upload the signature request in `result.signatureRequest`
                 // WTF man, why do we have Request.signatureUpload AND SignatureUploadRequest ???
