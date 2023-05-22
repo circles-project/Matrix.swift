@@ -44,6 +44,8 @@ public protocol UIASession {
     func doBSSpekeLoginOprfStage(userId: UserId, password: String) async throws
     func doBSSpekeLoginOprfStage(password: String) async throws
     func doBSSpekeLoginVerifyStage() async throws
+    
+    func getBSSpekeClient() -> BlindSaltSpeke.ClientSession?
 }
 
 public let AUTH_TYPE_ENROLL_BSSPEKE_OPRF = "m.enroll.bsspeke-ecc.oprf"
@@ -640,7 +642,7 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         try await doUIAuthStage(auth: args)
     }
     
-    func getBSSpekeClient() -> BlindSaltSpeke.ClientSession? {
+    public func getBSSpekeClient() -> BlindSaltSpeke.ClientSession? {
         // NOTE: It's possible that we might have more than one BS-SPEKE client here
         //       If we just changed our password, then we would have one client to authenticate with the old password,
         //       and one client to enroll with the new one.
