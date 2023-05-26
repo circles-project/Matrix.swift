@@ -145,7 +145,9 @@ extension Matrix {
             // Set up crypto stuff
             // Secret storage
             if let keys = secretStorageKeys {
-                self.secretStore = .init(session: self, keys: keys)
+                self.secretStore = try await .init(session: self, keys: keys)
+            } else {
+                self.secretStore = try await .init(session: self, keys: [:])
             }
             try await cryptoQueue.run {
                 let cryptoRequests = try self.crypto.outgoingRequests()
