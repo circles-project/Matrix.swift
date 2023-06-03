@@ -125,6 +125,17 @@ extension Matrix {
             // to provide a passphrase.
         }
         
+        public static func computeKeyId(key: Data) throws -> String {
+            // First compute the SHA256 hash of the key
+            guard let hash = Digest(algorithm: .sha256).update(data: key)?.final()
+            else {
+                throw Matrix.Error("Failed to compute SHA256 hash on \(key.count) bytes")
+            }
+            // Then take the first 12 bytes (96 bits) of the hash and convert to base64
+            let keyId = Data(hash[0..<12]).base64EncodedString()
+            return keyId
+        }
+        
         func encrypt(name: String,
                      data: Data,
                      key: Data
