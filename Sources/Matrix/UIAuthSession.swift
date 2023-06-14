@@ -85,9 +85,13 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         }
     }
     
-    var completion: ((T) async throws -> Void)?
+    var completion: ((UIASession,T) async throws -> Void)?
         
-    public init(method: String, url: URL, credentials: Matrix.Credentials? = nil, requestDict: [String:Codable], completion: ((T) async throws -> Void)? = nil) {
+    public init(method: String, url: URL,
+                credentials: Matrix.Credentials? = nil,
+                requestDict: [String:Codable],
+                completion: ((UIASession,T) async throws -> Void)? = nil
+    ) {
         self.method = method
         self.url = url
         //self.accessToken = accessToken
@@ -196,7 +200,7 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
                 self.state = .finished(t)
             }
             if let block = completion {
-                try await block(t)
+                try await block(self,t)
             }
         }
         
@@ -371,7 +375,7 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
                 state = .finished(t)
             }
             if let block = completion {
-                try await block(t)
+                try await block(self,t)
             }
             return
         }

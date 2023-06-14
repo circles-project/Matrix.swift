@@ -1243,7 +1243,7 @@ extension Matrix {
                 "master_key": masterKey,
                 "self_signing_key": selfSigningKey,
                 "user_signing_key": userSigningKey,
-            ]) { _ in
+            ]) { (_,_) in
                 // Completion handler that runs after the UIA completes successfully
                 
                 if let store = self.secretStore {
