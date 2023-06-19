@@ -145,8 +145,10 @@ extension Matrix {
             // Set up crypto stuff
             // Secret storage
             if let keys = secretStorageKeys {
+                cryptoLogger.debug("Setting up secret storage with \(keys.count) keys")
                 self.secretStore = try await .init(session: self, keys: keys)
             } else {
+                cryptoLogger.debug("Setting up secret storage -- no keys")
                 self.secretStore = try await .init(session: self, keys: [:])
             }
             try await cryptoQueue.run {
@@ -1213,6 +1215,8 @@ extension Matrix {
                     // Success!  And no need to do UIA!
                     return nil
                 }
+            } else {
+                logger.warning("No secret store")
             }
             
             // If we're still here, then we need to bootstrap our cross signing, ie generate a new set of keys
