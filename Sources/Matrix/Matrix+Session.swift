@@ -158,6 +158,7 @@ extension Matrix {
                 cryptoLogger.debug("Setting up secret storage -- no keys")
                 self.secretStore = try await .init(session: self, keys: [:])
             }
+            // Initial requests
             try await cryptoQueue.run {
                 let cryptoRequests = try self.crypto.outgoingRequests()
                 print("Session:\tSending initial crypto requests (\(cryptoRequests.count))")
@@ -1202,21 +1203,27 @@ extension Matrix {
         // MARK: Cross Signing
         
         public func setupCrossSigning() async throws -> UIAuthSession<EmptyStruct>? {
+            let logger: os.Logger = Logger(subsystem: "matrix", category: "XSIGN")
+            logger.debug("Setting up")
+            
             // First thing to check: Do we already have all of our cross-signing keys?
             let status = self.crypto.crossSigningStatus()
             if status.hasMaster && status.hasSelfSigning && status.hasUserSigning {
                 // Nothing more to be done here
+                logger.debug("Already all set up.  Done.")
                 return nil
             }
             
             // If we don't have our keys, maybe they are on the server
             // (Maybe we created them on another device and uploaded them)
             if let store = self.secretStore {
+                logger.debug("Looking for keys on the server")
                 // Look in the secret store for our cross-signing keys
                 if let privateMSK = try await store.getSecret(type: M_CROSS_SIGNING_MASTER) as? String,
                    let privateSSK = try await store.getSecret(type: M_CROSS_SIGNING_SELF_SIGNING) as? String,
                    let privateUSK = try await store.getSecret(type: M_CROSS_SIGNING_USER_SIGNING) as? String
                 {
+                    logger.debug("Found keys on the server")
                     let export = CrossSigningKeyExport(masterKey: privateMSK, selfSigningKey: privateSSK, userSigningKey: privateUSK)
                     try self.crypto.importCrossSigningKeys(export: export)
                     // Success!  And no need to do UIA!
@@ -1227,15 +1234,16 @@ extension Matrix {
             }
             
             // If we're still here, then we need to bootstrap our cross signing, ie generate a new set of keys
-            
+            logger.debug("Need to bootstrap")
             let result = try self.crypto.bootstrapCrossSigning()
             
+            logger.debug("Exporting keys")
             guard let export = self.crypto.exportCrossSigningKeys(),
                   let privateMSK = export.masterKey,
                   let privateSSK = export.selfSigningKey,
                   let privateUSK = export.userSigningKey
             else {
-                cryptoLogger.error("Failed to export new cross-signing keys")
+                logger.error("Failed to export new cross-signing keys")
                 throw Matrix.Error("Failed to export new cross-signing keys")
             }
             
@@ -1249,34 +1257,40 @@ extension Matrix {
             let url = URL(string: path, relativeTo: self.baseUrl)!
             
             // WARNING: This endpoint uses the user-interactive auth, so unless we call it *immediately* after login, we should expect to receive a new UIA session that must be completed before the request can take effect
-            
+            logger.debug("Sending keys in a POST request to the server")
             let uia = UIAuthSession<EmptyStruct>(method: "POST", url: url, requestDict: [
                 "master_key": masterKey,
                 "self_signing_key": selfSigningKey,
                 "user_signing_key": userSigningKey,
             ]) { (_,_) in
                 // Completion handler that runs after the UIA completes successfully
+                logger.debug("UIA completed successfully")
                 
                 if let store = self.secretStore {
                     // Upload the new cross-signing keys to secret storage, so we can use them on other devices
+                    logger.debug("Saving keys to secret storage")
                     try await store.saveSecret(privateMSK, type: M_CROSS_SIGNING_MASTER)
                     try await store.saveSecret(privateSSK, type: M_CROSS_SIGNING_SELF_SIGNING)
                     try await store.saveSecret(privateUSK, type: M_CROSS_SIGNING_USER_SIGNING)
                 }
                 
                 // Also upload the signature request in `result.signatureRequest`
+                logger.debug("Uploading signatures")
                 // WTF man, why do we have Request.signatureUpload AND SignatureUploadRequest ???
                 let requestId = UInt16.random(in: 0...UInt16.max)
                 let request: Request = .signatureUpload(requestId: "\(requestId)", body: result.signatureRequest.body)
                 try await self.sendCryptoRequest(request: request)
             }
+            logger.debug("Waiting for UIA to connect")
             try await uia.connect()
             switch uia.state {
             case .finished(_):
                 // Yay, got it in one!  The server did not require us to authenticate again.
+                logger.debug("UIA was not required to upload keys")
                 return nil
             default:
                 // The caller will have to complete UIA before the request can go through
+                logger.debug("Client needs to complete UIA to upload keys")
                 return uia
             }
 
