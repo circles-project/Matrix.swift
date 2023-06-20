@@ -107,6 +107,10 @@ extension Matrix {
                 } else {
                     logger.debug("Existing default keyId matches what we have [\(defaultKeyId)]")
                 }
+            } else {
+                logger.debug("No existing keyId; Uploading our new one")
+                try await registerKey(key: defaultKey, keyId: defaultKeyId)
+                try await setDefaultKeyId(keyId: defaultKeyId)
             }
         }
         
