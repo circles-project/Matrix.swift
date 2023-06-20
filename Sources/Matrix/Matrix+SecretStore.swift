@@ -92,6 +92,8 @@ extension Matrix {
             self.keychain = KeychainSecretStore(userId: session.creds.userId)
             self.state = .online(defaultKeyId)
             
+            logger.debug("Initializing with default key")
+            
             // Make sure that our default key is registered with the server-side secret storage
             if let oldDefaultKeyId = try await getDefaultKeyId() {
                 logger.debug("Found existing default keyId [\(oldDefaultKeyId)]")
@@ -110,10 +112,12 @@ extension Matrix {
         
         public init(session: Session, keys: [String: Data]) async throws {
             self.session = session
-            self.logger = Matrix.logger
+            self.logger = .init(subsystem: "matrix", category: "SSSS")
             self.keys = keys
             self.keychain = KeychainSecretStore(userId: session.creds.userId)
             self.state = .uninitialized
+            
+            logger.debug("Initializing with a set of keys")
             
             // OK now let's see what we got
             // 1. Do we have the default key?
@@ -327,6 +331,7 @@ extension Matrix {
         }
         
         public func saveSecret(_ content: Codable, type: String) async throws {
+            logger.debug("Saving secret of type [\(type)]")
             
             guard case let .online(keyId) = self.state
             else {
@@ -356,7 +361,8 @@ extension Matrix {
         }
         
         public func getKeyDescription(keyId: String) async throws -> KeyDescriptionContent? {
-            try await session.getAccountData(for: "m.secret_storage.key.\(keyId)", of: KeyDescriptionContent.self)
+            logger.debug("Fetching key description for keyId [\(keyId)]")
+            return try await session.getAccountData(for: "m.secret_storage.key.\(keyId)", of: KeyDescriptionContent.self)
         }
 
         public func registerKey(key: Data,
@@ -381,6 +387,8 @@ extension Matrix {
         public func validateKey(key: Data,
                                 keyId: String
         ) async throws -> Bool {
+            logger.debug("Validating key with keyId [\(keyId)]")
+            
             guard let description = try await getKeyDescription(keyId: keyId),
                   let oldIV = description.iv,
                   let oldMacString = description.mac,
