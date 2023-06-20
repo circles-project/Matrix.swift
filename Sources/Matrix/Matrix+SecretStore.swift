@@ -87,7 +87,7 @@ extension Matrix {
     
         public init(session: Session, defaultKey: Data, defaultKeyId: String) async throws {
             self.session = session
-            self.logger = Matrix.logger
+            self.logger = .init(subsystem: "matrix", category: "SSSS")
             self.keys = [defaultKeyId : defaultKey]
             self.keychain = KeychainSecretStore(userId: session.creds.userId)
             self.state = .online(defaultKeyId)
@@ -364,6 +364,8 @@ extension Matrix {
                                 name: String? = nil,
                                 passphrase: KeyDescriptionContent.Passphrase? = nil
         ) async throws {
+            logger.debug("Registering new key with keyId [\(keyId)]")
+            
             let algorithm: String = M_SECRET_STORAGE_V1_AES_HMAC_SHA2
             let zeroes = [UInt8](repeating: 0, count: 32)
             let encrypted = try encrypt(name: "", data: Data(zeroes), key: key)
@@ -451,6 +453,7 @@ extension Matrix {
         }
         
         public func setDefaultKeyId(keyId: String) async throws {
+            logger.debug("Setting keyId [\(keyId)] to be the default SSSS key")
             let content = DefaultKeyContent(key: keyId)
             let type = M_SECRET_STORAGE_DEFAULT_KEY
             
