@@ -18,7 +18,7 @@ public enum UIASessionState {
     case finished(Codable)
 }
 
-public protocol UIASession {
+public protocol UIASession: Identifiable {
     
     var url: URL { get }
     
@@ -85,12 +85,12 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         }
     }
     
-    var completion: ((UIASession,T) async throws -> Void)?
+    var completion: ((any UIASession,T) async throws -> Void)?
         
     public init(method: String, url: URL,
                 credentials: Matrix.Credentials? = nil,
                 requestDict: [String:Codable],
-                completion: ((UIASession,T) async throws -> Void)? = nil
+                completion: ((any UIASession,T) async throws -> Void)? = nil
     ) {
         self.method = method
         self.url = url

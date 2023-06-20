@@ -34,7 +34,7 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
                             initialDeviceDisplayName: String? = nil,
                             //showMSISDN: Bool = false,
                             inhibitLogin: Bool = false,
-                            completion: ((UIASession,Matrix.Credentials) async throws -> Void)? = nil
+                            completion: ((any UIASession,Matrix.Credentials) async throws -> Void)? = nil
     ) async throws {
 
         let wellKnown = try await Matrix.fetchWellKnown(for: domain)
@@ -62,7 +62,7 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
                 initialDeviceDisplayName: String? = nil,
                 //showMSISDN: Bool = false,
                 inhibitLogin: Bool = false,
-                completion: ((UIASession,Matrix.Credentials) async throws -> Void)? = nil
+                completion: ((any UIASession,Matrix.Credentials) async throws -> Void)? = nil
     ) async throws {
         
         guard let signupURL = URL(string: "/_matrix/client/v3/register", relativeTo: homeserver)
