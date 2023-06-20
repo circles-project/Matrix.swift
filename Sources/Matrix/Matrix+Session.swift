@@ -19,6 +19,13 @@ import MatrixSDKCrypto
 
 extension Matrix {
     public class Session: Matrix.Client, ObservableObject {
+        
+        public struct Config {
+            var storageType: StorageType
+            var s4key: Data
+            var s4KeyId: String
+        }
+        
         @Published public var displayName: String?
         @Published public var avatarUrl: URL?
         @Published public var avatar: Matrix.NativeImage?
@@ -81,7 +88,7 @@ extension Matrix {
                     recoverySecretKey: Data? = nil, recoveryTimestamp: Data? = nil,
                     storageType: StorageType = .persistent(preserve: true),
                     useCrossSigning: Bool = true,
-                    secretStorageKeys: [String: Data]? = nil
+                    secretStorageKeyInfo: (String,Data)? = nil
         ) async throws {
             
             self.syncLogger = os.Logger(subsystem: "matrix", category: "sync \(creds.userId)")
@@ -144,9 +151,9 @@ extension Matrix {
             
             // Set up crypto stuff
             // Secret storage
-            if let keys = secretStorageKeys {
-                cryptoLogger.debug("Setting up secret storage with \(keys.count) keys")
-                self.secretStore = try await .init(session: self, keys: keys)
+            if let (s4keyId,s4key) = secretStorageKeyInfo {
+                cryptoLogger.debug("Setting up secret storage with keyId \(s4keyId)")
+                self.secretStore = try await .init(session: self, defaultKey: s4key, defaultKeyId: s4keyId)
             } else {
                 cryptoLogger.debug("Setting up secret storage -- no keys")
                 self.secretStore = try await .init(session: self, keys: [:])
