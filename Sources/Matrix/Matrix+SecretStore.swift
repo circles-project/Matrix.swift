@@ -85,6 +85,29 @@ extension Matrix {
         private var keychain: KeychainSecretStore
         var keys: [String: Data]
     
+        public init(session: Session, defaultKey: Data, defaultKeyId: String) async throws {
+            self.session = session
+            self.logger = Matrix.logger
+            self.keys = [defaultKeyId : defaultKey]
+            self.keychain = KeychainSecretStore(userId: session.creds.userId)
+            self.state = .online(defaultKeyId)
+            
+            // Make sure that our default key is registered with the server-side secret storage
+            if let oldDefaultKeyId = try await getDefaultKeyId() {
+                logger.debug("Found existing default keyId [\(oldDefaultKeyId)]")
+                if oldDefaultKeyId != defaultKeyId {
+                    logger.debug("Overwriting old default keyId [\(oldDefaultKeyId)] with new default keyId [\(defaultKeyId)]")
+                    try await registerKey(key: defaultKey, keyId: defaultKeyId)
+                    try await setDefaultKeyId(keyId: defaultKeyId)
+                    
+                    // FIXME: Also encrypt the old key under the new key, and (maybe?) vice versa
+                    
+                } else {
+                    logger.debug("Existing default keyId matches what we have [\(defaultKeyId)]")
+                }
+            }
+        }
+        
         public init(session: Session, keys: [String: Data]) async throws {
             self.session = session
             self.logger = Matrix.logger
@@ -102,12 +125,14 @@ extension Matrix {
             // (If there is no default key, then we must remain in state `.uninitialized` and we are done here.)
             guard let defaultKeyId = try await getDefaultKeyId()
             else {
+                logger.warning("No default keyId for SSSS")
                 return
             }
             
             // Next, once we know the id of the default key, we look to see if we already have it in our `keys` dictionary
             // - If we have the default key, then we are in state `.online(keyId)` where `keyId` is the id of our default key
             if let key = keys[defaultKeyId] {
+                logger.debug("SSSS is online with key [\(defaultKeyId)]")
                 self.state = .online(defaultKeyId)
                 return
             }
@@ -123,6 +148,9 @@ extension Matrix {
             // If we don't have the default key, then there's not much that we can do.
             // Set `state` to `.needKey` with the default key's description, so that the application can prompt the user
             // to provide a passphrase.
+            if let description = try await getKeyDescription(keyId: defaultKeyId) {
+                self.state = .needKey(description)
+            }
         }
         
         public static func computeKeyId(key: Data) throws -> String {
