@@ -160,7 +160,7 @@ extension Matrix {
                 throw Matrix.Error("Failed to compute SHA256 hash on \(key.count) bytes")
             }
             // Then take the first 12 bytes (96 bits) of the hash and convert to base64
-            let keyId = Data(hash[0..<12]).base64EncodedString()
+            let keyId = Data(hash[0..<12]).base64EncodedString().trimmingCharacters(in: CharacterSet(charactersIn: "="))
             return keyId
         }
         
