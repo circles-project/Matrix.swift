@@ -112,6 +112,8 @@ extension Matrix {
                 try await registerKey(key: defaultKey, keyId: defaultKeyId)
                 try await setDefaultKeyId(keyId: defaultKeyId)
             }
+            
+            logger.debug("Done with init")
         }
         
         public init(session: Session, keys: [String: Data]) async throws {
