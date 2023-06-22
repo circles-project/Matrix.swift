@@ -44,7 +44,7 @@ extension Matrix {
         @Published public var accountData: [String: Codable]
         
         // Our current active UIA session, if any
-        @Published public var uiaSession: UIAuthSession?
+        @Published public private(set) var uiaSession: UIAuthSession?
 
         // Need some private stuff that outside callers can't see
         private var dataStore: DataStore?
@@ -701,7 +701,12 @@ extension Matrix {
             throw Matrix.Error("Not implemented yet")
         }
         
-        
+        // MARK: UIA
+        public func cancelUIA() async throws {
+            await MainActor.run {
+                self.uiaSession = nil
+            }
+        }
         
         // MARK: Recovery
         
