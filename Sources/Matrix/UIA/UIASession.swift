@@ -24,6 +24,8 @@ public protocol UIASession {
     
     var state: UIASessionState { get }
     
+    var isFinished: Bool { get }
+    
     var storage: [String: Any] { get }
     
     var sessionId: String? { get }

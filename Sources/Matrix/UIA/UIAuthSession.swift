@@ -56,10 +56,19 @@ public class UIAuthSession: UIASession, ObservableObject {
     
     public var sessionId: String? {
         switch state {
-        case .inProgress(let (uiaaState, selectedFlow)):
+        case .inProgress(let uiaaState, _):
             return uiaaState.session
         default:
             return nil
+        }
+    }
+    
+    public var isFinished: Bool {
+        switch self.state {
+        case .finished(_):
+            return true
+        default:
+            return false
         }
     }
     
