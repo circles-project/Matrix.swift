@@ -18,7 +18,7 @@ public enum UIASessionState {
     case finished(Codable)
 }
 
-public protocol UIASession: Identifiable {
+public protocol UIASession {
     
     var url: URL { get }
     
