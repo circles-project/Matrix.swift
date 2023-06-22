@@ -24,6 +24,8 @@ public protocol UIASession {
     
     var state: UIASessionState { get }
     
+    var storage: [String: Any] { get }
+    
     var sessionId: String? { get }
     
     func connect() async throws
