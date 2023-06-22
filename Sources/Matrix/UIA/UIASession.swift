@@ -15,7 +15,7 @@ public enum UIASessionState {
     case notConnected
     case connected(UIAA.SessionState)
     case inProgress(UIAA.SessionState,[String])
-    case finished(Codable)
+    case finished(Data)
 }
 
 public protocol UIASession {

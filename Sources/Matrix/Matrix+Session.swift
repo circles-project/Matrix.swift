@@ -1202,7 +1202,7 @@ extension Matrix {
         
         // MARK: Cross Signing
         
-        public func setupCrossSigning() async throws -> UIAuthSession<EmptyStruct>? {
+        public func setupCrossSigning() async throws -> UIAuthSession? {
             let logger: os.Logger = Logger(subsystem: "matrix", category: "XSIGN")
             logger.debug("Setting up")
             
@@ -1258,7 +1258,7 @@ extension Matrix {
             
             // WARNING: This endpoint uses the user-interactive auth, so unless we call it *immediately* after login, we should expect to receive a new UIA session that must be completed before the request can take effect
             logger.debug("Sending keys in a POST request to the server")
-            let uia = UIAuthSession<EmptyStruct>(method: "POST", url: url, requestDict: [
+            let uia = UIAuthSession(method: "POST", url: url, requestDict: [
                 "master_key": masterKey,
                 "self_signing_key": selfSigningKey,
                 "user_signing_key": userSigningKey,
@@ -1284,7 +1284,7 @@ extension Matrix {
             logger.debug("Waiting for UIA to connect")
             try await uia.connect()
             switch uia.state {
-            case .finished(_):
+            case .finished:
                 // Yay, got it in one!  The server did not require us to authenticate again.
                 logger.debug("UIA was not required to upload keys")
                 return nil

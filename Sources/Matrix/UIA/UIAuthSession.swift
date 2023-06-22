@@ -10,7 +10,7 @@ import AnyCodable
 import BlindSaltSpeke
 
 @available(macOS 12.0, *)
-public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
+public class UIAuthSession: UIASession, ObservableObject {
     
     public let url: URL
     public let method: String
@@ -32,12 +32,12 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         }
     }
     
-    var completion: ((any UIASession,T) async throws -> Void)?
+    var completion: ((UIAuthSession,Data) async throws -> Void)?
         
     public init(method: String, url: URL,
                 credentials: Matrix.Credentials? = nil,
                 requestDict: [String:Codable],
-                completion: ((any UIASession,T) async throws -> Void)? = nil
+                completion: ((UIAuthSession,Data) async throws -> Void)? = nil
     ) {
         self.method = method
         self.url = url
@@ -141,14 +141,13 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         print("\(tag)\tParsed HTTP response")
         
         if httpResponse.statusCode == 200 {
-            let decoder = JSONDecoder()
-            let t: T = try decoder.decode(T.self, from: data)
             await MainActor.run {
-                self.state = .finished(t)
+                self.state = .finished(data)
             }
             if let block = completion {
-                try await block(self,t)
+                try await block(self,data)
             }
+            return
         }
         
         guard httpResponse.statusCode == 401 else {
@@ -310,19 +309,11 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         
         if httpResponse.statusCode == 200 {
             print("\(tag)\tAll done!")
-            let decoder = JSONDecoder()
-            
-            guard let t = try? decoder.decode(T.self, from: data)
-            else {
-                let msg = "Couldn't decode Matrix credentials"
-                print("\(tag)\tError: \(msg)")
-                throw Matrix.Error(msg)
-            }
             await MainActor.run {
-                state = .finished(t)
+                state = .finished(data)
             }
             if let block = completion {
-                try await block(self,t)
+                try await block(self,data)
             }
             return
         }
