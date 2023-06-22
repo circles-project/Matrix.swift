@@ -60,7 +60,7 @@ public let M_FULLY_READ = "m.fully_read"
 public let M_DIRECT = "m.direct"
 public let M_IGNORED_USER_LIST = "m.ignored_user_list"
 public let M_PUSH_RULES = "m.push_rules"
-public let M_SECRET_STORAGE_KEY = "m.secret_storage_key" // Ugh this one is FUBAR.  The actual format is "m.secret_storage.key.[key ID]"
+public let M_SECRET_STORAGE_KEY = "m.secret_storage.key" // Ugh this one is FUBAR.  The actual format is "m.secret_storage.key.[key ID]"
 public let M_SECRET_STORAGE_DEFAULT_KEY = "m.secret_storage.default_key"
 // We already have M_TAG = "m.tag"
 

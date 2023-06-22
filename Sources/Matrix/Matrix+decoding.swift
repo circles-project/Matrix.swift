@@ -188,15 +188,16 @@ extension Matrix {
             return content
         }
         
-        if dataType.starts(with: M_SECRET_STORAGE_KEY) {
+        if dataType.starts(with: "\(M_SECRET_STORAGE_KEY).") {
             guard let keyId = dataType.split(separator: ".").last
             else {
                 let msg = "Couldn't get key id for \(M_SECRET_STORAGE_KEY)"
                 logger.error("Couldn't get key id for \(M_SECRET_STORAGE_KEY)")
                 throw Matrix.Error(msg)
             }
-            logger.error("Account Data type \(M_SECRET_STORAGE_KEY) is not implemented")
-            throw Matrix.Error("Account Data type \(M_SECRET_STORAGE_KEY) is not implemented")
+            let content = try container.decode(KeyDescriptionContent.self, forKey: .content)
+            logger.debug("Matrix decoded content of type \(KeyDescriptionContent.self)")
+            return content
         }
         
         logger.error("Cannot decode unknown account data type \(dataType)")
