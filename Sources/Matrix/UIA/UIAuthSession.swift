@@ -9,47 +9,6 @@ import Foundation
 import AnyCodable
 import BlindSaltSpeke
 
-@available(macOS 12.0, *)
-
-public enum UIASessionState {
-    case notConnected
-    case connected(UIAA.SessionState)
-    case inProgress(UIAA.SessionState,[String])
-    case finished(Codable)
-}
-
-public protocol UIASession {
-    
-    var url: URL { get }
-    
-    var state: UIASessionState { get }
-    
-    var storage: [String: Any] { get }
-    
-    var sessionId: String? { get }
-    
-    func connect() async throws
-    
-    func selectFlow(flow: UIAA.Flow) async
-    
-    func doUIAuthStage(auth: [String:Codable]) async throws
-    
-    func doTermsStage() async throws
- 
-    func doEmailRequestTokenStage(email: String) async throws -> String?
-    func doEmailSubmitTokenStage(token: String, secret: String) async throws
-    
-    func doBSSpekeEnrollOprfStage(userId: UserId, password: String) async throws
-    func doBSSpekeEnrollOprfStage(password: String) async throws
-    func doBSSpekeEnrollSaveStage() async throws
-    
-    func doBSSpekeLoginOprfStage(userId: UserId, password: String) async throws
-    func doBSSpekeLoginOprfStage(password: String) async throws
-    func doBSSpekeLoginVerifyStage() async throws
-    
-    func getBSSpekeClient() -> BlindSaltSpeke.ClientSession?
-}
-
 public let AUTH_TYPE_ENROLL_BSSPEKE_OPRF = "m.enroll.bsspeke-ecc.oprf"
 public let AUTH_TYPE_ENROLL_BSSPEKE_SAVE = "m.enroll.bsspeke-ecc.save"
 public let AUTH_TYPE_TERMS = "m.login.terms"
