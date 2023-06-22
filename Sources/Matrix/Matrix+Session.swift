@@ -44,7 +44,7 @@ extension Matrix {
         @Published public var accountData: [String: Codable]
         
         // Our current active UIA session, if any
-        @Published public var uiaSession: (any UIASession)?
+        @Published public var uiaSession: UIAuthSession?
 
         // Need some private stuff that outside callers can't see
         private var dataStore: DataStore?
