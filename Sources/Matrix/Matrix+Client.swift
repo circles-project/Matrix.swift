@@ -23,6 +23,7 @@ public class Client {
     public let version: String
     private var apiUrlSession: URLSession   // For making API calls
     private var mediaUrlSession: URLSession // For downloading media
+    private var mediaCache: URLCache        // For downloading media
     
     // MARK: Init
     
@@ -69,9 +70,11 @@ public class Client {
         mediaConfig.httpAdditionalHeaders = [
             "Authorization": "Bearer \(creds.accessToken)",
         ]
-        mediaConfig.urlCache = URLCache(memoryCapacity: 64*1024*1024, diskCapacity: 512*1024*1024, directory: mediaCacheDir)
+        let cache = URLCache(memoryCapacity: 64*1024*1024, diskCapacity: 512*1024*1024, directory: mediaCacheDir)
+        mediaConfig.urlCache = cache
         mediaConfig.requestCachePolicy = .returnCacheDataElseLoad
         self.mediaUrlSession = URLSession(configuration: mediaConfig)
+        self.mediaCache = cache
     }
     
     // MARK: API Call
@@ -1065,10 +1068,14 @@ public class Client {
     
     // MARK: Media API
     
-    public func downloadData(mxc: MXC) async throws -> Data {
+    private func getMediaHttpUrl(mxc: MXC) -> URL? {
         let path = "/_matrix/media/\(version)/download/\(mxc.serverName)/\(mxc.mediaId)"
-        
-        let url = URL(string: path, relativeTo: baseUrl)!
+        let url = URL(string: path, relativeTo: baseUrl)
+        return url
+    }
+    
+    public func downloadData(mxc: MXC) async throws -> Data {
+        let url = getMediaHttpUrl(mxc: mxc)!
         let request = URLRequest(url: url)
         
         let (data, response) = try await mediaUrlSession.data(for: request)
@@ -1145,6 +1152,44 @@ public class Client {
             print(msg)
             throw Matrix.Error(msg)
         }
+        
+        // FIXME: Also save a copy of our data in the download cache, so we don't have to fetch it over the network when we see it mentioned in an event
+        // Looks like we just need to call .storeCachedResponse on the cache https://developer.apple.com/documentation/foundation/urlcache/1414434-storecachedresponse
+        //
+        // So to do that, we need to
+        // * Create the CachedURLResponse
+        // * Create the URLSessionDataTask
+        //
+        // Creating the CachedURLResponse https://developer.apple.com/documentation/foundation/cachedurlresponse
+        // * .init takes a URLResponse and a Data https://developer.apple.com/documentation/foundation/cachedurlresponse/1413035-init
+        //   * The URLResponse should actually be an HTTPURLResponse https://developer.apple.com/documentation/foundation/httpurlresponse
+        //     * It can be instantiated from the URL, the Int status code, the HTTP version, and the header fields https://developer.apple.com/documentation/foundation/httpurlresponse/1415870-init
+        //
+        // Creating the URLSessionDataTask
+        // * This one can be created by calling the URLSession's .dataTask(with: URL) function https://developer.apple.com/documentation/foundation/urlsession/1411554-datatask
+        // * Don't worry, it doesn't actually run the task until you call .resume() on it -- We used to have lots of bugs in the old version of Circles when we would forget to do this
+        
+        guard let urlForCache = getMediaHttpUrl(mxc: mxc),
+              let httpResponseForCache = HTTPURLResponse(url: urlForCache,
+                                                         statusCode: 200,
+                                                         httpVersion: nil,
+                                                         headerFields: [
+                                                            "Content-Type": contentType,
+                                                            "Content-Length": "\(data.count)"
+                                                         ])
+        else {
+            // hmmm somehow we failed to create what we needed for the cache.  Just return the MXC that we already received from the upload.
+            print("UPLOAD\tFailed to create URL and HTTP response for the cache.  Proceeding without caching.")
+            return mxc
+        }
+        let cachedUrlResponse = CachedURLResponse(response: httpResponseForCache, data: data)
+
+        let dataTaskForCache = mediaUrlSession.dataTask(with: urlForCache)
+        
+        mediaCache.storeCachedResponse(cachedUrlResponse, for: dataTaskForCache)
+        print("UPLOAD\tPre-populated uploaded data into our download cache")
+
+        // Finally return the mxc:// URL to the caller
         return mxc
     }
     
