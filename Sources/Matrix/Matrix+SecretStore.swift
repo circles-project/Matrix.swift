@@ -178,6 +178,7 @@ extension Matrix {
                      data: Data,
                      key: Data
         ) throws -> EncryptedData {
+            logger.debug("Encrypting \(name)")
             // Keygen - Use HKDF to derive encryption key and MAC key from master key
             let salt = Array<UInt8>(repeating: 0, count: 32)
                         
@@ -189,6 +190,8 @@ extension Matrix {
                 let kM = Array(bytes[32..<64])
                 return (kE, kM)
             }
+            logger.debug("Encryption key = \(Data(encryptionKey).base64EncodedString())")
+            logger.debug("MAC key        = \(Data(macKey).base64EncodedString())")
             
             // Generate random IV
             let iv = try Random.generateBytes(byteCount: 16)
@@ -225,6 +228,7 @@ extension Matrix {
                      encrypted: EncryptedData,
                      key: Data
         ) throws -> Data {
+            logger.debug("Decrypting \(name)")
             
             guard let iv = Data(base64Encoded: encrypted.iv),
                   let ciphertext = Data(base64Encoded: encrypted.ciphertext),
@@ -239,12 +243,13 @@ extension Matrix {
             let hac: HashedAuthenticationCode = HKDF<CryptoKit.SHA256>.extract(inputKeyMaterial: SymmetricKey(data: key), salt: salt)
             let keyMaterial = HKDF<CryptoKit.SHA256>.expand(pseudoRandomKey: hac, info: name.data(using: .utf8), outputByteCount: 64)
             
-            
             let (encryptionKey, macKey) = keyMaterial.withUnsafeBytes { bytes in
                 let kE = Array(bytes[0..<32])
                 let kM = Array(bytes[33..<64])
                 return (kE, kM)
             }
+            logger.debug("Encryption key = \(Data(encryptionKey).base64EncodedString())")
+            logger.debug("MAC key        = \(Data(macKey).base64EncodedString())")
             
             // Cryptographic Doom Principle: Always check the MAC first!
             let storedMAC = [UInt8](mac)  // convert from Data
@@ -458,7 +463,7 @@ extension Matrix {
             else {
                 let old = Data(oldMac).base64EncodedString()
                 let new = Data(mac).base64EncodedString()
-                logger.warning("MAC doesn't match (\(old) vs \(new)")
+                logger.warning("MAC doesn't match - \(old) vs \(new)")
                 return false
             }
             
@@ -475,9 +480,14 @@ extension Matrix {
         }
         
         public func getDefaultKeyId() async throws -> String? {
+            logger.debug("Getting default keyId")
             guard let content = try await session.getAccountData(for: M_SECRET_STORAGE_DEFAULT_KEY, of: DefaultKeyContent.self)
-            else { return nil }
+            else {
+                logger.error("Couldn't find a default keyId")
+                return nil
+            }
 
+            logger.debug("Found default keyId \(content.key)`")
             return content.key
         }
     }
