@@ -1293,12 +1293,16 @@ extension Matrix {
                 // Yay, got it in one!  The server did not require us to authenticate again.
                 logger.debug("UIA was not required to upload keys")
                 return nil
+            case .inProgress(let uiaState, _):
+                logger.debug("UIA is now in progress.  Must be completed to upload keys.")
+                for flow in uiaState.flows {
+                    logger.debug("Found UIA flow \(flow.stages)")
+                }
             default:
                 // The caller will have to complete UIA before the request can go through
                 logger.debug("Client needs to complete UIA to upload keys")
-                return uia
             }
-
+            return uia
         }
         
         // MARK: logout
