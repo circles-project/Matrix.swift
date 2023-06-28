@@ -1263,11 +1263,14 @@ extension Matrix {
             
             // WARNING: This endpoint uses the user-interactive auth, so unless we call it *immediately* after login, we should expect to receive a new UIA session that must be completed before the request can take effect
             logger.debug("Sending keys in a POST request to the server")
-            let uia = UIAuthSession(method: "POST", url: url, requestDict: [
-                "master_key": masterKey,
-                "self_signing_key": selfSigningKey,
-                "user_signing_key": userSigningKey,
-            ]) { (_,_) in
+            let uia = UIAuthSession(method: "POST", url: url,
+                                    credentials: self.creds,
+                                    requestDict: [
+                                        "master_key": masterKey,
+                                        "self_signing_key": selfSigningKey,
+                                        "user_signing_key": userSigningKey,
+                                    ]
+            ) { (_,_) in
                 // Completion handler that runs after the UIA completes successfully
                 logger.debug("UIA completed successfully")
                 
