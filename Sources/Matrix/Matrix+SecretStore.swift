@@ -218,10 +218,23 @@ extension Matrix {
                 throw Matrix.Error("Couldn't compute HMAC")
             }
             
-            return EncryptedData(iv: Data(iv).base64EncodedString(),
-                                 ciphertext: Data(ciphertext).base64EncodedString(),
-                                 mac: Data(mac).base64EncodedString()
-            )
+            let encrypted = EncryptedData(iv: Data(iv).base64EncodedString(),
+                                          ciphertext: Data(ciphertext).base64EncodedString(),
+                                          mac: Data(mac).base64EncodedString())
+            
+            // TEST: Can we decrypt what we just encrypted???
+            if let decrypted = try? decrypt(name: name, encrypted: encrypted, key: key) {
+                logger.debug("Test decryption succeeded")
+                if decrypted == data {
+                    logger.debug("Data decrypted successfully!")
+                } else {
+                    logger.error("Failed to decrypt correctly!")
+                }
+            } else {
+                logger.error("Test decryption failed!")
+            }
+            
+            return encrypted
         }
         
         func decrypt(name: String,
