@@ -258,7 +258,7 @@ extension Matrix {
             
             let (encryptionKey, macKey) = keyMaterial.withUnsafeBytes { bytes in
                 let kE = Array(bytes[0..<32])
-                let kM = Array(bytes[33..<64])
+                let kM = Array(bytes[32..<64])
                 return (kE, kM)
             }
             logger.debug("Encryption key = \(Data(encryptionKey).base64EncodedString())")
