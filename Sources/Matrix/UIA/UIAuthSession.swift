@@ -10,58 +10,7 @@ import AnyCodable
 import BlindSaltSpeke
 
 @available(macOS 12.0, *)
-
-public enum UIASessionState {
-    case notConnected
-    case connected(UIAA.SessionState)
-    case inProgress(UIAA.SessionState,[String])
-    case finished(Codable)
-}
-
-public protocol UIASession {
-    
-    var url: URL { get }
-    
-    var state: UIASessionState { get }
-    
-    var sessionId: String? { get }
-    
-    func connect() async throws
-    
-    func selectFlow(flow: UIAA.Flow) async
-    
-    func doUIAuthStage(auth: [String:Codable]) async throws
-    
-    func doTermsStage() async throws
- 
-    func doEmailRequestTokenStage(email: String) async throws -> String?
-    func doEmailSubmitTokenStage(token: String, secret: String) async throws
-    
-    func doBSSpekeEnrollOprfStage(userId: UserId, password: String) async throws
-    func doBSSpekeEnrollOprfStage(password: String) async throws
-    func doBSSpekeEnrollSaveStage() async throws
-    
-    func doBSSpekeLoginOprfStage(userId: UserId, password: String) async throws
-    func doBSSpekeLoginOprfStage(password: String) async throws
-    func doBSSpekeLoginVerifyStage() async throws
-}
-
-public let AUTH_TYPE_ENROLL_BSSPEKE_OPRF = "m.enroll.bsspeke-ecc.oprf"
-public let AUTH_TYPE_ENROLL_BSSPEKE_SAVE = "m.enroll.bsspeke-ecc.save"
-public let AUTH_TYPE_TERMS = "m.login.terms"
-public let AUTH_TYPE_ENROLL_PASSWORD = "m.enroll.password"
-public let AUTH_TYPE_DUMMY = "m.login.dummy"
-public let AUTH_TYPE_ENROLL_EMAIL_REQUEST_TOKEN = "m.enroll.email.request_token"
-public let AUTH_TYPE_ENROLL_EMAIL_SUBMIT_TOKEN = "m.enroll.email.submit_token"
-
-public let AUTH_TYPE_LOGIN_PASSWORD = "m.login.password"
-public let AUTH_TYPE_LOGIN_BSSPEKE_OPRF = "m.login.bsspeke-ecc.oprf"
-public let AUTH_TYPE_LOGIN_BSSPEKE_VERIFY = "m.login.bsspeke-ecc.verify"
-public let AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN = "m.login.email.request_token"
-public let AUTH_TYPE_LOGIN_EMAIL_SUBMIT_TOKEN = "m.login.email.submit_token"
-
-@available(macOS 12.0, *)
-public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
+public class UIAuthSession: UIASession, ObservableObject {
     
     public let url: URL
     public let method: String
@@ -83,9 +32,13 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         }
     }
     
-    var completion: ((T) async throws -> Void)?
+    var completion: ((UIAuthSession,Data) async throws -> Void)?
         
-    public init(method: String, url: URL, credentials: Matrix.Credentials? = nil, requestDict: [String:Codable], completion: ((T) async throws -> Void)? = nil) {
+    public init(method: String, url: URL,
+                credentials: Matrix.Credentials? = nil,
+                requestDict: [String:Codable],
+                completion: ((UIAuthSession,Data) async throws -> Void)? = nil
+    ) {
         self.method = method
         self.url = url
         //self.accessToken = accessToken
@@ -103,10 +56,19 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
     
     public var sessionId: String? {
         switch state {
-        case .inProgress(let (uiaaState, selectedFlow)):
+        case .inProgress(let uiaaState, _):
             return uiaaState.session
         default:
             return nil
+        }
+    }
+    
+    public var isFinished: Bool {
+        switch self.state {
+        case .finished(_):
+            return true
+        default:
+            return false
         }
     }
     
@@ -188,14 +150,13 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         print("\(tag)\tParsed HTTP response")
         
         if httpResponse.statusCode == 200 {
-            let decoder = JSONDecoder()
-            let t: T = try decoder.decode(T.self, from: data)
             await MainActor.run {
-                self.state = .finished(t)
+                self.state = .finished(data)
             }
             if let block = completion {
-                try await block(t)
+                try await block(self,data)
             }
+            return
         }
         
         guard httpResponse.statusCode == 401 else {
@@ -357,19 +318,11 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         
         if httpResponse.statusCode == 200 {
             print("\(tag)\tAll done!")
-            let decoder = JSONDecoder()
-            
-            guard let t = try? decoder.decode(T.self, from: data)
-            else {
-                let msg = "Couldn't decode Matrix credentials"
-                print("\(tag)\tError: \(msg)")
-                throw Matrix.Error(msg)
-            }
             await MainActor.run {
-                state = .finished(t)
+                state = .finished(data)
             }
             if let block = completion {
-                try await block(t)
+                try await block(self,data)
             }
             return
         }
@@ -638,6 +591,24 @@ public class UIAuthSession<T: Codable>: UIASession, ObservableObject {
         print("BS-SPEKE: About to send args \(args)")
         
         try await doUIAuthStage(auth: args)
+    }
+    
+    public func getBSSpekeClient() -> BlindSaltSpeke.ClientSession? {
+        // NOTE: It's possible that we might have more than one BS-SPEKE client here
+        //       If we just changed our password, then we would have one client to authenticate with the old password,
+        //       and one client to enroll with the new one.
+        //       When this happens, we prefer the newer "enroll" client that used the most current password,
+        //       so that we can generate the most current version of our encryption key(s).
+        
+        if let bss = self.storage[AUTH_TYPE_ENROLL_BSSPEKE_OPRF+".state"] as? BlindSaltSpeke.ClientSession {
+            return bss
+        }
+        
+        if let bss = self.storage[AUTH_TYPE_LOGIN_BSSPEKE_OPRF+".state"] as? BlindSaltSpeke.ClientSession {
+            return bss
+        }
+        
+        return nil
     }
     
 }

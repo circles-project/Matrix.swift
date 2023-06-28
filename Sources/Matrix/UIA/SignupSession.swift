@@ -20,7 +20,7 @@ public let AUTH_TYPE_GOOGLE_SUBSCRIPTION = "org.futo.subscriptions.google"
 public let AUTH_TYPE_LEGACY_EMAIL = "m.login.email.identity"
 
 
-public class SignupSession: UIAuthSession<Matrix.Credentials> {
+public class SignupSession: UIAuthSession {
     //public let domain: String // Moved this into the storage
     //public let deviceId: String?
     //public let initialDeviceDisplayName: String?
@@ -34,7 +34,7 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
                             initialDeviceDisplayName: String? = nil,
                             //showMSISDN: Bool = false,
                             inhibitLogin: Bool = false,
-                            completion: ((Matrix.Credentials) async throws -> Void)? = nil
+                            completion: ((UIAuthSession,Data) async throws -> Void)? = nil
     ) async throws {
 
         let wellKnown = try await Matrix.fetchWellKnown(for: domain)
@@ -62,7 +62,7 @@ public class SignupSession: UIAuthSession<Matrix.Credentials> {
                 initialDeviceDisplayName: String? = nil,
                 //showMSISDN: Bool = false,
                 inhibitLogin: Bool = false,
-                completion: ((Matrix.Credentials) async throws -> Void)? = nil
+                completion: ((UIAuthSession,Data) async throws -> Void)? = nil
     ) async throws {
         
         guard let signupURL = URL(string: "/_matrix/client/v3/register", relativeTo: homeserver)

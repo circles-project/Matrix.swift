@@ -19,6 +19,13 @@ import MatrixSDKCrypto
 
 extension Matrix {
     public class Session: Matrix.Client, ObservableObject {
+        
+        public struct Config {
+            var storageType: StorageType
+            var s4key: Data
+            var s4KeyId: String
+        }
+        
         @Published public var displayName: String?
         @Published public var avatarUrl: URL?
         @Published public var avatar: Matrix.NativeImage?
@@ -35,6 +42,9 @@ extension Matrix {
         
         // cvw: Stuff that we need to add, but haven't got to yet
         @Published public var accountData: [String: Codable]
+        
+        // Our current active UIA session, if any
+        @Published public private(set) var uiaSession: UIAuthSession?
 
         // Need some private stuff that outside callers can't see
         private var dataStore: DataStore?
@@ -58,6 +68,8 @@ extension Matrix {
             return content.ignoredUsers
         }
 
+        // Secret Storage
+        private var secretStore: SecretStore?
         // We need to use the Matrix 'recovery' feature to back up crypto keys etc
         // This saves us from struggling with UISI errors and unverified devices
         private var recoverySecretKey: Data?
@@ -74,7 +86,9 @@ extension Matrix {
                     syncToken: String? = nil, startSyncing: Bool = true,
                     displayname: String? = nil, avatarUrl: MXC? = nil, statusMessage: String? = nil,
                     recoverySecretKey: Data? = nil, recoveryTimestamp: Data? = nil,
-                    storageType: StorageType = .persistent(preserve: true)
+                    storageType: StorageType = .persistent(preserve: true),
+                    useCrossSigning: Bool = true,
+                    secretStorageKeyInfo: (String,Data)? = nil
         ) async throws {
             
             self.syncLogger = os.Logger(subsystem: "matrix", category: "sync \(creds.userId)")
@@ -92,6 +106,8 @@ extension Matrix {
             self.syncRequestTask = nil
             self.backgroundSyncTask = nil
             //self.backgroundSyncDelayMS = 1_000
+            
+            self.uiaSession = nil
             
             // FIXME: Pick a better / more appropriate location for this cache
             //        See https://www.swiftbysundell.com/articles/working-with-files-and-folders-in-swift/
@@ -130,18 +146,37 @@ extension Matrix {
             
             // --------------------------------------------------------------------------------------------------------
             // Phase 1 init is done -- Now we can reference `self`
+            // Ok now we're initialized as a valid Matrix.Client (super class)
+
             
+            // Set up crypto stuff
+            // Secret storage
+            if let (s4keyId,s4key) = secretStorageKeyInfo {
+                cryptoLogger.debug("Setting up secret storage with keyId \(s4keyId)")
+                self.secretStore = try await .init(session: self, defaultKey: s4key, defaultKeyId: s4keyId)
+            } else {
+                cryptoLogger.debug("Setting up secret storage -- no keys")
+                self.secretStore = try await .init(session: self, keys: [:])
+            }
+            // Initial requests
             try await cryptoQueue.run {
                 let cryptoRequests = try self.crypto.outgoingRequests()
                 print("Session:\tSending initial crypto requests (\(cryptoRequests.count))")
                 for request in cryptoRequests {
                     try await self.sendCryptoRequest(request: request)
                 }
-                let uia = try await self.setupCrossSigning()
-                // Hopefully uia is nil -- Meaning we don't have to re-authenticate so soon
+                if useCrossSigning {
+                    // Hopefully uia is nil -- Meaning we don't have to re-authenticate so soon.
+                    // But it's possible that we might get stuck doing UIA right off the bat.
+                    // No big deal.  Handle it like any ohter UIA.
+                    if let uia = try await self.setupCrossSigning() {
+                        await MainActor.run {
+                            self.uiaSession = uia
+                        }
+                    }
+                }
             }
             
-            // Ok now we're initialized as a valid Matrix.Client (super class)
             
             // Load our list of existing invited rooms
             if let store = self.dataStore {
@@ -666,7 +701,12 @@ extension Matrix {
             throw Matrix.Error("Not implemented yet")
         }
         
-        
+        // MARK: UIA
+        public func cancelUIA() async throws {
+            await MainActor.run {
+                self.uiaSession = nil
+            }
+        }
         
         // MARK: Recovery
         
@@ -851,11 +891,14 @@ extension Matrix {
         }
         
         public func ignoreUser(userId: UserId) async throws {
+            throw Matrix.Error("Not implemented")
+            /*
             var content = try await self.getAccountData(for: M_IGNORED_USER_LIST, of: IgnoredUserListContent.self)
             if !content.ignoredUsers.contains(userId) {
                 content.ignoredUsers.append(userId)
                 try await self.putAccountData(content, for: M_IGNORED_USER_LIST)
             }
+            */
         }
         
         
@@ -1164,29 +1207,57 @@ extension Matrix {
         
         // MARK: Cross Signing
         
-        public func setupCrossSigning() async throws -> UIAuthSession<EmptyStruct>? {
+        public func setupCrossSigning() async throws -> UIAuthSession? {
+            let logger: os.Logger = Logger(subsystem: "matrix", category: "XSIGN")
+            logger.debug("Setting up")
+            
             // First thing to check: Do we already have all of our cross-signing keys?
             let status = self.crypto.crossSigningStatus()
             if status.hasMaster && status.hasSelfSigning && status.hasUserSigning {
                 // Nothing more to be done here
+                logger.debug("Already all set up.  Done.")
                 return nil
             }
             
             // If we don't have our keys, maybe they are on the server
             // (Maybe we created them on another device and uploaded them)
-            //
-            // FIXME: Until we check for this, we can't have multiple devices per account
-            //
+            if let store = self.secretStore {
+                logger.debug("Looking for keys on the server")
+                // Look in the secret store for our cross-signing keys
+                if let privateMSK: String = try await store.getSecret(type: M_CROSS_SIGNING_MASTER),
+                   let privateSSK: String = try await store.getSecret(type: M_CROSS_SIGNING_SELF_SIGNING),
+                   let privateUSK: String = try await store.getSecret(type: M_CROSS_SIGNING_USER_SIGNING)
+                {
+                    logger.debug("Found keys on the server")
+                    let export = CrossSigningKeyExport(masterKey: privateMSK, selfSigningKey: privateSSK, userSigningKey: privateUSK)
+                    try self.crypto.importCrossSigningKeys(export: export)
+                    // Success!  And no need to do UIA!
+                    return nil
+                }
+            } else {
+                logger.warning("No secret store")
+            }
             
-            
-            
-            // If we're still here, then we need to bootstrap our cross signing
-            
+            // If we're still here, then we need to bootstrap our cross signing, ie generate a new set of keys
+            logger.debug("Need to bootstrap")
             let result = try self.crypto.bootstrapCrossSigning()
             
-            // Upload the signing key
+            logger.debug("Exporting keys")
+            guard let export = self.crypto.exportCrossSigningKeys(),
+                  let privateMSK = export.masterKey,
+                  let privateSSK = export.selfSigningKey,
+                  let privateUSK = export.userSigningKey
+            else {
+                logger.error("Failed to export new cross-signing keys")
+                throw Matrix.Error("Failed to export new cross-signing keys")
+            }
+            
+            // Upload the signing keys
+            logger.debug("Master key:       \(result.uploadSigningKeysRequest.masterKey)")
+            logger.debug("Self-signing key: \(result.uploadSigningKeysRequest.selfSigningKey)")
+            logger.debug("User-signing key: \(result.uploadSigningKeysRequest.userSigningKey)")
             let decoder = JSONDecoder()
-            let masterKey = try decoder.decode(CrossSigningKey.self, from: result.uploadSigningKeysRequest.userSigningKey.data(using: .utf8)!)
+            let masterKey = try decoder.decode(CrossSigningKey.self, from: result.uploadSigningKeysRequest.masterKey.data(using: .utf8)!)
             let selfSigningKey = try decoder.decode(CrossSigningKey.self, from: result.uploadSigningKeysRequest.selfSigningKey.data(using: .utf8)!)
             let userSigningKey = try decoder.decode(CrossSigningKey.self, from: result.uploadSigningKeysRequest.userSigningKey.data(using: .utf8)!)
 
@@ -1194,23 +1265,55 @@ extension Matrix {
             let url = URL(string: path, relativeTo: self.baseUrl)!
             
             // WARNING: This endpoint uses the user-interactive auth, so unless we call it *immediately* after login, we should expect to receive a new UIA session that must be completed before the request can take effect
-            
-            let uia = UIAuthSession<EmptyStruct>(method: "POST", url: url, requestDict: [
-                "master_key": masterKey,
-                "self_signing_key": selfSigningKey,
-                "user_signing_key": userSigningKey,
-            ])
+            logger.debug("Sending keys in a POST request to the server")
+            let uia = UIAuthSession(method: "POST", url: url,
+                                    credentials: self.creds,
+                                    requestDict: [
+                                        "master_key": masterKey,
+                                        "self_signing_key": selfSigningKey,
+                                        "user_signing_key": userSigningKey,
+                                    ]
+            ) { (_,_) in
+                // Completion handler that runs after the UIA completes successfully
+                logger.debug("UIA completed successfully")
+                
+                if let store = self.secretStore {
+                    // Upload the new cross-signing keys to secret storage, so we can use them on other devices
+                    logger.debug("Saving keys to secret storage")
+                    try await store.saveSecret(privateMSK, type: M_CROSS_SIGNING_MASTER)
+                    try await store.saveSecret(privateSSK, type: M_CROSS_SIGNING_SELF_SIGNING)
+                    try await store.saveSecret(privateUSK, type: M_CROSS_SIGNING_USER_SIGNING)
+                }
+                
+                // Also upload the signature request in `result.signatureRequest`
+                logger.debug("Uploading signatures")
+                // WTF man, why do we have Request.signatureUpload AND SignatureUploadRequest ???
+                let requestId = UInt16.random(in: 0...UInt16.max)
+                let request: Request = .signatureUpload(requestId: "\(requestId)", body: result.signatureRequest.body)
+                try await self.sendCryptoRequest(request: request)
+            }
+            logger.debug("Waiting for UIA to connect")
             try await uia.connect()
             switch uia.state {
-            case .finished(_):
+            case .finished:
                 // Yay, got it in one!  The server did not require us to authenticate again.
+                logger.debug("UIA was not required to upload keys")
                 return nil
+            case .connected(let uiaState):
+                logger.debug("UIA is connected.  Must be completed to upload keys.")
+                for flow in uiaState.flows {
+                    logger.debug("Found UIA flow \(flow.stages)")
+                }
+            case .inProgress(let uiaState, _):
+                logger.debug("UIA is now in progress.  Must be completed to upload keys.")
+                for flow in uiaState.flows {
+                    logger.debug("Found UIA flow \(flow.stages)")
+                }
             default:
                 // The caller will have to complete UIA before the request can go through
-                return uia
+                logger.debug("Client needs to complete UIA to upload keys")
             }
-
-            // FIXME: Also upload the signature request in `result.signatureRequest`
+            return uia
         }
         
         // MARK: logout

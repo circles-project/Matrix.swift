@@ -8,7 +8,7 @@
 import Foundation
 import AnyCodable
 
-public class LoginSession: UIAuthSession<Matrix.Credentials> {
+public class LoginSession: UIAuthSession {
     
     public struct LoginRequestBody: Codable {
         public struct Identifier: Codable {
@@ -38,7 +38,7 @@ public class LoginSession: UIAuthSession<Matrix.Credentials> {
                             password: String? = nil,
                             deviceId: String? = nil,
                             initialDeviceDisplayName: String? = nil,
-                            completion: ((Matrix.Credentials) async throws -> Void)? = nil
+                            completion: ((UIAuthSession,Data) async throws -> Void)? = nil
     ) async throws {
 
         let wellknown = try await Matrix.fetchWellKnown(for: userId.domain)
@@ -61,7 +61,7 @@ public class LoginSession: UIAuthSession<Matrix.Credentials> {
                 password: String? = nil,
                 deviceId: String? = nil,
                 initialDeviceDisplayName: String? = nil,
-                completion: ((Matrix.Credentials) async throws -> Void)? = nil
+                completion: ((UIAuthSession,Data) async throws -> Void)? = nil
     ) async throws {
         let version = "v3"
         let urlPath = "/_matrix/client/\(version)/login"
@@ -98,7 +98,7 @@ public class LoginSession: UIAuthSession<Matrix.Credentials> {
                             domain: String,
                             deviceId: String? = nil,
                             initialDeviceDisplayName: String? = nil,
-                            completion: ((Matrix.Credentials) async throws -> Void)? = nil
+                            completion: ((UIAuthSession,Data) async throws -> Void)? = nil
     ) async throws {
         guard let userId = UserId("@\(username):\(domain)")
         else {
