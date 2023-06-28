@@ -1253,8 +1253,11 @@ extension Matrix {
             }
             
             // Upload the signing keys
+            logger.debug("Master key:       \(result.uploadSigningKeysRequest.masterKey)")
+            logger.debug("Self-signing key: \(result.uploadSigningKeysRequest.selfSigningKey)")
+            logger.debug("User-signing key: \(result.uploadSigningKeysRequest.userSigningKey)")
             let decoder = JSONDecoder()
-            let masterKey = try decoder.decode(CrossSigningKey.self, from: result.uploadSigningKeysRequest.userSigningKey.data(using: .utf8)!)
+            let masterKey = try decoder.decode(CrossSigningKey.self, from: result.uploadSigningKeysRequest.masterKey.data(using: .utf8)!)
             let selfSigningKey = try decoder.decode(CrossSigningKey.self, from: result.uploadSigningKeysRequest.selfSigningKey.data(using: .utf8)!)
             let userSigningKey = try decoder.decode(CrossSigningKey.self, from: result.uploadSigningKeysRequest.userSigningKey.data(using: .utf8)!)
 
