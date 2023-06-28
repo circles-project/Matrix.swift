@@ -190,8 +190,8 @@ extension Matrix {
                 let kM = Array(bytes[32..<64])
                 return (kE, kM)
             }
-            logger.debug("Encryption key = \(Data(encryptionKey).base64EncodedString())")
-            logger.debug("MAC key        = \(Data(macKey).base64EncodedString())")
+            //logger.debug("Encryption key = \(Data(encryptionKey).base64EncodedString())")
+            //logger.debug("MAC key        = \(Data(macKey).base64EncodedString())")
             
             // Generate random IV
             let iv = try Random.generateBytes(byteCount: 16)
@@ -222,6 +222,7 @@ extension Matrix {
                                           ciphertext: Data(ciphertext).base64EncodedString(),
                                           mac: Data(mac).base64EncodedString())
             
+            /*
             // TEST: Can we decrypt what we just encrypted???
             if let decrypted = try? decrypt(name: name, encrypted: encrypted, key: key) {
                 logger.debug("Test decryption succeeded")
@@ -233,6 +234,7 @@ extension Matrix {
             } else {
                 logger.error("Test decryption failed!")
             }
+            */
             
             return encrypted
         }
@@ -261,8 +263,8 @@ extension Matrix {
                 let kM = Array(bytes[32..<64])
                 return (kE, kM)
             }
-            logger.debug("Encryption key = \(Data(encryptionKey).base64EncodedString())")
-            logger.debug("MAC key        = \(Data(macKey).base64EncodedString())")
+            //logger.debug("Encryption key = \(Data(encryptionKey).base64EncodedString())")
+            //logger.debug("MAC key        = \(Data(macKey).base64EncodedString())")
             
             // Cryptographic Doom Principle: Always check the MAC first!
             let storedMAC = [UInt8](mac)  // convert from Data
