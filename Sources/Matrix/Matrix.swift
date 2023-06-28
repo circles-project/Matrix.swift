@@ -187,9 +187,9 @@ public enum Matrix {
         M_PUSH_RULES : PushRulesContent.self,
         M_TAG : TagContent.self,
         M_SECRET_STORAGE_DEFAULT_KEY : DefaultKeyContent.self,
-        M_CROSS_SIGNING_MASTER : String.self,
-        M_CROSS_SIGNING_USER_SIGNING : String.self,
-        M_CROSS_SIGNING_SELF_SIGNING : String.self,
+        M_CROSS_SIGNING_MASTER : SecretStore.Secret.self,
+        M_CROSS_SIGNING_USER_SIGNING : SecretStore.Secret.self,
+        M_CROSS_SIGNING_SELF_SIGNING : SecretStore.Secret.self,
     ]
     static var cryptoKeyTypes: [String: Codable.Type] = [
         : // FIXME
