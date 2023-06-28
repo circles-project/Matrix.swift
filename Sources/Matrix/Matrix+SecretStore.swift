@@ -315,16 +315,9 @@ extension Matrix {
             return Data(decryptedBytes)
         }
             
-        public func getSecret(type: String) async throws -> Codable? {
+        public func getSecret<T: Codable>(type: String) async throws -> T? {
             
             logger.debug("Attempting to get secret for type [\(type)]")
-            
-            // Make sure that we know how to decode this one, before we get into all the mess of wrangling keys etc
-            guard let Type = Matrix.accountDataTypes[type]
-            else {
-                logger.error("Don't know how to parse Account Data type \(type)")
-                throw Matrix.Error("Don't know how to parse Account Data of type \(type)")
-            }
             
             guard let secret = try await session.getAccountData(for: type, of: Secret.self)
             else {
@@ -347,8 +340,8 @@ extension Matrix {
                 logger.debug("Successfully decrypted data for secret [\(type)]")
                 
                 let decoder = JSONDecoder()
-                if let object = try? decoder.decode(Type.self, from: decryptedData) {
-                    logger.debug("Successfully decoded object of type [\(Type.self)]")
+                if let object = try? decoder.decode(T.self, from: decryptedData) {
+                    logger.debug("Successfully decoded object of type [\(T.self)]")
                     return object
                 }
             }
@@ -356,7 +349,7 @@ extension Matrix {
             return nil
         }
         
-        public func saveSecret(_ content: Codable, type: String) async throws {
+        public func saveSecret<T: Codable>(_ content: T, type: String) async throws {
             logger.debug("Saving secret of type [\(type)]")
             
             guard case let .online(keyId) = self.state
@@ -372,6 +365,9 @@ extension Matrix {
             }
             
             // Do we already have encrypted version(s) of this secret?
+            // FIXME: Whooooooaaaaaa - Hold on a minute
+            // We have NO WAY to know whether the old value is the same as the new one!
+            // What should we do here?!?
             let existingSecret = try await session.getAccountData(for: type, of: Secret.self)
             var secret = existingSecret ?? Secret(encrypted: [:])
             

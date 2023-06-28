@@ -1224,9 +1224,9 @@ extension Matrix {
             if let store = self.secretStore {
                 logger.debug("Looking for keys on the server")
                 // Look in the secret store for our cross-signing keys
-                if let privateMSK = try await store.getSecret(type: M_CROSS_SIGNING_MASTER) as? String,
-                   let privateSSK = try await store.getSecret(type: M_CROSS_SIGNING_SELF_SIGNING) as? String,
-                   let privateUSK = try await store.getSecret(type: M_CROSS_SIGNING_USER_SIGNING) as? String
+                if let privateMSK: String = try await store.getSecret(type: M_CROSS_SIGNING_MASTER),
+                   let privateSSK: String = try await store.getSecret(type: M_CROSS_SIGNING_SELF_SIGNING),
+                   let privateUSK: String = try await store.getSecret(type: M_CROSS_SIGNING_USER_SIGNING)
                 {
                     logger.debug("Found keys on the server")
                     let export = CrossSigningKeyExport(masterKey: privateMSK, selfSigningKey: privateSSK, userSigningKey: privateUSK)
