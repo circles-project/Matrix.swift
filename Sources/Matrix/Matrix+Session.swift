@@ -1486,8 +1486,10 @@ extension Matrix {
             }
             
             let requestBody = RequestBody(publicKey: publicKey, signatures: signatures)
+            let encoder = JSONEncoder()
+            let requestBodyData = try encoder.encode(requestBody)
             let path = "/_matrix/client/v3/room_keys/version"
-            let (data, response) = try await call(method: "POST", path: path, body: requestBody)
+            let (data, response) = try await call(method: "POST", path: path, bodyData: requestBodyData)
             
             struct ResponseBody: Codable {
                 var version: String
