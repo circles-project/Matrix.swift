@@ -63,6 +63,7 @@ public let M_PUSH_RULES = "m.push_rules"
 public let M_SECRET_STORAGE_KEY = "m.secret_storage.key" // Ugh this one is FUBAR.  The actual format is "m.secret_storage.key.[key ID]"
 public let M_SECRET_STORAGE_DEFAULT_KEY = "m.secret_storage.default_key"
 // We already have M_TAG = "m.tag"
+public let M_MEGOLM_BACKUP_V1 = "m.megolm_backup.v1" // For storing the private half of the recovery key, as an encrypted secret
 
 // MARK: Room types
 public let M_SPACE = "m.space"
@@ -83,3 +84,6 @@ public let M_CROSS_SIGNING_SELF_SIGNING = "m.cross_signing.self_signing"
 // MARK: Secret sharing
 public let M_SECRET_REQUEST = "m.secret.request"
 public let M_SECRET_SEND = "m.secret.send"
+
+// MARK: Key backup
+public let M_MEGOLM_BACKUP_V1_CURVE25519_AES_SHA2 = "m.megolm_backup.v1.curve25519-aes-sha2"
