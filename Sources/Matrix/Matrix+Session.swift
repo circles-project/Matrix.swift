@@ -1406,8 +1406,23 @@ extension Matrix {
             logger.debug("Public key for our recovery key is \(backupPublicKey.publicKey)")
             
             // Step 3.2 - Create the backup on the server
-            // FIXME: Ideally we should also sign this key and include the signatures in this request
-            guard let newVersion = try? await createNewKeyBackupVersion(publicKey: backupPublicKey.publicKey)
+            
+            // Create signatures for our public key
+            // * First serialize the JSON that we want to sign
+            struct AuthData: Codable {
+                var public_key: String
+            }
+            let encoder = JSONEncoder()
+            guard let jsonData = try? encoder.encode(AuthData(public_key: backupPublicKey.publicKey)),
+                  let jsonString = String(data: jsonData, encoding: .utf8)
+            else {
+                logger.error("Failed to sign JSON for new recovery public key")
+                throw Matrix.Error("Failed to sign JSON for new recovery public key")
+            }
+            // * Then use self.crypto.sign(message: json) -- This produces the [String: [String:String]] structure that we require.
+            let signatures = self.crypto.sign(message: jsonString)
+            
+            guard let newVersion = try? await createNewKeyBackupVersion(publicKey: backupPublicKey.publicKey, signatures: signatures)
             else {
                 logger.error("Failed to create new key backup version")
                 throw Matrix.Error("Failed to create new key backup version")
