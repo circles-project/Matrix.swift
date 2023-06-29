@@ -144,6 +144,7 @@ extension Matrix {
                                          deviceId: "\(creds.deviceId)",
                                          path: cryptoStorePath,
                                          passphrase: nil)
+            MatrixSDKCrypto.setLogger(logger: Matrix.CryptoLogger())
             self.cryptoQueue = TicketTaskQueue<Void>()
             
             try await super.init(creds: creds)
