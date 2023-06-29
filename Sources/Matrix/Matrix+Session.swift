@@ -324,6 +324,16 @@ extension Matrix {
                 for request in cryptoRequests {
                     try await self.sendCryptoRequest(request: request)
                 }
+                
+                if self.crypto.backupEnabled() {
+                    logger.debug("Checking for any new key backup requests to send")
+                    if let request = try? self.crypto.backupRoomKeys() {
+                        logger.debug("Sending crypto request to backup room keys")
+                        try await self.sendCryptoRequest(request: request)
+                    }
+                } else {
+                    logger.debug("Key backup is not enabled; No requests to send.")
+                }
             }
             
             // Handle invites
