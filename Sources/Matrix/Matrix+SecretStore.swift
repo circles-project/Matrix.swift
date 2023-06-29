@@ -20,39 +20,50 @@ extension Matrix {
     public class KeychainSecretStore {
         let userId: UserId
         private var keychain: Keychain
+        private var logger: os.Logger
         
         public init(userId: UserId) {
             self.userId = userId
             self.keychain = Keychain(service: "matrix", accessGroup: userId.stringValue)
+            self.logger = .init(subsystem: "matrix", category: "keychain")
         }
         
         public func loadKey(keyId: String, reason: String) async throws -> Data? {
+            logger.debug("Attempting to load key with keyId \(keyId)")
             // https://developer.apple.com/documentation/security/keychain_services/keychain_items/searching_for_keychain_items
             // https://github.com/kishikawakatsumi/KeychainAccess#closed_lock_with_key-obtaining-a-touch-id-face-id-protected-item
             // Ensure this runs on a background thread - Otherwise if we try to authenticate to the keychain from the main thread, the app will lock up
             let t = Task(priority: .background) {
                 var context = LAContext()
                 context.touchIDAuthenticationAllowableReuseDuration = 60.0
-                let data = try keychain
+                guard let data = try? keychain
                     .accessibility(.whenUnlockedThisDeviceOnly, authenticationPolicy: .userPresence)
                     .authenticationContext(context)
                     .authenticationPrompt(reason)
                     .getData(keyId)
+                else {
+                    self.logger.debug("Failed to get key data from keychain")
+                    throw Matrix.Error("Failed to get key data from keychain")
+                }
+                self.logger.debug("Got \(data.count) bytes of data from the keychain")
                 return data
             }
             return try await t.value
         }
         
         public func saveKey(key: Data, keyId: String) async throws {
+            logger.debug("Attempting to save key with keyId \(keyId)")
             // https://github.com/kishikawakatsumi/KeychainAccess#closed_lock_with_key-updating-a-touch-id-face-id-protected-item
             // Ensure this runs on a background thread - Otherwise if we try to authenticate to the keychain from the main thread, the app will lock up
             let t = Task(priority: .background) {
                 var context = LAContext()
                 context.touchIDAuthenticationAllowableReuseDuration = 60.0
+                self.logger.debug("Got context.  Attempting to save keyId \(keyId)")
                 try keychain
                     .accessibility(.whenUnlockedThisDeviceOnly, authenticationPolicy: .userPresence)
                     .authenticationContext(context)
                     .set(key, key: keyId)
+                self.logger.debug("Success saving keyId \(keyId)")
             }
             try await t.value
         }
