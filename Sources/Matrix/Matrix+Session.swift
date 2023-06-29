@@ -80,6 +80,9 @@ extension Matrix {
         private var cryptoQueue: TicketTaskQueue<Void>
         var cryptoLogger: os.Logger
         
+        // Key Backup
+        var backupRecoveryKey: MatrixSDKCrypto.BackupRecoveryKey?
+        
         // MARK: init
         
         public init(creds: Credentials,
@@ -88,7 +91,8 @@ extension Matrix {
                     recoverySecretKey: Data? = nil, recoveryTimestamp: Data? = nil,
                     storageType: StorageType = .persistent(preserve: true),
                     useCrossSigning: Bool = true,
-                    secretStorageKeyInfo: (String,Data)? = nil
+                    secretStorageKeyInfo: (String,Data)? = nil,
+                    enableKeyBackup: Bool = true
         ) async throws {
             
             self.syncLogger = os.Logger(subsystem: "matrix", category: "sync \(creds.userId)")
@@ -168,12 +172,15 @@ extension Matrix {
                 if useCrossSigning {
                     // Hopefully uia is nil -- Meaning we don't have to re-authenticate so soon.
                     // But it's possible that we might get stuck doing UIA right off the bat.
-                    // No big deal.  Handle it like any ohter UIA.
+                    // No big deal.  Handle it like any other UIA.
                     if let uia = try await self.setupCrossSigning() {
                         await MainActor.run {
                             self.uiaSession = uia
                         }
                     }
+                }
+                if enableKeyBackup {
+                    try await self.setupKeyBackup()
                 }
             }
             
@@ -1324,6 +1331,146 @@ extension Matrix {
                 logger.debug("Client needs to complete UIA to upload keys")
             }
             return uia
+        }
+        
+        // MARK: Key backup
+        
+        public func setupKeyBackup() async throws {
+            logger.debug("Setting up key backup")
+            
+            // Step 1 - Maybe we're already good to go?
+            if self.crypto.backupEnabled() {
+                logger.debug("Key backup is already enabled.  Done.")
+                return
+            }
+            
+            // Step 2 - Maybe we already set up key backup on another device?
+            // Step 2.1 - Do we have an existing backup on the server?
+            if let info = try? await getCurrentKeyBackupVersionInfo() {
+                // Step 2.2 - Can we get the recovery key from secret storage?  And if so, does it match our current backup's public key?
+                if let store = self.secretStore {
+                    logger.debug("Looking for recovery key in the secret store")
+                    
+                    if let recoveryPrivateKey: String = try await store.getSecret(type: M_MEGOLM_BACKUP_V1) {
+                        // Cool, this is the key that we should use.
+                        logger.debug("Found recovery key in secret storage")
+                        
+                        let recoveryKey = try MatrixSDKCrypto.BackupRecoveryKey.fromBase64(key: recoveryPrivateKey)
+                        let backupPublicKey = recoveryKey.megolmV1PublicKey()
+                        
+                        guard backupPublicKey.publicKey == info.authData.publicKey
+                        else {
+                            logger.error("Recovery key doesn't match current backup: \(backupPublicKey.publicKey) vs \(info.authData.publicKey)")
+                            throw Matrix.Error("Recovery key doesn't match current backup")
+                        }
+                        
+                        try self.crypto.enableBackupV1(key: backupPublicKey, version: info.version) // FIXME: How do we get the version???  Answer: We should have asked for it above.
+                        
+                        // Also, hang onto this key so that we can decrypt keys from the backup in the future
+                        self.backupRecoveryKey = recoveryKey
+                        
+                        return
+                    } else {
+                        logger.warning("Couldn't get a recovery key from secret storage")
+                    }
+                }
+                
+                // FIXME: Really if we're still here we should at least try to validate the signatures on the key backup version info
+                
+                logger.error("Couldn't load recovery key for backup version \(info.version)")
+                throw Matrix.Error("Couldn't load recovery key for backup version \(info.version)")
+            }
+                        
+            // Step 3 - There is no existing backup.  Create one from scratch.
+            logger.debug("No existing key backup.  Creating a new one.")
+            
+            // Step 3.1 - Generate a random recovery key
+            var rawBytes = try Random.generateBytes(byteCount: 32)
+            // Clamp to the curve
+            rawBytes[0] = rawBytes[0] & 248
+            rawBytes[31] = rawBytes[31] & 127
+            rawBytes[31] = rawBytes[31] | 64
+            let recoveryPrivateKey = Data(rawBytes).base64EncodedString()
+            logger.debug("Generated new recovery private key \(recoveryPrivateKey)")
+            // Let the Crypto SDK wrangle these bytes for us to produce the public key
+            let recoveryKey = try MatrixSDKCrypto.BackupRecoveryKey.fromBase64(key: recoveryPrivateKey)
+            let backupPublicKey = recoveryKey.megolmV1PublicKey()
+            logger.debug("Public key for our recovery key is \(backupPublicKey.publicKey)")
+            
+            // Step 3.2 - Create the backup on the server
+            // FIXME: Ideally we should also sign this key and include the signatures in this request
+            guard let newVersion = try? await createNewKeyBackupVersion(publicKey: backupPublicKey.publicKey)
+            else {
+                logger.error("Failed to create new key backup version")
+                throw Matrix.Error("Failed to create new key backup version")
+            }
+            
+            // Step 3.3 - Enable backups in the crypto module with this version
+            try self.crypto.enableBackupV1(key: backupPublicKey, version: newVersion)
+            
+            // Also, hang onto this key so that we can decrypt keys from the backup in the future
+            self.backupRecoveryKey = recoveryKey
+
+            // Step 3.4 - Save the recovery key to secret storage
+            if let store = self.secretStore {
+                logger.debug("Saving new recovery key to secret storage")
+                try await store.saveSecret(recoveryPrivateKey, type: M_MEGOLM_BACKUP_V1)
+            } else {
+                logger.warning("No secret storage - Not saving new recovery key")
+            }
+        }
+        
+        public func getCurrentKeyBackupVersionInfo() async throws -> KeyBackupVersionInfo {
+            let path = "/_matrix/client/v3/room_keys/version"
+            let (data, response) = try await call(method: "GET", path: path)
+                       
+            let decoder = JSONDecoder()
+            let info = try decoder.decode(KeyBackupVersionInfo.self, from: data)
+            return info
+        }
+        
+        public func createNewKeyBackupVersion(publicKey: String,
+                                              signatures: [String: [String:String]]? = nil
+        ) async throws -> String {
+            logger.debug("Creating new key backup version with public key \(publicKey)")
+
+            struct RequestBody: Codable {
+                struct AuthData: Codable {
+                    var publicKey: String
+                    var signatures: [String: [String:String]]?
+                    enum CodingKeys: String, CodingKey {
+                        case publicKey = "public_key"
+                        case signatures
+                    }
+                }
+                
+                var algorithm: String
+                var authData: AuthData
+                
+                enum CodingKeys: String, CodingKey {
+                    case algorithm
+                    case authData = "auth_data"
+                }
+                
+                init(publicKey: String, signatures: [String: [String:String]]? = nil) {
+                    self.algorithm = M_MEGOLM_BACKUP_V1_CURVE25519_AES_SHA2
+                    self.authData = AuthData(publicKey: publicKey, signatures: signatures)
+                }
+            }
+            
+            let requestBody = RequestBody(publicKey: publicKey, signatures: signatures)
+            let path = "/_matrix/client/v3/room_keys/version"
+            let (data, response) = try await call(method: "POST", path: path, body: requestBody)
+            
+            struct ResponseBody: Codable {
+                var version: String
+            }
+            
+            let decoder = JSONDecoder()
+            let responseBody = try decoder.decode(ResponseBody.self, from: data)
+
+            logger.debug("Created new key backup with version \(responseBody.version)")
+            return responseBody.version
         }
         
         // MARK: logout
