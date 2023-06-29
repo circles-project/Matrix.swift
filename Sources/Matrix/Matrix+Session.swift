@@ -1350,7 +1350,9 @@ extension Matrix {
             
             // Step 2 - Maybe we already set up key backup on another device?
             // Step 2.1 - Do we have an existing backup on the server?
+            logger.debug("Looking for current key backup")
             if let info = try? await getCurrentKeyBackupVersionInfo() {
+                logger.debug("Found key backup with version \(info.version)")
                 // Step 2.2 - Can we get the recovery key from secret storage?  And if so, does it match our current backup's public key?
                 if let store = self.secretStore {
                     logger.debug("Looking for recovery key in the secret store")
@@ -1377,6 +1379,8 @@ extension Matrix {
                     } else {
                         logger.warning("Couldn't get a recovery key from secret storage")
                     }
+                } else {
+                    logger.debug("No secret store - Can't get recovery private key")
                 }
                 
                 // FIXME: Really if we're still here we should at least try to validate the signatures on the key backup version info
