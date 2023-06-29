@@ -1396,7 +1396,11 @@ extension Matrix {
             let recoveryPrivateKey = Data(rawBytes).base64EncodedString()
             logger.debug("Generated new recovery private key \(recoveryPrivateKey)")
             // Let the Crypto SDK wrangle these bytes for us to produce the public key
-            let recoveryKey = try MatrixSDKCrypto.BackupRecoveryKey.fromBase64(key: recoveryPrivateKey)
+            guard let recoveryKey = try? MatrixSDKCrypto.BackupRecoveryKey.fromBase64(key: recoveryPrivateKey)
+            else {
+                logger.error("Failed to create a BackupRecoveryKey from our raw private key")
+                throw Matrix.Error("Failed to create a BackupRecoveryKey from our raw private key")
+            }
             let backupPublicKey = recoveryKey.megolmV1PublicKey()
             logger.debug("Public key for our recovery key is \(backupPublicKey.publicKey)")
             
