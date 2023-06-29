@@ -1389,6 +1389,7 @@ extension Matrix {
             logger.debug("No existing key backup.  Creating a new one.")
             
             // Step 3.1 - Generate a random recovery key
+            /*
             var rawBytes = try Random.generateBytes(byteCount: 32)
             // Clamp to the curve
             rawBytes[0] = rawBytes[0] & 248
@@ -1402,6 +1403,9 @@ extension Matrix {
                 logger.error("Failed to create a BackupRecoveryKey from our raw private key")
                 throw Matrix.Error("Failed to create a BackupRecoveryKey from our raw private key")
             }
+            */
+            let recoveryKey = MatrixSDKCrypto.BackupRecoveryKey()
+            let recoveryPrivateKey = recoveryKey.toBase64()
             let backupPublicKey = recoveryKey.megolmV1PublicKey()
             logger.debug("Public key for our recovery key is \(backupPublicKey.publicKey)")
             
