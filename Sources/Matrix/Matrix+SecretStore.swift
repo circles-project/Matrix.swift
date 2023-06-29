@@ -30,6 +30,7 @@ extension Matrix {
         
         public func loadKey(keyId: String, reason: String) async throws -> Data? {
             logger.debug("Attempting to load key with keyId \(keyId)")
+            #if false
             // https://developer.apple.com/documentation/security/keychain_services/keychain_items/searching_for_keychain_items
             // https://github.com/kishikawakatsumi/KeychainAccess#closed_lock_with_key-obtaining-a-touch-id-face-id-protected-item
             // Ensure this runs on a background thread - Otherwise if we try to authenticate to the keychain from the main thread, the app will lock up
@@ -49,10 +50,15 @@ extension Matrix {
                 return data
             }
             return try await t.value
+            #else
+            logger.warning("WARNING TOTALLY INSECURE FAKE KEYCHAIN - FIXME")
+            return UserDefaults.standard.data(forKey: "ssss.key.\(keyId)")
+            #endif
         }
         
         public func saveKey(key: Data, keyId: String) async throws {
             logger.debug("Attempting to save key with keyId \(keyId)")
+            #if false
             // https://github.com/kishikawakatsumi/KeychainAccess#closed_lock_with_key-updating-a-touch-id-face-id-protected-item
             // Ensure this runs on a background thread - Otherwise if we try to authenticate to the keychain from the main thread, the app will lock up
             let t = Task(priority: .background) {
@@ -66,6 +72,10 @@ extension Matrix {
                 self.logger.debug("Success saving keyId \(keyId)")
             }
             try await t.value
+            #else
+            logger.warning("WARNING TOTALLY INSECURE FAKE KEYCHAIN - FIXME")
+            UserDefaults.standard.set(key, forKey: "ssss.key.\(keyId)")
+            #endif
         }
     }
     
