@@ -145,22 +145,33 @@ extension Matrix {
                 logger.debug("SSSS is online with key [\(defaultKeyId)]")
                 self.state = .online(defaultKeyId)
                 return
+            } else {
+                logger.debug("Can't find the actual key for keyId [\(defaultKeyId)]")
             }
             
+            logger.debug("Looking in Keychain for key with keyId \(defaultKeyId)")
             // If the key isn't already loaded in memory, then maybe we have previously saved it in the Keychain
             // - If we have the default key, then we are in state `.online(keyId)` where `keyId` is the id of our default key
             let keychain = KeychainSecretStore(userId: session.creds.userId)
             if let key = try await keychain.loadKey(keyId: defaultKeyId, reason: "The app needs to load cryptographic keys for your account") {
+                logger.debug("Found key \(defaultKeyId) in the Keychain")
                 self.state = .online(defaultKeyId)
                 return
+            } else {
+                logger.debug("Failed to load key \(defaultKeyId) from the Keychain ")
             }
 
             // If we don't have the default key, then there's not much that we can do.
+            logger.debug("Failed to load default SSSS key with keyId \(defaultKeyId)")
             // Set `state` to `.needKey` with the default key's description, so that the application can prompt the user
             // to provide a passphrase.
+            logger.debug("Fetching key description")
             if let description = try await getKeyDescription(keyId: defaultKeyId) {
+                logger.debug("Setting state to .needKey")
                 self.state = .needKey(description)
             }
+            
+            logger.debug("Done with init")
         }
         
         public static func computeKeyId(key: Data) throws -> String {

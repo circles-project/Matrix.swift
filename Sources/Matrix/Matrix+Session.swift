@@ -162,8 +162,11 @@ extension Matrix {
                 cryptoLogger.debug("Setting up secret storage -- no keys")
                 self.secretStore = try await .init(session: self, keys: [:])
             }
+            cryptoLogger.debug("Successfully set up secret storage")
+
             // Initial requests
             try await cryptoQueue.run {
+                self.cryptoLogger.debug("Checking for outgoing requests")
                 let cryptoRequests = try self.crypto.outgoingRequests()
                 print("Session:\tSending initial crypto requests (\(cryptoRequests.count))")
                 for request in cryptoRequests {
