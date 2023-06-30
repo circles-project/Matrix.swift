@@ -1628,7 +1628,7 @@ extension Matrix {
                     
                     let listener = ConsoleLoggingProgressListener(logger: self.cryptoLogger, message: "Room \(roomId) session \(sessionId)")
                     
-                    guard let result = try? self.crypto.importDecryptedRoomKeys(keys: decryptedKeys, progressListener: listener)
+                    guard let result = try? self.crypto.importDecryptedRoomKeys(keys: "[\(decryptedKeys)]", progressListener: listener)
                     else {
                         logger.error("Failed to import decrypted keys for room \(roomId) session \(sessionId)")
                         logger.error("Decrypted keys = \(decryptedKeys)")
