@@ -1386,8 +1386,7 @@ extension Matrix {
                         
                         
                         // Finally - Do we need to load keys from this existing backup?
-                        // Read our most recent version of the etag, if any
-                        let etag = UserDefaults.standard.string(forKey: "key_backup_etag[\(self.creds.userId)]")
+                        let etag = loadKeyBackupEtag(version: info.version)
                         if etag != nil {
                             logger.debug("Found existing etag \(etag!) for key backup")
                         } else {
@@ -1400,7 +1399,7 @@ extension Matrix {
                             logger.debug("Loading keys from the backup that we found")
                             try await self.loadKeysFromBackup()
                             // And save the etag
-                            UserDefaults.standard.set(info.etag, forKey: "key_backup_etag[\(self.creds.userId)]")
+                            self.saveKeyBackupEtag(etag: info.etag, version: info.version)
                         } else {
                             logger.debug("Key backup etag is unchanged.  We are up-to-date.")
                         }
@@ -1472,6 +1471,42 @@ extension Matrix {
             } else {
                 logger.warning("No secret storage - Not saving new recovery key")
             }
+        }
+        
+        func loadKeyBackupEtag(version: String) -> String? {
+            struct EtagInfo: Codable {
+                var deviceId: String
+                var version: String
+                var etag: String
+            }
+            // Read our most recent version of the etag, if any
+            let etagDefaultsKey = "key_backup_etag[\(self.creds.userId)]"
+            guard let etagInfo = UserDefaults.standard.object(forKey: etagDefaultsKey) as? EtagInfo
+            else {
+                logger.debug("No key backup etag")
+                return nil
+            }
+
+            guard etagInfo.deviceId == self.creds.deviceId,
+                  etagInfo.version == version
+            else {
+                logger.debug("Etag doesn't match current device and backup version")
+                return nil
+            }
+            
+            return etagInfo.etag
+        }
+        
+        func saveKeyBackupEtag(etag: String, version: String) {
+            logger.debug("Saving key backup etag \(etag) for version \(version)")
+            struct EtagInfo: Codable {
+                var deviceId: String
+                var version: String
+                var etag: String
+            }
+            let info = EtagInfo(deviceId: self.creds.deviceId, version: version, etag: etag)
+            let etagDefaultsKey = "key_backup_etag[\(self.creds.userId)]"
+            UserDefaults.standard.set(info, forKey: etagDefaultsKey)
         }
         
         public func getCurrentKeyBackupVersionInfo() async throws -> KeyBackupVersionInfo {
