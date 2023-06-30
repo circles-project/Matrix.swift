@@ -1387,6 +1387,8 @@ extension Matrix {
                 
                 logger.error("Couldn't load recovery key for backup version \(info.version)")
                 throw Matrix.Error("Couldn't load recovery key for backup version \(info.version)")
+            } else {
+                logger.debug("Failed to get current backup version")
             }
                         
             // Step 3 - There is no existing backup.  Create one from scratch.
@@ -1452,11 +1454,21 @@ extension Matrix {
         }
         
         public func getCurrentKeyBackupVersionInfo() async throws -> KeyBackupVersionInfo {
+            logger.debug("Getting current key backup version info")
+            
             let path = "/_matrix/client/v3/room_keys/version"
             let (data, response) = try await call(method: "GET", path: path)
+            
+            if let rawResponseData = String(data: data, encoding: .utf8) {
+                logger.debug("Got raw response: \(rawResponseData)")
+            }
                        
             let decoder = JSONDecoder()
-            let info = try decoder.decode(KeyBackupVersionInfo.self, from: data)
+            guard let info = try? decoder.decode(KeyBackupVersionInfo.self, from: data)
+            else {
+                logger.error("Failed to decode key backup version info")
+                throw Matrix.Error("Failed to decode key backup version info")
+            }
             return info
         }
         
