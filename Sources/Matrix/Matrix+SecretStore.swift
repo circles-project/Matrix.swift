@@ -144,7 +144,7 @@ extension Matrix {
             self.keychain = KeychainSecretStore(userId: session.creds.userId)
             self.state = .uninitialized
             
-            logger.debug("Initializing with a set of keys")
+            logger.debug("Initializing with a set of \(keys.count) initial keys")
             
             // OK now let's see what we got
             // 1. Do we have the default key?
@@ -176,6 +176,7 @@ extension Matrix {
             let keychain = KeychainSecretStore(userId: session.creds.userId)
             if let key = try await keychain.loadKey(keyId: defaultKeyId, reason: "The app needs to load cryptographic keys for your account") {
                 logger.debug("Found key \(defaultKeyId) in the Keychain")
+                self.keys[defaultKeyId] = key
                 self.state = .online(defaultKeyId)
                 return
             } else {
