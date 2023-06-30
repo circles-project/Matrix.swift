@@ -660,7 +660,7 @@ extension Matrix {
                 let (data, response) = try await self.call(method: "PUT",
                                                            path: path,
                                                            params: params,
-                                                           body: requestBody)
+                                                           bodyData: requestBody)
                 guard let responseBodyString = String(data: data, encoding: .utf8)
                 else {
                     logger.error("Couldn't process /room_keys/keys response")
