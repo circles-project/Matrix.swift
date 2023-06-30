@@ -1384,15 +1384,38 @@ extension Matrix {
                         // * We should be able to retrieve it via self.crypto.getBackupKeys()
                         self.backupRecoveryKey = recoveryKey
                         
+                        
+                        // Finally - Do we need to load keys from this existing backup?
+                        // Read our most recent version of the etag, if any
+                        let etag = UserDefaults.standard.string(forKey: "key_backup_etag[\(self.creds.userId)]")
+                        if etag != nil {
+                            logger.debug("Found existing etag \(etag!) for key backup")
+                        } else {
+                            logger.debug("No existing etag for key backup")
+                        }
+                        
+                        if etag != info.etag {
+                            // Either we had no previous etag, or it has changed
+                            // In either case, we should load new keys from the server
+                            logger.debug("Loading keys from the backup that we found")
+                            try await self.loadKeysFromBackup()
+                            // And save the etag
+                            UserDefaults.standard.set(info.etag, forKey: "key_backup_etag[\(self.creds.userId)]")
+                        } else {
+                            logger.debug("Key backup etag is unchanged.  We are up-to-date.")
+                        }
+                        
                         return
                     } else {
                         logger.warning("Couldn't get a recovery key from secret storage")
                     }
                 } else {
+                    // FIXME: This is where we should at least try to validate the signatures on the key backup version info
+                    // We don't strictly *require* the private key in order to save our new keys into an existing backup
+
                     logger.debug("No secret store - Can't get recovery private key")
                 }
                 
-                // FIXME: Really if we're still here we should at least try to validate the signatures on the key backup version info
                 
                 logger.error("Couldn't load recovery key for backup version \(info.version)")
                 throw Matrix.Error("Couldn't load recovery key for backup version \(info.version)")
@@ -1404,21 +1427,6 @@ extension Matrix {
             logger.debug("No existing key backup.  Creating a new one.")
             
             // Step 3.1 - Generate a random recovery key
-            /*
-            var rawBytes = try Random.generateBytes(byteCount: 32)
-            // Clamp to the curve
-            rawBytes[0] = rawBytes[0] & 248
-            rawBytes[31] = rawBytes[31] & 127
-            rawBytes[31] = rawBytes[31] | 64
-            let recoveryPrivateKey = Data(rawBytes).base64EncodedString()
-            logger.debug("Generated new recovery private key \(recoveryPrivateKey)")
-            // Let the Crypto SDK wrangle these bytes for us to produce the public key
-            guard let recoveryKey = try? MatrixSDKCrypto.BackupRecoveryKey.fromBase64(key: recoveryPrivateKey)
-            else {
-                logger.error("Failed to create a BackupRecoveryKey from our raw private key")
-                throw Matrix.Error("Failed to create a BackupRecoveryKey from our raw private key")
-            }
-            */
             let recoveryKey = MatrixSDKCrypto.BackupRecoveryKey()
             let recoveryPrivateKey = recoveryKey.toBase64()
             let backupPublicKey = recoveryKey.megolmV1PublicKey()
@@ -1529,6 +1537,60 @@ extension Matrix {
 
             logger.debug("Created new key backup with version \(responseBody.version)")
             return responseBody.version
+        }
+        
+        public func loadKeysFromBackup() async throws {
+            
+            guard let backupKeys = try? self.crypto.getBackupKeys()
+            else {
+                logger.error("No backup recovery key -- Not fetching backup because we wouldn't be able to decrypt it")
+                return
+            }
+            let version = backupKeys.backupVersion()
+            let key = backupKeys.recoveryKey()
+            
+            logger.debug("Fetching keys from backup version \(version)")
+            
+            let path = "/_matrix/client/v3/room_keys/keys"
+            let params = [
+                "version": version
+            ]
+            let (data, response) = try await call(method: "GET", path: path, params: params)
+            
+            struct ResponseBody: Codable {
+                var rooms: [RoomId: KeyBackupRoomData]
+            }
+            
+            let decoder = JSONDecoder()
+            let responseBody = try decoder.decode(ResponseBody.self, from: data)
+
+            logger.debug("Got key backup with keys for \(responseBody.rooms.count) rooms")
+            for (roomId, roomData) in responseBody.rooms {
+                logger.debug("Processing key backup for room \(roomId) with \(roomData.sessions.count) sessions")
+                for (sessionId, sessionInfo) in roomData.sessions {
+                    logger.debug("Processing key backup for room \(roomId) session \(sessionId)")
+                    let ciphertext = sessionInfo.sessionData.ciphertext
+                    let ephemeral = sessionInfo.sessionData.ephemeral
+                    let mac = sessionInfo.sessionData.mac
+                    guard let decryptedKeys = try? key.decryptV1(ephemeralKey: ephemeral, mac: mac, ciphertext: ciphertext)
+                    else {
+                        logger.debug("Failed to decrypt keys for room \(roomId) session \(sessionId)")
+                        continue
+                    }
+                    logger.debug("Decrypted key backup for room \(roomId) session \(sessionId)")
+                    
+                    let listener = ConsoleLoggingProgressListener(logger: self.cryptoLogger, message: "Room \(roomId) session \(sessionId)")
+                    
+                    guard let result = try? self.crypto.importDecryptedRoomKeys(keys: decryptedKeys, progressListener: listener)
+                    else {
+                        logger.error("Failed to import decrypted keys for room \(roomId) session \(sessionId)")
+                        continue
+                    }
+                    logger.debug("Imported \(result.imported) / \(result.total) decrypted keys for room \(roomId) session \(sessionId)")
+                }
+            }
+
+
         }
         
         // MARK: logout
