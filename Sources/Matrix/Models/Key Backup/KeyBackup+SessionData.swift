@@ -20,7 +20,7 @@ extension Matrix.KeyBackup {
         enum CodingKeys: String, CodingKey {
             case algorithm
             case senderKey = "sender_key"
-            case sessionKey = "session_Key"
+            case sessionKey = "session_key"
             case senderClaimedKeys = "sender_claimed_keys"
             case forwardingCurve25519KeyChain = "forwarding_curve25519_key_chain"
         }
@@ -59,7 +59,7 @@ extension Matrix.KeyBackup {
             case roomId = "room_id"
             case senderKey = "sender_key"
             case sessionId = "session_id"
-            case sessionKey = "session_Key"
+            case sessionKey = "session_key"
             case senderClaimedKeys = "sender_claimed_keys"
             case forwardingCurve25519KeyChain = "forwarding_curve25519_key_chain"
         }
