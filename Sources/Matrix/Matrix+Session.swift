@@ -1370,9 +1370,18 @@ extension Matrix {
                             throw Matrix.Error("Recovery key doesn't match current backup")
                         }
                         
-                        try self.crypto.enableBackupV1(key: backupPublicKey, version: info.version) // FIXME: How do we get the version???  Answer: We should have asked for it above.
+                        // Tell the crypto module about this backup
+                        // I think this is to enable saving new keys to it, since we're only providing the public half of the key
+                        logger.debug("Enabling backup in the crypto module")
+                        try self.crypto.enableBackupV1(key: backupPublicKey, version: info.version)
+                        
+                        // I think this is the part where we provide the crypto module with the private half of the key
+                        logger.debug("Saving recovery key in the crypto module")
+                        try self.crypto.saveRecoveryKey(key: recoveryKey, version: info.version)
                         
                         // Also, hang onto this key so that we can decrypt keys from the backup in the future
+                        // FIXME: Maybe this isn't necessary anymore, since we provided the crypto module with the private key
+                        // * We should be able to retrieve it via self.crypto.getBackupKeys()
                         self.backupRecoveryKey = recoveryKey
                         
                         return
@@ -1439,9 +1448,13 @@ extension Matrix {
             }
             
             // Step 3.3 - Enable backups in the crypto module with this version
+            // Give the crypto module the public half of the key, to enable writing new keys
             try self.crypto.enableBackupV1(key: backupPublicKey, version: newVersion)
+            // Give the crypto module the private half of the key, to enable reading old keys
+            try self.crypto.saveRecoveryKey(key: recoveryKey, version: newVersion)
             
             // Also, hang onto this key so that we can decrypt keys from the backup in the future
+            // FIXME: Also should be able to get it from the crypto module at any time via self.crypto.getBackupKeys()
             self.backupRecoveryKey = recoveryKey
 
             // Step 3.4 - Save the recovery key to secret storage
