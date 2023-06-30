@@ -1631,6 +1631,7 @@ extension Matrix {
                     guard let result = try? self.crypto.importDecryptedRoomKeys(keys: decryptedKeys, progressListener: listener)
                     else {
                         logger.error("Failed to import decrypted keys for room \(roomId) session \(sessionId)")
+                        logger.error("Decrypted keys = \(decryptedKeys)")
                         continue
                     }
                     logger.debug("Imported \(result.imported) / \(result.total) decrypted keys for room \(roomId) session \(sessionId)")
