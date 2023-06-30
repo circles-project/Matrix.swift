@@ -1521,7 +1521,7 @@ extension Matrix {
             UserDefaults.standard.set(data, forKey: etagDefaultsKey)
         }
         
-        public func getCurrentKeyBackupVersionInfo() async throws -> KeyBackupVersionInfo {
+        public func getCurrentKeyBackupVersionInfo() async throws -> KeyBackup.VersionInfo {
             logger.debug("Getting current key backup version info")
             
             let path = "/_matrix/client/v3/room_keys/version"
@@ -1532,7 +1532,7 @@ extension Matrix {
             }
                        
             let decoder = JSONDecoder()
-            guard let info = try? decoder.decode(KeyBackupVersionInfo.self, from: data)
+            guard let info = try? decoder.decode(KeyBackup.VersionInfo.self, from: data)
             else {
                 logger.error("Failed to decode key backup version info")
                 throw Matrix.Error("Failed to decode key backup version info")
@@ -1605,7 +1605,7 @@ extension Matrix {
             let (data, response) = try await call(method: "GET", path: path, params: params)
             
             struct ResponseBody: Codable {
-                var rooms: [RoomId: KeyBackupRoomData]
+                var rooms: [RoomId: KeyBackup.RoomData]
             }
             
             let decoder = JSONDecoder()
@@ -1619,17 +1619,37 @@ extension Matrix {
                     let ciphertext = sessionInfo.sessionData.ciphertext
                     let ephemeral = sessionInfo.sessionData.ephemeral
                     let mac = sessionInfo.sessionData.mac
-                    guard let decryptedKeys = try? key.decryptV1(ephemeralKey: ephemeral, mac: mac, ciphertext: ciphertext)
+                    guard let decryptedKeysString = try? key.decryptV1(ephemeralKey: ephemeral, mac: mac, ciphertext: ciphertext),
+                          let decryptedKeysData = decryptedKeysString.data(using: .utf8)
                     else {
                         logger.debug("Failed to decrypt keys for room \(roomId) session \(sessionId)")
                         continue
                     }
                     logger.debug("Decrypted key backup for room \(roomId) session \(sessionId)")
-                    logger.error("Decrypted keys = \(decryptedKeys)")
+                    logger.error("Decrypted keys = \(decryptedKeysString)")
+
+                    let decoder = JSONDecoder()
+                    guard let decryptedSessionData = try? decoder.decode(KeyBackup.DecryptedSessionData.self, from: decryptedKeysData)
+                    else {
+                        logger.error("Failed to decode decrypted session data")
+                        throw Matrix.Error("Failed to decode decrypted session data")
+                    }
+                    logger.debug("Decoded decrypted session data")
+                    
+                    // Add roomId and sessionId so the crypto module can import the session data
+                    let importableSessionData = KeyBackup.SessionData(decrypted: decryptedSessionData, roomId: roomId, sessionId: sessionId)
+                    // Convert to a String that we can pass to the rust module
+                    let encoder = JSONEncoder()
+                    guard let importableData = try? encoder.encode(importableSessionData),
+                          let importableString = String(data: importableData, encoding: .utf8)
+                    else {
+                        logger.error("Failed to encode session data")
+                        throw Matrix.Error("Failed to encode session data")
+                    }
 
                     let listener = ConsoleLoggingProgressListener(logger: self.cryptoLogger, message: "Room \(roomId) session \(sessionId)")
                     
-                    guard let result = try? self.crypto.importDecryptedRoomKeys(keys: "[\(decryptedKeys)]", progressListener: listener)
+                    guard let result = try? self.crypto.importDecryptedRoomKeys(keys: "[\(importableString)]", progressListener: listener)
                     else {
                         logger.error("Failed to import decrypted keys for room \(roomId) session \(sessionId)")
                         continue

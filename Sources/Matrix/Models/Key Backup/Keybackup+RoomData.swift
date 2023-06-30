@@ -7,9 +7,9 @@
 
 import Foundation
 
-extension Matrix {
+extension Matrix.KeyBackup {
 
-    public struct KeyBackupRoomData: Codable {
+    public struct RoomData: Codable {
         struct SessionInfo: Codable {
             
             struct SessionData: Codable {
