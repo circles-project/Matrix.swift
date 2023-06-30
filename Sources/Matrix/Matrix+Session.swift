@@ -1399,7 +1399,7 @@ extension Matrix {
                             logger.debug("Loading keys from the backup that we found")
                             try await self.loadKeysFromBackup()
                             // And save the etag
-                            self.saveKeyBackupEtag(etag: info.etag, version: info.version)
+                            try self.saveKeyBackupEtag(etag: info.etag, version: info.version)
                         } else {
                             logger.debug("Key backup etag is unchanged.  We are up-to-date.")
                         }
@@ -1481,9 +1481,15 @@ extension Matrix {
             }
             // Read our most recent version of the etag, if any
             let etagDefaultsKey = "key_backup_etag[\(self.creds.userId)]"
-            guard let etagInfo = UserDefaults.standard.object(forKey: etagDefaultsKey) as? EtagInfo
+            guard let data = UserDefaults.standard.data(forKey: etagDefaultsKey)
             else {
                 logger.debug("No key backup etag")
+                return nil
+            }
+            let decoder = JSONDecoder()
+            guard let etagInfo = try? decoder.decode(EtagInfo.self, from: data)
+            else {
+                logger.debug("Couldn't decode etag info")
                 return nil
             }
 
@@ -1497,7 +1503,7 @@ extension Matrix {
             return etagInfo.etag
         }
         
-        func saveKeyBackupEtag(etag: String, version: String) {
+        func saveKeyBackupEtag(etag: String, version: String) throws {
             logger.debug("Saving key backup etag \(etag) for version \(version)")
             struct EtagInfo: Codable {
                 var deviceId: String
@@ -1505,8 +1511,14 @@ extension Matrix {
                 var etag: String
             }
             let info = EtagInfo(deviceId: self.creds.deviceId, version: version, etag: etag)
+            let encoder = JSONEncoder()
+            guard let data = try? encoder.encode(info)
+            else {
+                logger.debug("Failed to encode etag info")
+                throw Matrix.Error("Failed to encode etag info")
+            }
             let etagDefaultsKey = "key_backup_etag[\(self.creds.userId)]"
-            UserDefaults.standard.set(info, forKey: etagDefaultsKey)
+            UserDefaults.standard.set(data, forKey: etagDefaultsKey)
         }
         
         public func getCurrentKeyBackupVersionInfo() async throws -> KeyBackupVersionInfo {
