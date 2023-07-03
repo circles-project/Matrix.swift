@@ -111,14 +111,20 @@ extension Matrix {
         
         public func saveKey_RawKeychain(key: Data, keyId: String) async throws {
             // https://developer.apple.com/documentation/security/certificate_key_and_trust_services/keys/storing_keys_in_the_keychain
+            logger.debug("Saving key with the raw Keychain API")
+            
             let tag = "org.futo.ssss.key.\(keyId)".data(using: .utf8)!
             let addquery: [String: Any] = [kSecClass as String: kSecClassKey,
                                            kSecAttrApplicationTag as String: tag,
                                            kSecAttrAccount as String: userId.stringValue, // From the Apple article on loading passwords from the keychain
                                            kSecValueRef as String: key]
-            
+            logger.debug("Created addQuery dictionary with \(addquery.count) entries")
             let status = SecItemAdd(addquery as CFDictionary, nil)
-            guard status == errSecSuccess else { throw Matrix.Error("Failed to save key \(keyId) for user \(userId)") }
+            logger.debug("Added key \(keyId) to the keychain")
+            guard status == errSecSuccess
+            else {
+                throw Matrix.Error("Failed to save key \(keyId) for user \(userId)")
+            }
             logger.debug("Saved key \(keyId) in the keychain")
         }
         
