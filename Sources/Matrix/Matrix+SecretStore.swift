@@ -30,7 +30,7 @@ extension Matrix {
         
         public func loadKey(keyId: String, reason: String) async throws -> Data? {
             logger.debug("Attempting to load key with keyId \(keyId)")
-            #if false
+            #if true
             // https://developer.apple.com/documentation/security/keychain_services/keychain_items/searching_for_keychain_items
             // https://github.com/kishikawakatsumi/KeychainAccess#closed_lock_with_key-obtaining-a-touch-id-face-id-protected-item
             // Ensure this runs on a background thread - Otherwise if we try to authenticate to the keychain from the main thread, the app will lock up
@@ -58,7 +58,7 @@ extension Matrix {
         
         public func saveKey(key: Data, keyId: String) async throws {
             logger.debug("Attempting to save key with keyId \(keyId)")
-            #if false
+            #if true
             // https://github.com/kishikawakatsumi/KeychainAccess#closed_lock_with_key-updating-a-touch-id-face-id-protected-item
             // Ensure this runs on a background thread - Otherwise if we try to authenticate to the keychain from the main thread, the app will lock up
             let t = Task(priority: .background) {
