@@ -1,7 +1,7 @@
 # Matrix.swift - A native Matrix client SDK in Swift
 
-This package provides a native Swift implementation of the [Matrix](https://matrix.org/)
-client-server API.
+This package provides an (unofficial, third party) native Swift implementation
+of the [Matrix](https://matrix.org/) client-server API.
 
 It wraps the [Matrix Rust Crypto SDK](https://github.com/matrix-org/matrix-rust-sdk/tree/main/bindings/apple)
 to provide support for end-to-end encryption (E2EE).
@@ -28,6 +28,7 @@ Current features include:
 * Registering new accounts
 * User-interactive authentication
 * Deactivate account
+* Higher security cryptographic PAKE authentication with [BS-SPEKE](https://gitlab.futo.org/cvwright/bsspeke)
 
 **Messaging**
 * Sending and receiving text, image, and video messages
@@ -50,3 +51,8 @@ Current features include:
 * Cross signing
 * Encrypted key backup and recovery
 
+## To-Do List
+* ~~Secret storage~~
+* ~~Cross-signing~~
+* ~~Encrypted key backup~~
+* Use the Keychain to hold secret storage keys on the device
