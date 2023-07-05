@@ -85,8 +85,9 @@ extension Matrix {
             // https://developer.apple.com/documentation/security/keychain_services/keychain_items/searching_for_keychain_items
 
             logger.debug("Attempting to load key with keyId \(keyId)")
-            return try await loadKey_KeychainAccess(keyId: keyId, reason: reason)
+            //return try await loadKey_KeychainAccess(keyId: keyId, reason: reason)
             //return try await loadKey_RawKeychain(keyId: keyId, reason: reason)
+            return try await loadKey_FakeKeychain(keyId: keyId, reason: reason)
         }
         
         public func saveKey_KeychainAccess(key: Data, keyId: String) async throws {
@@ -133,8 +134,9 @@ extension Matrix {
         public func saveKey(key: Data, keyId: String) async throws {
             logger.debug("Attempting to save key with keyId \(keyId)")
 
-            try await saveKey_KeychainAccess(key: key, keyId: keyId)
+            //try await saveKey_KeychainAccess(key: key, keyId: keyId)
             //try await saveKey_RawKeychain(key: key, keyId: keyId)
+            try await saveKey_FakeKeychain(key: key, keyId: keyId)
         }
     }
     
