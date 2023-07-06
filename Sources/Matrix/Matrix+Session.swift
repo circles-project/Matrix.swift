@@ -778,10 +778,14 @@ extension Matrix {
         }
         
         // MARK: UIA
+        
+        public typealias UiaCompletionHandler = (UIAuthSession, Data) async throws -> Void
+
+        
         public func uiaCall(method: String,
                             path: String,
                             requestDict: [String: Codable],
-                            completion handler: UIAuthSession.Completion? = nil
+                            completion handler: UiaCompletionHandler? = nil
         ) async throws -> UIAuthSession? {
             let url = URL(string: path, relativeTo: self.baseUrl)!
             
