@@ -107,6 +107,10 @@ extension Matrix {
             self.users = [:]
             self.accountData = [:]
             
+            self.displayName = displayname
+            self.avatarUrl = avatarUrl
+            self.statusMessage = statusMessage
+            
             self.syncToken = syncToken
             self.keepSyncing = startSyncing
             // Initialize the sync tasks to nil so we can run super.init()
@@ -209,6 +213,24 @@ extension Matrix {
             // Are we supposed to start syncing?
             if startSyncing {
                 try await startBackgroundSync()
+            }
+            
+            let updateProfileTask = Task {
+                
+                if let url = self.avatarUrl,
+                   let data = try? await self.downloadData(mxc: url),
+                   let image = Matrix.NativeImage(data: data)
+                {
+                    await MainActor.run {
+                        self.avatar = image
+                    }
+                }
+                
+                if let newName = try await getDisplayName(userId: self.creds.userId) {
+                    await MainActor.run {
+                        self.displayName = newName
+                    }
+                }
             }
         }
         
