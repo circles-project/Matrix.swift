@@ -780,13 +780,22 @@ extension Matrix {
         // MARK: UIA
         public func uiaCall(method: String,
                             path: String,
-                            completion handler: ((UIAuthSession,Data) async throws -> Void)? = nil
-        ) async throws -> UIASession? {
+                            requestDict: [String: Codable],
+                            completion handler: UIAuthSession.Completion? = nil
+        ) async throws -> UIAuthSession? {
             let url = URL(string: path, relativeTo: self.baseUrl)!
+            
             let uia = UIAuthSession(method: method, url: url,
                                     credentials: self.creds,
-                                    requestDict: [:],
-                                    completion: handler)
+                                    requestDict: requestDict,
+                                    completion: { (uias, data) in
+                                                    await MainActor.run {
+                                                        self.uiaSession = nil
+                                                    }
+                                                    if let handler = handler {
+                                                        try await handler(uias, data)
+                                                    }
+                                                })
             logger.debug("Waiting for UIA to connect")
             try await uia.connect()
             switch uia.state {
@@ -822,11 +831,25 @@ extension Matrix {
         
         // MARK: UIA endpoints
         
-        public func changePassword() async throws {
+        /*
+         This is the legacy Matrix API endpoint to update m.login.password
+         */
+        public func changePassword(newPassword: String) async throws {
             logger.debug("Changing password for user \(self.creds.userId.stringValue)")
             let path =  "/_matrix/client/v3/account/password"
-            let uia = try await uiaCall(method: "POST", path: path) { (_,_) in
+            let _ = try await uiaCall(method: "POST", path: path, requestDict: ["new_password": newPassword]) { (_,_) in
                 logger.debug("Successfully changed password")
+            }
+        }
+        
+        /*
+         This is the fancy new UIA-all-the-things version from my MSC
+         */
+        public func updateAuth() async throws {
+            logger.debug("Updating authentication for user \(self.creds.userId.stringValue)")
+            let path =  "/_matrix/client/v3/account/auth"
+            let uia = try await uiaCall(method: "POST", path: path, requestDict: [:]) { (_,_) in
+                logger.debug("Successfully updated auth")
             }
         }
         
