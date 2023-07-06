@@ -778,9 +778,55 @@ extension Matrix {
         }
         
         // MARK: UIA
+        public func uiaCall(method: String,
+                            path: String,
+                            completion handler: ((UIAuthSession,Data) async throws -> Void)? = nil
+        ) async throws -> UIASession? {
+            let url = URL(string: path, relativeTo: self.baseUrl)!
+            let uia = UIAuthSession(method: method, url: url,
+                                    credentials: self.creds,
+                                    requestDict: [:],
+                                    completion: handler)
+            logger.debug("Waiting for UIA to connect")
+            try await uia.connect()
+            switch uia.state {
+            case .finished:
+                // Yay, got it in one!  The server did not require us to authenticate again.
+                logger.debug("UIA was not required for \(path)")
+                return nil
+            case .connected(let uiaState):
+                logger.debug("UIA is connected.  Must be completed to execute the API endpoint \(path)")
+                for flow in uiaState.flows {
+                    logger.debug("Found UIA flow \(flow.stages)")
+                }
+            case .inProgress(let uiaState, _):
+                logger.debug("UIA is now in progress.  Must be completed to execute the API endpoint \(path)")
+                for flow in uiaState.flows {
+                    logger.debug("Found UIA flow \(flow.stages)")
+                }
+            default:
+                // The caller will have to complete UIA before the request can go through
+                logger.debug("UIA is in some other state.  Client needs to complete UIA to execute API endpoint \(path)")
+            }
+            await MainActor.run {
+                self.uiaSession = uia
+            }
+            return uia
+        }
+        
         public func cancelUIA() async throws {
             await MainActor.run {
                 self.uiaSession = nil
+            }
+        }
+        
+        // MARK: UIA endpoints
+        
+        public func changePassword() async throws {
+            logger.debug("Changing password for user \(self.creds.userId.stringValue)")
+            let path =  "/_matrix/client/v3/account/password"
+            let uia = try await uiaCall(method: "POST", path: path) { (_,_) in
+                logger.debug("Successfully changed password")
             }
         }
         
