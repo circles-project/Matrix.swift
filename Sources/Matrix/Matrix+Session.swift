@@ -26,10 +26,10 @@ extension Matrix {
             var s4KeyId: String
         }
         
-        @Published public var displayName: String?
-        @Published public var avatarUrl: URL?
-        @Published public var avatar: Matrix.NativeImage?
-        @Published public var statusMessage: String?
+        @Published public private(set) var displayName: String?
+        @Published public private(set) var avatarUrl: MXC?
+        @Published public private(set) var avatar: Matrix.NativeImage?
+        @Published public private(set) var statusMessage: String?
         public var me: User {
             self.getUser(userId: self.creds.userId)
         }
@@ -209,6 +209,36 @@ extension Matrix {
             // Are we supposed to start syncing?
             if startSyncing {
                 try await startBackgroundSync()
+            }
+        }
+        
+        // MARK: Profile management
+        
+        override public func setMyDisplayName(_ name: String) async throws {
+            try await super.setMyDisplayName(name)
+            await MainActor.run {
+                self.displayName = name
+            }
+        }
+        
+        override public func setMyAvatarUrl(_ mxc: MXC) async throws {
+            try await super.setMyAvatarUrl(mxc)
+            await MainActor.run {
+                self.avatarUrl = mxc
+            }
+        }
+        
+        override public func setMyAvatarImage(_ image: Matrix.NativeImage) async throws {
+            try await super.setMyAvatarImage(image)
+            await MainActor.run {
+                self.avatar = image
+            }
+        }
+        
+        override public func setMyStatus(message: String) async throws {
+            try await super.setMyStatus(message: message)
+            await MainActor.run {
+                self.statusMessage = message
             }
         }
         
