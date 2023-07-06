@@ -30,6 +30,9 @@ extension Matrix {
         @Published public var avatarUrl: URL?
         @Published public var avatar: Matrix.NativeImage?
         @Published public var statusMessage: String?
+        public var me: User {
+            self.getUser(userId: self.creds.userId)
+        }
         
         // cvw: Leaving these as comments for now, as they require us to define even more types
         //@Published public var device: MatrixDevice
