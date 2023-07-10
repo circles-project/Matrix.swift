@@ -63,7 +63,7 @@ extension Matrix {
         
         var syncLogger: os.Logger
         
-        private var ignoreUserIds: [UserId] {
+        public var ignoredUserIds: [UserId] {
             guard let content = self.accountData[M_IGNORED_USER_LIST] as? IgnoredUserListContent
             else {
                 return []
@@ -1074,14 +1074,13 @@ extension Matrix {
         }
         
         public func ignoreUser(userId: UserId) async throws {
-            throw Matrix.Error("Not implemented")
-            /*
-            var content = try await self.getAccountData(for: M_IGNORED_USER_LIST, of: IgnoredUserListContent.self)
-            if !content.ignoredUsers.contains(userId) {
-                content.ignoredUsers.append(userId)
-                try await self.putAccountData(content, for: M_IGNORED_USER_LIST)
+            let existingIgnoreList = try await self.getAccountData(for: M_IGNORED_USER_LIST, of: IgnoredUserListContent.self)?.ignoredUsers ?? []
+            if !existingIgnoreList.contains(userId) {
+                let newContent = IgnoredUserListContent(existingIgnoreList + [userId])
+                try await self.putAccountData(newContent, for: M_IGNORED_USER_LIST)
+            } else {
+                logger.debug("Already ignoring user \(userId.stringValue) - No further action is necessary")
             }
-            */
         }
         
         
