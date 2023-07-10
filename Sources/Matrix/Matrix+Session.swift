@@ -1083,6 +1083,16 @@ extension Matrix {
             }
         }
         
+        public func unignoreUser(userId: UserId) async throws {
+            let existingIgnoreList = try await self.getAccountData(for: M_IGNORED_USER_LIST, of: IgnoredUserListContent.self)?.ignoredUsers ?? []
+            if existingIgnoreList.contains(userId) {
+                let newContent = IgnoredUserListContent(existingIgnoreList.filter { $0 != userId })
+                try await self.putAccountData(newContent, for: M_IGNORED_USER_LIST)
+            } else {
+                logger.debug("Already not ignoring user \(userId.stringValue) - No further action is necessary")
+            }
+        }
+        
         
         // MARK: Sending messages
                 
