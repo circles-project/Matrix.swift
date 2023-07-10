@@ -780,11 +780,11 @@ extension Matrix {
         // MARK: UIA
         
         public typealias UiaCompletionHandler = (UIAuthSession, Data) async throws -> Void
-
         
         public func uiaCall(method: String,
                             path: String,
                             requestDict: [String: Codable],
+                            filter: ((UIAA.Flow) -> Bool)? = nil,
                             completion handler: UiaCompletionHandler? = nil
         ) async throws -> UIAuthSession? {
             let url = URL(string: path, relativeTo: self.baseUrl)!
@@ -793,6 +793,7 @@ extension Matrix {
                                     credentials: self.creds,
                                     requestDict: requestDict,
                                     completion: { (uias, data) in
+                                                    logger.debug("UIA is complete.  Setting uiaSession back to nil")
                                                     await MainActor.run {
                                                         self.uiaSession = nil
                                                     }
@@ -807,11 +808,32 @@ extension Matrix {
                 // Yay, got it in one!  The server did not require us to authenticate again.
                 logger.debug("UIA was not required for \(path)")
                 return nil
+                
             case .connected(let uiaState):
                 logger.debug("UIA is connected.  Must be completed to execute the API endpoint \(path)")
+                
+                // At this point, there could potentially be many UIA flows available to us
+                
                 for flow in uiaState.flows {
                     logger.debug("Found UIA flow \(flow.stages)")
                 }
+
+                // If the caller provided a filter to select from the flows,
+                // we filter the flows with it and take the first one that passes
+                
+                if let flowFilter = filter {
+                    logger.debug("Filtering \(uiaState.flows.count) flows")
+                    guard let flow = uiaState.flows.filter(flowFilter).first
+                    else {
+                        throw Matrix.Error("No compatible authentication flows")
+                    }
+                    
+                    logger.debug("Selecting flow \(flow.stages)")
+                    await uia.selectFlow(flow: flow)
+                } else {
+                    logger.debug("No flow filter; \(uiaState.flows.count) available flows")
+                }
+                
             case .inProgress(let uiaState, _):
                 logger.debug("UIA is now in progress.  Must be completed to execute the API endpoint \(path)")
                 for flow in uiaState.flows {
@@ -821,6 +843,7 @@ extension Matrix {
                 // The caller will have to complete UIA before the request can go through
                 logger.debug("UIA is in some other state.  Client needs to complete UIA to execute API endpoint \(path)")
             }
+            
             await MainActor.run {
                 self.uiaSession = uia
             }
@@ -841,20 +864,30 @@ extension Matrix {
         public func changePassword(newPassword: String) async throws {
             logger.debug("Changing password for user \(self.creds.userId.stringValue)")
             let path =  "/_matrix/client/v3/account/password"
-            let _ = try await uiaCall(method: "POST", path: path, requestDict: ["new_password": newPassword]) { (_,_) in
-                logger.debug("Successfully changed password")
-            }
+            let _ = try await uiaCall(method: "POST", path: path,
+                                      requestDict: ["new_password": newPassword],
+                                      completion:  { (_,_) in
+                                        logger.debug("Successfully changed password")
+                                      })
         }
         
         /*
          This is the fancy new UIA-all-the-things version from my MSC
          */
-        public func updateAuth() async throws {
+        public func updateAuth(filter: (UIAA.Flow) -> Bool) async throws {
             logger.debug("Updating authentication for user \(self.creds.userId.stringValue)")
             let path =  "/_matrix/client/v3/account/auth"
-            let uia = try await uiaCall(method: "POST", path: path, requestDict: [:]) { (_,_) in
-                logger.debug("Successfully updated auth")
-            }
+            let uia = try await uiaCall(method: "POST", path: path,
+                                        requestDict: [:],
+                                        completion: { (_,_) in
+                                            logger.debug("Successfully updated auth")
+                                        })
+        }
+        
+        public func setBsSpekePassword() async throws {
+            try await updateAuth(filter: { (flow) -> Bool in
+                flow.stages.contains(AUTH_TYPE_ENROLL_BSSPEKE_SAVE)
+            })
         }
         
         // MARK: Recovery

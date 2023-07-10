@@ -32,12 +32,14 @@ public class UIAuthSession: UIASession, ObservableObject {
         }
     }
     
-    var completion: ((UIAuthSession,Data) async throws -> Void)?
+    public typealias Completion = (UIAuthSession, Data) async throws -> Void
+    
+    var completion: Completion?
         
     public init(method: String, url: URL,
                 credentials: Matrix.Credentials? = nil,
                 requestDict: [String:Codable],
-                completion: ((UIAuthSession,Data) async throws -> Void)? = nil
+                completion: Completion? = nil
     ) {
         self.method = method
         self.url = url
