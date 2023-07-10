@@ -874,11 +874,12 @@ extension Matrix {
         /*
          This is the fancy new UIA-all-the-things version from my MSC
          */
-        public func updateAuth(filter: (UIAA.Flow) -> Bool) async throws {
+        public func updateAuth(filter: @escaping (UIAA.Flow) -> Bool) async throws {
             logger.debug("Updating authentication for user \(self.creds.userId.stringValue)")
             let path =  "/_matrix/client/v3/account/auth"
             let uia = try await uiaCall(method: "POST", path: path,
                                         requestDict: [:],
+                                        filter: filter,
                                         completion: { (_,_) in
                                             logger.debug("Successfully updated auth")
                                         })
