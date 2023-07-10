@@ -25,6 +25,10 @@ public struct IgnoredUserListContent: Codable {
     
     public var ignoredUsers: [UserId]
     
+    public init(ignoring: [UserId]) {
+        self.ignoredUsers = ignoring
+    }
+    
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let fakeDictionary = try container.decode([UserId: UserInfo].self, forKey: .ignoredUsers)
