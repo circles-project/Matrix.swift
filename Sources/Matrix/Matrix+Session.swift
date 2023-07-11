@@ -44,7 +44,10 @@ extension Matrix {
         public private(set) var users: [UserId: Matrix.User]
         
         // cvw: Stuff that we need to add, but haven't got to yet
-        @Published public var accountData: [String: Codable]
+        public typealias AccountDataFilter = (String) -> Bool
+        public typealias AccountDataHandler = (AccountDataEvent) -> Void
+        @Published public private(set) var accountData: [String: Codable]
+        private var accountDataHandlers: [(AccountDataFilter,AccountDataHandler)] = []
         
         // Our current active UIA session, if any
         @Published public private(set) var uiaSession: UIAuthSession?
@@ -545,7 +548,27 @@ extension Matrix {
             }
             
             // FIXME: Do something with AccountData
-            logger.debug("Skipping account data for now")
+            if let newAccountDataEvents = responseBody.accountData?.events {
+                logger.debug("Handling account data")
+                var updates = [String: Codable]()
+                for event in newAccountDataEvents {
+                    logger.debug("Got account data with type = \(event.type)")
+                    updates[event.type] = event.content
+                    for (filter,handler) in self.accountDataHandlers {
+                        if filter(event.type) {
+                            handler(event)
+                        }
+                    }
+                }
+                // Do the merge before we move to the main thread
+                let updatedAccountData = self.accountData.merging(updates, uniquingKeysWith: { (current,new) in new } )
+                // On the main thread, update account data in one swoop
+                await MainActor.run {
+                    self.accountData = updatedAccountData
+                }
+            } else {
+                logger.debug("No account data")
+            }
             
             // FIXME: Handle to-device messages
             logger.debug("Skipping to-device messages for now")
@@ -891,18 +914,21 @@ extension Matrix {
             })
         }
         
-        // MARK: Recovery
-        
-        public func createRecovery(privateKey: Data) async throws {
-            throw Matrix.Error("Not implemented yet")
-        }
-        
-        public func deleteRecovery() async throws {
-            throw Matrix.Error("Not implemented yet")
-        }
+        // MARK: who Am I
         
         public func whoAmI() async throws -> UserId {
             return self.creds.userId
+        }
+        
+        // MARK: Account Data
+        
+        public override func putAccountData(_ content: Codable, for eventType: String) async throws {
+            try await super.putAccountData(content, for: eventType)
+            self.accountData[eventType] = content
+        }
+        
+        public func addAccountDataHandler(filter: @escaping AccountDataFilter, handler: @escaping AccountDataHandler) {
+            self.accountDataHandlers.append(contentsOf: [(filter,handler)])
         }
         
         // MARK: Rooms
