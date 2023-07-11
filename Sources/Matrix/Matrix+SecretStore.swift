@@ -166,6 +166,8 @@ extension Matrix {
         private var logger: os.Logger
         private var keychain: KeychainSecretStore
         var keys: [String: Data]
+        
+        // MARK: init
     
         public init(session: Session, defaultKey: Data, defaultKeyId: String) async throws {
             self.session = session
@@ -260,6 +262,8 @@ extension Matrix {
             logger.debug("Done with init")
         }
         
+        // MARK: Account Data
+        
         private func registerAccountDataHandler() {
             
             func filter(type: String) -> Bool {
@@ -342,6 +346,8 @@ extension Matrix {
             }
         }
         
+        // MARK: Compute key id
+        
         public static func computeKeyId(key: Data) throws -> String {
             // First compute the SHA256 hash of the key
             guard let hash = Digest(algorithm: .sha256).update(data: key)?.final()
@@ -352,6 +358,8 @@ extension Matrix {
             let keyId = Data(hash[0..<12]).base64EncodedString().trimmingCharacters(in: CharacterSet(charactersIn: "="))
             return keyId
         }
+        
+        // MARK: Encrypt
         
         func encrypt(name: String,
                      data: Data,
@@ -417,6 +425,8 @@ extension Matrix {
             
             return encrypted
         }
+        
+        // MARK: Decrypt
         
         func decrypt(name: String,
                      encrypted: EncryptedData,
@@ -511,6 +521,8 @@ extension Matrix {
             logger.warning("Couldn't find a key to decrypt secret [\(type)]")
             return nil
         }
+        
+        // MARK: Get secret
             
         public func getSecret<T: Codable>(type: String) async throws -> T? {
             
@@ -541,6 +553,8 @@ extension Matrix {
             logger.debug("Successfully decoded object of type [\(T.self)]")
             return object
         }
+        
+        // MARK: Save secret
         
         public func saveSecret<T: Codable>(_ content: T, type: String) async throws {
             logger.debug("Saving secret of type [\(type)]")
@@ -578,11 +592,50 @@ extension Matrix {
             try await session.putAccountData(secret, for: type)
         }
         
+        // MARK: Get key description
+        
         public func getKeyDescription(keyId: String) async throws -> KeyDescriptionContent? {
             logger.debug("Fetching key description for keyId [\(keyId)]")
             return try await session.getAccountData(for: "\(M_SECRET_STORAGE_KEY_PREFIX).\(keyId)", of: KeyDescriptionContent.self)
         }
 
+        // MARK: Add new key
+        public func addNewDefaultKey(key: Data, keyId: String) async throws {
+            logger.debug("Adding new key with key id \(keyId)")
+            // Super basic level: Add the new key to our keys
+            self.keys[keyId] = key
+            
+            // Now we need to be sure to keep all our bookkeeping stuff in order
+            switch state {
+            case .online(let oldDefaultKeyId):
+                let base64Key = key.base64EncodedString()
+                
+                guard let oldDefaultKey = self.keys[oldDefaultKeyId]
+                else {
+                    logger.error("Failed to get old default key for key id \(oldDefaultKeyId)")
+                    throw Matrix.Error("Failed to get old default key for key id \(oldDefaultKeyId)")
+                }
+                let oldBase64Key = oldDefaultKey.base64EncodedString()
+                
+                // Save our new key, encrypted under the old key, so other clients can access it
+                try await self.saveSecret(base64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(keyId)")
+                // Create the key description that allows us (and other clients) to verify that we have the correct bytes for the key
+                try await self.registerKey(key: key, keyId: keyId)
+                // Switch to the new key as our default
+                self.state = .online(keyId)
+                // Save the old key, encrypted under our new key, so we can recover old secrets in the future
+                try await self.saveSecret(oldBase64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(oldDefaultKeyId)")
+            default:
+                // If we were in some other state, good news!  Now we can be fully online.
+                // Create the key description that allows us (and other clients) to verify that we have the correct bytes for the key
+                try await self.registerKey(key: key, keyId: keyId)
+                // Switch to the new key as our default
+                self.state = .online(keyId)
+            }
+        }
+        
+        // MARK: Register key
+        
         public func registerKey(key: Data,
                                 keyId: String,
                                 name: String? = nil,
@@ -601,6 +654,8 @@ extension Matrix {
             
             try await session.putAccountData(content, for: type)
         }
+        
+        // MARK: Validate key
         
         public func validateKey(key: Data,
                                 keyId: String
@@ -678,6 +733,8 @@ extension Matrix {
             return true
         }
         
+        // MARK: Set default keyId
+        
         public func setDefaultKeyId(keyId: String) async throws {
             logger.debug("Setting keyId [\(keyId)] to be the default SSSS key")
             let content = DefaultKeyContent(key: keyId)
@@ -685,6 +742,8 @@ extension Matrix {
             
             try await session.putAccountData(content, for: type)
         }
+        
+        // MARK: Get default keyId
         
         public func getDefaultKeyId() async throws -> String? {
             logger.debug("Getting default keyId")
