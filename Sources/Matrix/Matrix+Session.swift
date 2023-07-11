@@ -208,7 +208,9 @@ extension Matrix {
                     logger.debug("Attempting to load stripped state for invited room \(roomId)")
                     let strippedStateEvents = try await store.loadStrippedState(for: roomId)
                     if let room = try? InvitedRoom(session: self, roomId: roomId, stateEvents: strippedStateEvents) {
-                        self.invitations[roomId] = room
+                        await MainActor.run {
+                            self.invitations[roomId] = room
+                        }
                     }
                 }
             }
@@ -420,8 +422,10 @@ extension Matrix {
                     }
                     
                     //if self.invitations[roomId] == nil {
-                        let room = try InvitedRoom(session: self, roomId: roomId, stateEvents: events)
+                    let room = try InvitedRoom(session: self, roomId: roomId, stateEvents: events)
+                    await MainActor.run {
                         self.invitations[roomId] = room
+                    }
                     //}
                 }
             } else {
@@ -524,7 +528,9 @@ extension Matrix {
                         
                     } else {
                         // Clearly the room is no longer in the 'invited' state
-                        invitations.removeValue(forKey: roomId)
+                        await MainActor.run {
+                            invitations.removeValue(forKey: roomId)
+                        }
                         // Also purge any stripped state that we had been storing for this room
                         try await deleteInvitedRoom(roomId: roomId)
                     }
@@ -540,8 +546,10 @@ extension Matrix {
                     logger.debug("Found left room \(roomId)")
                     // TODO: What should we do here?
                     // For now, just make sure these rooms are taken out of the other lists
-                    invitations.removeValue(forKey: roomId)
-                    rooms.removeValue(forKey: roomId)
+                    await MainActor.run {
+                        invitations.removeValue(forKey: roomId)
+                        rooms.removeValue(forKey: roomId)
+                    }
                 }
             } else {
                 logger.debug("No left rooms")
