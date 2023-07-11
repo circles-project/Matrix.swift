@@ -905,21 +905,28 @@ extension Matrix {
         /*
          This is the fancy new UIA-all-the-things version from my MSC
          */
-        public func updateAuth(filter: @escaping (UIAA.Flow) -> Bool) async throws {
+        public func updateAuth(filter: @escaping (UIAA.Flow) -> Bool,
+                               completion handler: UiaCompletionHandler? = nil
+        ) async throws {
             logger.debug("Updating authentication for user \(self.creds.userId.stringValue)")
             let path =  "/_matrix/client/v3/account/auth"
             let uia = try await uiaCall(method: "POST", path: path,
                                         requestDict: [:],
                                         filter: filter,
-                                        completion: { (_,_) in
+                                        completion: { (us,data) in
                                             logger.debug("Successfully updated auth")
+                                            if let handler = handler {
+                                                try await handler(us,data)
+                                            }
                                         })
         }
         
-        public func setBsSpekePassword() async throws {
+        public func setBsSpekePassword(_ handler: UiaCompletionHandler? = nil) async throws {
             try await updateAuth(filter: { (flow) -> Bool in
-                flow.stages.contains(AUTH_TYPE_ENROLL_BSSPEKE_SAVE)
-            })
+                                            flow.stages.contains(AUTH_TYPE_ENROLL_BSSPEKE_SAVE)
+                                         },
+                                 completion: handler)
+            
         }
         
         // MARK: who Am I
