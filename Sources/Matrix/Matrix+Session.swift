@@ -75,11 +75,7 @@ extension Matrix {
         }
 
         // Secret Storage
-        private var secretStore: SecretStore?
-        // We need to use the Matrix 'recovery' feature to back up crypto keys etc
-        // This saves us from struggling with UISI errors and unverified devices
-        private var recoverySecretKey: Data?
-        private var recoveryTimestamp: Date?
+        public private(set) var secretStore: SecretStore?
         
         // Matrix Rust crypto
         private var crypto: MatrixSDKCrypto.OlmMachine
