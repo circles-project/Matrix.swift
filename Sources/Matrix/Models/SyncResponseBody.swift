@@ -9,9 +9,9 @@ import Foundation
 
 extension Matrix {
     
-    public struct AccountDataEvent: Decodable {
+    public struct AccountDataEvent: Codable {
         public var type: String
-        public var content: Decodable
+        public var content: Codable
         
         public enum CodingKeys: String, CodingKey {
             case type
@@ -27,6 +27,12 @@ extension Matrix {
             logger.debug("\tAccount data event type = \(type)")
             self.content = try Matrix.decodeAccountData(of: self.type, from: decoder)
         }
+        
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(type, forKey: .type)
+            try container.encode(content, forKey: .content)
+        }
     }
     
     public struct SyncResponseBody: Decodable {
@@ -34,7 +40,7 @@ extension Matrix {
             public var events: [MinimalEvent]?
         }
         
-        public struct AccountData: Decodable {
+        public struct AccountData: Codable {
             // Here we can't use the MinimalEvent type that we already defined
             // Because Matrix is batshit and puts crazy stuff into these `type`s
             public var events: [AccountDataEvent]?
