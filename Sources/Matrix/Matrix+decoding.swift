@@ -86,6 +86,17 @@ extension Matrix {
             return content
         }
         
+        if dataType.starts(with: "\(ORG_FUTO_SSSS_KEY_PREFIX).") {
+            guard let keyId = dataType.split(separator: ".").last
+            else {
+                logger.error("Couldn't get key id for \(ORG_FUTO_SSSS_KEY_PREFIX)")
+                throw Matrix.Error("Couldn't get key id for \(ORG_FUTO_SSSS_KEY_PREFIX)")
+            }
+            let content = try container.decode(SecretStore.Secret.self, forKey: .content)
+            logger.debug("Matrix decoded content of type \(SecretStore.Secret.self)")
+            return content
+        }
+        
         logger.error("Cannot decode unknown account data type \(dataType)")
         throw Matrix.Error("Cannot decode unknown account data type \(dataType)")
     }
