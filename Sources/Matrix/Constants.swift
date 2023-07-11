@@ -60,8 +60,9 @@ public let M_FULLY_READ = "m.fully_read"
 public let M_DIRECT = "m.direct"
 public let M_IGNORED_USER_LIST = "m.ignored_user_list"
 public let M_PUSH_RULES = "m.push_rules"
-public let M_SECRET_STORAGE_KEY = "m.secret_storage.key" // Ugh this one is FUBAR.  The actual format is "m.secret_storage.key.[key ID]"
+public let M_SECRET_STORAGE_KEY_PREFIX = "m.secret_storage.key" // Ugh this one is ugly.  The actual format is "m.secret_storage.key.[key ID]"
 public let M_SECRET_STORAGE_DEFAULT_KEY = "m.secret_storage.default_key"
+public let ORG_FUTO_SSSS_KEY_PREFIX = "org.futo.ssss.key" // This one is like M_SECRET_STORAGE_KEY_PREFIX but we use it to store encrypted keys as secrets, whereas the other one is only for storing the key descriptions
 // We already have M_TAG = "m.tag"
 public let M_MEGOLM_BACKUP_V1 = "m.megolm_backup.v1" // For storing the private half of the recovery key, as an encrypted secret
 

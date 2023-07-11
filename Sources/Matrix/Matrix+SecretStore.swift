@@ -195,6 +195,8 @@ extension Matrix {
                 try await setDefaultKeyId(keyId: defaultKeyId)
             }
             
+            self.registerAccountDataHandler()
+            
             logger.debug("Done with init")
         }
         
@@ -218,6 +220,7 @@ extension Matrix {
             guard let defaultKeyId = try await getDefaultKeyId()
             else {
                 logger.warning("No default keyId for SSSS")
+                self.registerAccountDataHandler()
                 return
             }
             
@@ -226,35 +229,117 @@ extension Matrix {
             if let key = keys[defaultKeyId] {
                 logger.debug("SSSS is online with key [\(defaultKeyId)]")
                 self.state = .online(defaultKeyId)
-                return
             } else {
                 logger.debug("Can't find the actual key for keyId [\(defaultKeyId)]")
+                
+                logger.debug("Looking in Keychain for key with keyId \(defaultKeyId)")
+                // If the key isn't already loaded in memory, then maybe we have previously saved it in the Keychain
+                // - If we have the default key, then we are in state `.online(keyId)` where `keyId` is the id of our default key
+                let keychain = KeychainSecretStore(userId: session.creds.userId)
+                if let key = try await keychain.loadKey(keyId: defaultKeyId, reason: "The app needs to load cryptographic keys for your account") {
+                    logger.debug("Found key \(defaultKeyId) in the Keychain")
+                    self.keys[defaultKeyId] = key
+                    self.state = .online(defaultKeyId)
+                } else {
+                    logger.debug("Failed to load key \(defaultKeyId) from the Keychain ")
+                    
+                    // If we don't have the default key, then there's not much that we can do.
+                    logger.debug("Failed to load default SSSS key with keyId \(defaultKeyId)")
+                    // Set `state` to `.needKey` with the default key's description, so that the application can prompt the user
+                    // to provide a passphrase.
+                    logger.debug("Fetching key description")
+                    if let description = try await getKeyDescription(keyId: defaultKeyId) {
+                        logger.debug("Setting state to .needKey")
+                        self.state = .needKey(description)
+                    }
+                }
             }
             
-            logger.debug("Looking in Keychain for key with keyId \(defaultKeyId)")
-            // If the key isn't already loaded in memory, then maybe we have previously saved it in the Keychain
-            // - If we have the default key, then we are in state `.online(keyId)` where `keyId` is the id of our default key
-            let keychain = KeychainSecretStore(userId: session.creds.userId)
-            if let key = try await keychain.loadKey(keyId: defaultKeyId, reason: "The app needs to load cryptographic keys for your account") {
-                logger.debug("Found key \(defaultKeyId) in the Keychain")
-                self.keys[defaultKeyId] = key
-                self.state = .online(defaultKeyId)
-                return
-            } else {
-                logger.debug("Failed to load key \(defaultKeyId) from the Keychain ")
-            }
-
-            // If we don't have the default key, then there's not much that we can do.
-            logger.debug("Failed to load default SSSS key with keyId \(defaultKeyId)")
-            // Set `state` to `.needKey` with the default key's description, so that the application can prompt the user
-            // to provide a passphrase.
-            logger.debug("Fetching key description")
-            if let description = try await getKeyDescription(keyId: defaultKeyId) {
-                logger.debug("Setting state to .needKey")
-                self.state = .needKey(description)
-            }
+            self.registerAccountDataHandler()
             
             logger.debug("Done with init")
+        }
+        
+        private func registerAccountDataHandler() {
+            
+            func filter(type: String) -> Bool {
+                [M_SECRET_STORAGE_DEFAULT_KEY].contains(type) || type.starts(with: M_SECRET_STORAGE_KEY_PREFIX)
+            }
+            
+            self.session.addAccountDataHandler(filter: filter,
+                                               handler: self.handleAccountDataEvent)
+        }
+        
+        public func handleAccountDataEvent(_ event: AccountDataEvent) {
+            if event.type == M_SECRET_STORAGE_DEFAULT_KEY {
+                
+                // New default key
+                guard let defaultKeyContent = event.content as? DefaultKeyContent
+                else {
+                    logger.error("Failed to parse default key content of type [\(event.type)]")
+                    return
+                }
+                
+                let newDefaultKeyId = defaultKeyContent.key
+                // Ok now we know the id of the new default key
+                // But unfortunately we probably don't have the key itself -- This came in over /sync.
+
+                if case let .online(currentDefaultKeyId) = self.state,
+                   currentDefaultKeyId == newDefaultKeyId
+                {
+                    logger.debug("Already using keyId \(newDefaultKeyId) as the default.  Doing nothing.")
+                }
+                else if let key = self.keys[newDefaultKeyId] {
+                    logger.debug("Switching default key to \(newDefaultKeyId)")
+                    self.state = .online(newDefaultKeyId)
+                } else {
+                    // Not sure what to do here...
+                    // I guess we save the new default key id as "pending" and wait for the key itself to come in???
+                    // FIXME: Not implemented
+                    logger.error("FIXME: Not really handling \(event.type) yet")
+                }
+                
+            } else if event.type.starts(with: M_SECRET_STORAGE_KEY_PREFIX) {
+                
+                // New key description, which might tell us how to reconstruct a key from a passphrase
+                guard let keyDescriptionContent = event.content as? KeyDescriptionContent
+                else {
+                    logger.error("Failed to parse key descripiton content for [\(event.type)]")
+                    return
+                }
+                // FIXME: Not implemented
+                logger.error("FIXME: Not really handling \(event.type) yet")
+                
+            } else if event.type.starts(with: ORG_FUTO_SSSS_KEY_PREFIX) {
+                // New encrypted secret storage key
+                // Hopefully this one will be more useful than the key description
+                guard let secret = event.content as? Secret
+                else {
+                    logger.error("Failed to parse encrypted secret for account data event type [\(event.type)]")
+                    return
+                }
+                
+                guard let decrypted = try? decryptSecret(secret: secret, type: event.type)
+                else {
+                    logger.error("Failed to decrypt secret storage key \(event.type)")
+                    return
+                }
+                
+                // The key was base64 encoded before encryption
+                let decoder = JSONDecoder()
+                guard let base64key = try? decoder.decode(String.self, from: decrypted)
+                else {
+                    logger.error("Failed to extract base64-encoded key from decrypted event [\(event.type)]")
+                    return
+                }
+                
+                let key = Data(base64Encoded: base64key)
+                // Whew now we finally have the raw bytes of our new key
+                // Construct its official Matrix key id
+                let keyId = M_SECRET_STORAGE_KEY_PREFIX + "." + event.type.dropFirst(ORG_FUTO_SSSS_KEY_PREFIX.count + 1)
+                // And add it to our collection of keys
+                self.keys[keyId] = key
+            }
         }
         
         public static func computeKeyId(key: Data) throws -> String {
@@ -408,6 +493,24 @@ extension Matrix {
             
             return Data(decryptedBytes)
         }
+        
+        private func decryptSecret(secret: Secret, type: String) throws -> Data? {
+            // Look at all of the encryptions, and see if there's one where we know the key -- or where we can get the key
+            for (keyId, encryptedData) in secret.encrypted {
+                guard let key = self.keys[keyId]
+                else {
+                    logger.warning("Couldn't get key for id \(keyId)")
+                    continue
+                }
+                logger.debug("Got key and description for key id [\(keyId)]")
+                
+                let decryptedData = try decrypt(name: type, encrypted: encryptedData, key: key)
+                logger.debug("Successfully decrypted data for secret [\(type)]")
+                return decryptedData
+            }
+            logger.warning("Couldn't find a key to decrypt secret [\(type)]")
+            return nil
+        }
             
         public func getSecret<T: Codable>(type: String) async throws -> T? {
             
@@ -421,26 +524,22 @@ extension Matrix {
             }
 
             // Now we have the encrypted secret downloaded
-            // Look at all of the encryptions, and see if there's one where we know the key -- or where we can get the key
-            for (keyId, encryptedData) in secret.encrypted {
-                guard let key = self.keys[keyId]
-                else {
-                    logger.warning("Couldn't get key for id \(keyId)")
-                    continue
-                }
-                logger.debug("Got key and description for key id [\(keyId)]")
-                
-                let decryptedData = try decrypt(name: type, encrypted: encryptedData, key: key)
-                logger.debug("Successfully decrypted data for secret [\(type)]")
-                
-                let decoder = JSONDecoder()
-                if let object = try? decoder.decode(T.self, from: decryptedData) {
-                    logger.debug("Successfully decoded object of type [\(T.self)]")
-                    return object
-                }
+
+            guard let data = try decryptSecret(secret: secret, type: type)
+            else {
+                logger.error("Decryption failed for secret [\(type)]")
+                throw Matrix.Error("Decryption failed for secret [\(type)]")
             }
-            logger.warning("Couldn't find a key to decrypt secret [\(type)]")
-            return nil
+                
+            let decoder = JSONDecoder()
+            guard let object = try? decoder.decode(T.self, from: data)
+            else {
+                logger.error("Failed to decode decrypted secret [\(type)]")
+                throw Matrix.Error("Failed to decode decrypted secret [\(type)]")
+            }
+                    
+            logger.debug("Successfully decoded object of type [\(T.self)]")
+            return object
         }
         
         public func saveSecret<T: Codable>(_ content: T, type: String) async throws {
@@ -462,6 +561,9 @@ extension Matrix {
             // FIXME: Whooooooaaaaaa - Hold on a minute
             // We have NO WAY to know whether the old value is the same as the new one!
             // What should we do here?!?
+            // ANSWER: For now we're assuming that secrets are never-changing,
+            // so it's OK to keep the old encryptions around as long as they're for other keys
+            // Any old encryptions under this current key will be overwritten.
             let existingSecret = try await session.getAccountData(for: type, of: Secret.self)
             var secret = existingSecret ?? Secret(encrypted: [:])
             
@@ -472,13 +574,13 @@ extension Matrix {
             // Add our encryption to whatever was there before, overwriting any previous encryption to this key
             secret.encrypted[keyId] = encryptedData
             
-            // Upload the EncryptedData object to SSSS
+            // Upload the updated secret to our Account Data
             try await session.putAccountData(secret, for: type)
         }
         
         public func getKeyDescription(keyId: String) async throws -> KeyDescriptionContent? {
             logger.debug("Fetching key description for keyId [\(keyId)]")
-            return try await session.getAccountData(for: "m.secret_storage.key.\(keyId)", of: KeyDescriptionContent.self)
+            return try await session.getAccountData(for: "\(M_SECRET_STORAGE_KEY_PREFIX).\(keyId)", of: KeyDescriptionContent.self)
         }
 
         public func registerKey(key: Data,
@@ -495,7 +597,7 @@ extension Matrix {
             let mac = encrypted.mac
             
             let content = KeyDescriptionContent(name: name, algorithm: algorithm, passphrase: passphrase, iv: iv, mac: mac)
-            let type = "m.secret_storage.key.\(keyId)"
+            let type = "\(M_SECRET_STORAGE_KEY_PREFIX).\(keyId)"
             
             try await session.putAccountData(content, for: type)
         }

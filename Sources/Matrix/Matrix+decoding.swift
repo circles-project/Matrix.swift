@@ -74,11 +74,11 @@ extension Matrix {
             return content
         }
         
-        if dataType.starts(with: "\(M_SECRET_STORAGE_KEY).") {
+        if dataType.starts(with: "\(M_SECRET_STORAGE_KEY_PREFIX).") {
             guard let keyId = dataType.split(separator: ".").last
             else {
-                let msg = "Couldn't get key id for \(M_SECRET_STORAGE_KEY)"
-                logger.error("Couldn't get key id for \(M_SECRET_STORAGE_KEY)")
+                let msg = "Couldn't get key id for \(M_SECRET_STORAGE_KEY_PREFIX)"
+                logger.error("Couldn't get key id for \(M_SECRET_STORAGE_KEY_PREFIX)")
                 throw Matrix.Error(msg)
             }
             let content = try container.decode(KeyDescriptionContent.self, forKey: .content)
