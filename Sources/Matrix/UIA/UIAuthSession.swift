@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 import AnyCodable
 import BlindSaltSpeke
 
@@ -19,6 +20,8 @@ public class UIAuthSession: UIASession, ObservableObject {
     @Published public var state: UIASessionState
     public var realRequestDict: [String:Codable] // The JSON fields for the "real" request behind the UIA protection
     public var storage = [String: Any]() // For holding onto data between requests, like we do on the server side
+    
+    private var logger = os.Logger(subsystem: "matrix", category: "UIA")
     
     // Shortcut to get around a bunch of `case let` nonsense everywhere
     public var sessionState: UIAA.SessionState? {
@@ -120,8 +123,6 @@ public class UIAuthSession: UIASession, ObservableObject {
     // MARK: connect()
     
     public func connect() async throws {
-        let tag = "UIA(init)"
-        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -139,17 +140,17 @@ public class UIAuthSession: UIASession, ObservableObject {
             }
             request.httpBody = try encoder.encode(anyCodableRequestDict)
             let requestBody = String(decoding: request.httpBody!, as: UTF8.self)
-            print("\(tag)\t\(requestBody)")
+            logger.debug("Request body = \(requestBody)")
         }
         let (data, response) = try await URLSession.shared.data(for: request)
         
-        print("\(tag)\tTrying to parse the response")
+        logger.debug("Trying to parse the response")
         guard let httpResponse = response as? HTTPURLResponse else {
             let msg = "Couldn't decode HTTP response"
-            print("\(tag)\t\(msg)")
+            logger.error("Couldn't decode HTTP response")
             throw Matrix.Error(msg)
         }
-        print("\(tag)\tParsed HTTP response")
+        logger.debug("Parsed HTTP response")
         
         if httpResponse.statusCode == 200 {
             await MainActor.run {
@@ -163,23 +164,22 @@ public class UIAuthSession: UIASession, ObservableObject {
         
         guard httpResponse.statusCode == 401 else {
             let msg = "Got unexpected HTTP response code (\(httpResponse.statusCode))"
-            print("\(tag)\t\(msg)")
+            logger.error("\(msg)")
             throw Matrix.Error(msg)
         }
         
-        print("Raw HTTP response:")
         let rawStringResponse = String(data: data, encoding: .utf8)!
-        print(rawStringResponse)
+        logger.debug("Raw HTTP response: \(rawStringResponse)")
         
         let decoder = JSONDecoder()
         //decoder.keyDecodingStrategy = .convertFromSnakeCase
         
         guard let sessionState = try? decoder.decode(UIAA.SessionState.self, from: data) else {
             let msg = "Couldn't decode response"
-            print("\(tag)\t\(msg)")
+            logger.error("\(msg)")
             throw Matrix.Error(msg)
         }
-        print("\(tag)\tGot a new UIA session")
+        logger.debug("Got a new UIA session")
         
         //self.state = .inProgress(sessionState)
         await MainActor.run {
@@ -256,13 +256,13 @@ public class UIAuthSession: UIASession, ObservableObject {
             print("No auth type")
             return
         }
-        let tag = "UIA(\(AUTH_TYPE))"
+        let tag = AUTH_TYPE
         
-        print("\(tag)\tValidating")
+        logger.debug("\(tag)\tValidating")
         
         guard case .inProgress(let uiaState, let stages) = state else {
             let msg = "Signup session must be started before attempting stages"
-            print("\(tag)\t\(msg)")
+            logger.error("\(tag)\t\(msg)")
             throw Matrix.Error(msg)
         }
         
@@ -270,11 +270,11 @@ public class UIAuthSession: UIASession, ObservableObject {
         guard stages.first == AUTH_TYPE
         else {
             let msg = "Attempted stage \(AUTH_TYPE) but next required stage is [\(stages.first ?? "none")]"
-            print("\(tag)\t\(msg)")
+            logger.error("\(tag)\t\(msg)")
             throw Matrix.Error("Incorrect next stage: \(AUTH_TYPE)")
         }
         
-        print("\(tag)\tStarting")
+        logger.debug("\(tag)\tStarting")
         
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -298,28 +298,27 @@ public class UIAuthSession: UIASession, ObservableObject {
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
-        print("\(tag)\tGot response")
         let stringResponse = String(data: data, encoding: .utf8)!
-        print(stringResponse)
-        
+        logger.debug("\(tag)\tGot response: \(stringResponse)")
+
         guard let httpResponse = response as? HTTPURLResponse
         else {
             let msg = "Couldn't decode UI auth stage response"
-            print("\(tag)\tError: \(msg)")
+            logger.error("\(tag)\tError: \(msg)")
             throw Matrix.Error(msg)
         }
         
         guard [200,401].contains(httpResponse.statusCode)
         else {
             let msg = "UI auth stage failed"
-            print("\(tag)\tError: \(msg)")
-            print("\(tag)\tStatus Code: \(httpResponse.statusCode)")
-            print("\(tag)\tRaw response: \(stringResponse)")
+            logger.error("\(tag)\tError: \(msg)")
+            logger.error("\(tag)\tStatus Code: \(httpResponse.statusCode)")
+            logger.error("\(tag)\tRaw response: \(stringResponse)")
             throw Matrix.Error(msg)
         }
         
         if httpResponse.statusCode == 200 {
-            print("\(tag)\tAll done!")
+            logger.debug("\(tag)\tAll done!")
             await MainActor.run {
                 state = .finished(data)
             }
@@ -333,32 +332,32 @@ public class UIAuthSession: UIASession, ObservableObject {
         guard let newUiaaState = try? decoder.decode(UIAA.SessionState.self, from: data)
         else {
             let msg = "Couldn't decode UIA response"
-            print("\(tag)\tError: \(msg)")
+            logger.error("\(tag)\tError: \(msg)")
             let rawDataString = String(data: data, encoding: .utf8)!
-            print("\(tag)\tRaw response:\n\(rawDataString)")
+            logger.error("\(tag)\tRaw response:\n\(rawDataString)")
             throw Matrix.Error(msg)
         }
         
         if let completed = newUiaaState.completed {
             if completed.contains(AUTH_TYPE) {
-                print("\(tag)\tComplete")
+                logger.debug("\(tag)\tComplete")
                 let newStages: [String] = Array(stages.suffix(from: 1))
                 await MainActor.run {
                     state = .inProgress(newUiaaState,newStages)
                 }
-                print("New UIA state:")
-                print("\tFlows:\t\(newUiaaState.flows)")
-                print("\tCompleted:\t\(completed)")
+                logger.debug("New UIA state:")
+                logger.debug("\tFlows:\t\(newUiaaState.flows)")
+                logger.debug("\tCompleted:\t\(completed)")
                 if let params = newUiaaState.params {
-                    print("\tParams:\t\(params)")
+                    logger.debug("\tParams:\t\(params)")
                 }
-                print("\tStages:\t\(newStages)")
+                logger.debug("\tStages:\t\(newStages)")
 
             } else {
-                print("\(tag)\tStage isn't complete???  Completed = \(completed)")
+                logger.debug("\(tag)\tStage isn't complete???  Completed = \(completed)")
             }
         } else {
-            print("\(tag)\tNo completed stages :(")
+            logger.debug("\(tag)\tNo completed stages :(")
         }
         
     }
