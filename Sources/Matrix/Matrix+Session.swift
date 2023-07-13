@@ -925,23 +925,20 @@ extension Matrix {
             
         }
         
-        public override func deleteDevice(deviceId: String) async throws -> UIAuthSession? {
-            if let newUiaSession = try await super.deleteDevice(deviceId: deviceId) {
-                
-                switch newUiaSession.state {
-                case .finished(_):
-                    return nil
-                default:
-                    await MainActor.run {
-                        self.uiaSession = newUiaSession
-                    }
-                    return newUiaSession
-                }
-                
-            } else {
-                logger.debug("Delete device request did not require UIA")
-                return nil
-            }
+        public func deleteDevice(deviceId: String,
+                                 completion handler: UiaCompletionHandler? = nil
+        ) async throws {
+            logger.debug("Updating authentication for user \(self.creds.userId.stringValue)")
+            let path =  "/_matrix/client/v3/devices/\(deviceId)"
+            let uia = try await uiaCall(method: "DELETE", path: path,
+                                        requestDict: [:],
+                                        filter: { _ in true },
+                                        completion: { (us,data) in
+                                            logger.debug("Successfully deleted device")
+                                            if let handler = handler {
+                                                try await handler(us,data)
+                                            }
+                                        })
         }
         
         // MARK: who Am I
