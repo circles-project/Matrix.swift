@@ -397,7 +397,7 @@ public class Client {
     }
     
     public func getDevice(deviceId: String) async throws -> Matrix.MyDevice {
-        let path = "/_matrix/client/\(version)/devices/\(deviceId)"
+        let path = "/_matrix/client/v3/devices/\(deviceId)"
         let (data, response) = try await call(method: "GET", path: path)
         
         struct DeviceInfo: Codable {
