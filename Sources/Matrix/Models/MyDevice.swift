@@ -22,7 +22,7 @@ extension Matrix {
             self.displayName = displayName
             self.lastSeenIp = lastSeenIp
             if let unixMs = lastSeenUnixMs {
-                let interval = TimeInterval(1000 * unixMs)
+                let interval = TimeInterval(Double(unixMs)/1000.0)
                 self.lastSeenTs = Date(timeIntervalSince1970: interval)
             }
         }
