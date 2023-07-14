@@ -1892,15 +1892,18 @@ extension Matrix {
         // MARK: logout
         
         public override func logout() async throws {
-            self.syncRequestTask?.cancel()
-            self.backgroundSyncTask?.cancel()
-            self.users = [:]
-            self.rooms = [:]
-            self.invitations = [:]
-            self.spaceChildRooms = [:]
-            self.accountData = [:]
+            await MainActor.run {
+                self.syncRequestTask?.cancel()
+                self.backgroundSyncTask?.cancel()
+                self.users = [:]
+                self.rooms = [:]
+                self.invitations = [:]
+                self.spaceChildRooms = [:]
+                self.accountData = [:]
+            }
             try await super.logout()
             try await dataStore?.close()
         }
+        
     }
 }
