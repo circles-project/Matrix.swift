@@ -522,8 +522,8 @@ extension Matrix {
                             await room.updateUnreadCounts(notifications: unread.notificationCount, highlights: unread.highlightCount)
                         }
                         
-                        if let roomAccountData = info.accountData {
-                            await room.updateAccountData(events: roomAccountData.events)
+                        if let roomAccountDataEvents = info.accountData?.events {
+                            await room.updateAccountData(events: roomAccountDataEvents)
                         }
 
                     } else {
