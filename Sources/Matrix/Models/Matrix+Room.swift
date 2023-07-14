@@ -41,6 +41,8 @@ extension Matrix {
         @Published public var highlightCount: Int = 0
         @Published public var notificationCount: Int = 0
         
+        private(set) public var accountData: [String: Codable]
+        
         private var backwardToken: String?
         private var forwardToken: String?
         
@@ -63,6 +65,7 @@ extension Matrix {
             ]
             self.replies = [:]
             self.state = [:]
+            self.accountData = [:]
             
             self.logger = os.Logger(subsystem: "matrix", category: "room \(roomId)")
             
@@ -304,6 +307,14 @@ extension Matrix {
             .compactMap{ $0 }
         }
         
+        // MARK: Account Data
+
+        public func updateAccountData(events: [AccountDataEvent]) async {
+            for event in events {
+                self.accountData[event.type] = event.content
+            }
+        }
+
         // MARK: Computed properties
         
         public var version: String {

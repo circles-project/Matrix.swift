@@ -522,6 +522,10 @@ extension Matrix {
                             await room.updateUnreadCounts(notifications: unread.notificationCount, highlights: unread.highlightCount)
                         }
                         
+                        if let roomAccountData = info.accountData {
+                            await room.updateAccountData(events: roomAccountData.events)
+                        }
+
                     } else {
                         // Clearly the room is no longer in the 'invited' state
                         await MainActor.run {
