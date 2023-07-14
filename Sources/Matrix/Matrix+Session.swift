@@ -45,7 +45,7 @@ extension Matrix {
         
         // cvw: Stuff that we need to add, but haven't got to yet
         public typealias AccountDataFilter = (String) -> Bool
-        public typealias AccountDataHandler = (AccountDataEvent) -> Void
+        public typealias AccountDataHandler = (AccountDataEvent) async throws -> Void
         @Published public private(set) var accountData: [String: Codable]
         private var accountDataHandlers: [(AccountDataFilter,AccountDataHandler)] = []
         
@@ -564,7 +564,7 @@ extension Matrix {
                     updates[event.type] = event.content
                     for (filter,handler) in self.accountDataHandlers {
                         if filter(event.type) {
-                            handler(event)
+                            try await handler(event)
                         }
                     }
                 }

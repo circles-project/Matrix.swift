@@ -274,7 +274,7 @@ extension Matrix {
                                                handler: self.handleAccountDataEvent)
         }
         
-        public func handleAccountDataEvent(_ event: AccountDataEvent) {
+        public func handleAccountDataEvent(_ event: AccountDataEvent) async throws {
             if event.type == M_SECRET_STORAGE_DEFAULT_KEY {
                 
                 // New default key
@@ -323,7 +323,7 @@ extension Matrix {
                     return
                 }
                 
-                guard let decrypted = try? decryptSecret(secret: secret, type: event.type)
+                guard let decrypted = try? await decryptSecret(secret: secret, type: event.type)
                 else {
                     logger.error("Failed to decrypt secret storage key \(event.type)")
                     return
@@ -504,10 +504,13 @@ extension Matrix {
             return Data(decryptedBytes)
         }
         
-        private func decryptSecret(secret: Secret, type: String) throws -> Data? {
+        // MARK: Decrypt secret
+        
+        private func decryptSecret(secret: Secret, type: String) async throws -> Data? {
             // Look at all of the encryptions, and see if there's one where we know the key -- or where we can get the key
             for (keyId, encryptedData) in secret.encrypted {
-                guard let key = self.keys[keyId]
+                logger.debug("Trying to decrypt secret \(type) with key \(keyId)")
+                guard let key = try await self.getKey(keyId: keyId)
                 else {
                     logger.warning("Couldn't get key for id \(keyId)")
                     continue
@@ -534,14 +537,16 @@ extension Matrix {
                 logger.debug("Could not download account data for type [\(type)]")
                 return nil
             }
+            logger.debug("Downloaded enrypted secret \(type)")
 
             // Now we have the encrypted secret downloaded
 
-            guard let data = try decryptSecret(secret: secret, type: type)
+            guard let data = try await decryptSecret(secret: secret, type: type)
             else {
                 logger.error("Decryption failed for secret [\(type)]")
                 throw Matrix.Error("Decryption failed for secret [\(type)]")
             }
+            logger.debug("Decrypted secret \(type)")
                 
             let decoder = JSONDecoder()
             guard let object = try? decoder.decode(T.self, from: data)
@@ -590,6 +595,25 @@ extension Matrix {
             
             // Upload the updated secret to our Account Data
             try await session.putAccountData(secret, for: type)
+        }
+        
+        // MARK: Get key
+        public func getKey(keyId: String) async throws -> Data? {
+            logger.debug("Getting key for keyId \(keyId)")
+            
+            if let key = self.keys[keyId] {
+                logger.debug("Key \(keyId) was already in our cache")
+                return key
+            }
+            
+            logger.debug("Looking for encrypted key \(keyId) in secret storage")
+            if let base64Key: String = try await getSecret(type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(keyId)") {
+                let key = Data(base64Encoded: base64Key)
+                return key
+            }
+            
+            logger.error("Couldn't get key for keyId \(keyId)")
+            return nil
         }
         
         // MARK: Get key description
