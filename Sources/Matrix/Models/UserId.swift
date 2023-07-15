@@ -22,6 +22,11 @@ public struct UserId: LosslessStringConvertible, Codable, Identifiable, Equatabl
         else {
             return false
         }
+        guard toks.count < 4,
+              toks.count > 1
+        else {
+            return false
+        }
         // Now we need to figure out if we have a port number in our homeserver
         // And if we do, it needs to be all-numeric
         if toks.count == 3 {
@@ -35,20 +40,15 @@ public struct UserId: LosslessStringConvertible, Codable, Identifiable, Equatabl
                 return false
             }
         }
-        if toks.count >= 2 {
-            // Does it look like we have a valid hostname?
-            // There's really not a lot that we can do here, given that hostnames may not be FQDN's
-            //     e.g. for testing, the hostname is often 'localhost'
-            let host = toks[1]
-            guard !host.isEmpty
-            else {
-                return false
-            }
-            return true
-        } else {
+        // Does it look like we have a valid hostname?
+        // There's really not a lot that we can do here, given that hostnames may not be FQDN's
+        //     e.g. for testing, the hostname is often 'localhost'
+        let host = toks[1]
+        guard !host.isEmpty
+        else {
             return false
         }
-
+        return true
     }
     
     // for LosslessStringConvertible
