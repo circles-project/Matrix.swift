@@ -37,11 +37,11 @@ extension Matrix {
         private(set) public var replies: [EventId: Set<Message>]
 
         @Published private(set) public var state: [String: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
-        
+                
         @Published public var highlightCount: Int = 0
         @Published public var notificationCount: Int = 0
         
-        private(set) public var accountData: [String: Codable]
+        @Published private(set) public var accountData: [String: Codable]
         
         private var backwardToken: String?
         private var forwardToken: String?
@@ -52,7 +52,11 @@ extension Matrix {
         
         // MARK: init
         
-        public required init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialTimeline: [ClientEventWithoutRoomId] = []) throws {
+        public required init(roomId: RoomId, session: Session,
+                             initialState: [ClientEventWithoutRoomId],
+                             initialTimeline: [ClientEventWithoutRoomId] = [],
+                             initialAccountData: [AccountDataEvent] = []
+        ) throws {
             self.roomId = roomId
             self.session = session
             self.timeline = [:] // Set this to empty for starters, because we need `self` to create instances of Matrix.Message
@@ -100,6 +104,10 @@ extension Matrix {
             self.timeline = [:]
             for event in initialTimeline {
                 self.timeline[event.eventId] = Matrix.Message(event: event, room: self)
+            }
+            
+            for event in initialAccountData {
+                self.accountData[event.type] = event.content
             }
             
             // Now run all the async stuff that we can't run in a sync context
@@ -480,6 +488,17 @@ extension Matrix {
         
         public var earliestMessage: Matrix.Message? {
             messages.first
+        }
+        
+        public var tags: [String] {
+            guard let content = self.accountData[M_TAG] as? TagContent
+            else {
+                return []
+            }
+            // Values here are simply the "order" from the JSON structure
+            // Keys are the String tags
+            // Return the tags sorted by "order"
+            return content.tags.sorted(by: { $0.value < $1.value }).compactMap { $0.key }
         }
         
         // MARK: Room "profile"

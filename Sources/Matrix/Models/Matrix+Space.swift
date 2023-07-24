@@ -10,9 +10,13 @@ import Foundation
 extension Matrix {
     open class SpaceRoom: Room {
         
-        public required init(roomId: RoomId, session: Session, initialState: [ClientEventWithoutRoomId], initialTimeline: [ClientEventWithoutRoomId] = []) throws {
+        public required init(roomId: RoomId, session: Session,
+                             initialState: [ClientEventWithoutRoomId],
+                             initialTimeline: [ClientEventWithoutRoomId] = [],
+                             initialAccountData: [AccountDataEvent] = []
+        ) throws {
 
-            try super.init(roomId: roomId, session: session, initialState: initialState, initialTimeline: initialTimeline)
+            try super.init(roomId: roomId, session: session, initialState: initialState, initialTimeline: initialTimeline, initialAccountData: initialAccountData)
             
             guard self.type == M_SPACE
             else {
