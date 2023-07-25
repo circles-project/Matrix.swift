@@ -1,9 +1,10 @@
 # Matrix.swift - A native Matrix client SDK in Swift
 
 This package provides an (unofficial, third party) native Swift implementation
-of the [Matrix](https://matrix.org/) client-server API.
+of the [Matrix](https://matrix.org/) client-server API for writing Matrix
+clients on Apple platforms (iOS / MacOS / etc).
 
-It wraps the [Matrix Rust Crypto SDK](https://github.com/matrix-org/matrix-rust-sdk/tree/main/bindings/apple)
+Matrix.swift wraps the [Matrix Rust Crypto SDK](https://github.com/matrix-org/matrix-rust-sdk/tree/main/bindings/apple)
 to provide support for end-to-end encryption (E2EE).
 
 ## Status
@@ -42,7 +43,7 @@ Current features include:
 * Sending, accepting, and rejecting invites
 * Knocking, joining, and leaving rooms
 * Enumerating room members
-* Kicking and banning users
+* Kicking and banning members
 
 **Encryption**
 * Encrypting and decrypting E2EE messages
@@ -55,4 +56,6 @@ Current features include:
 * ~~Secret storage~~
 * ~~Cross-signing~~
 * ~~Encrypted key backup~~
-* Use the Keychain to hold secret storage keys on the device
+* [Use the Keychain to hold secret storage keys on the device](https://gitlab.futo.org/circles/matrix.swift/-/issues/22)
+* [Store account data locally in the database](https://gitlab.futo.org/circles/matrix.swift/-/issues/23)
+* [Update to the latest Rust Crypto SDK](https://gitlab.futo.org/circles/matrix.swift/-/issues/14)
