@@ -48,7 +48,7 @@ public protocol DataStore {
     
     func loadAccountData(of type: String, in roomId: RoomId?) async throws -> Codable?
     
-    func loadAccountDataEvents(from roomId: RoomId?, limit: Int, offset: Int?) async throws -> [Matrix.AccountDataEvent]
+    func loadAccountDataEvents(roomId: RoomId?, limit: Int, offset: Int?) async throws -> [Matrix.AccountDataEvent]
     
     func saveAccountData(events: [Matrix.AccountDataEvent], in roomId: RoomId?) async throws
 }

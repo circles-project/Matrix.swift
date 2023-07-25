@@ -525,7 +525,7 @@ public struct GRDBDataStore: DataStore {
         return record?.content
     }
     
-    public func loadAccountDataEvents(from roomId: RoomId? = nil,
+    public func loadAccountDataEvents(roomId: RoomId? = nil,
                                       limit: Int = 1000, offset: Int? = nil
     ) async throws -> [Matrix.AccountDataEvent] {
         let roomIdColumn = AccountDataRecord.Columns.roomId
