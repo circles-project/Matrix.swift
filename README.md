@@ -59,3 +59,29 @@ Current features include:
 * [Use the Keychain to hold secret storage keys on the device](https://gitlab.futo.org/circles/matrix.swift/-/issues/22)
 * [Store account data locally in the database](https://gitlab.futo.org/circles/matrix.swift/-/issues/23)
 * [Update to the latest Rust Crypto SDK](https://gitlab.futo.org/circles/matrix.swift/-/issues/14)
+
+
+## Using Matrix.swift in your app
+
+You can install the library as a Swift package directly from this Git repository.
+
+In your `Package.swift`, include the following lines:
+```swift
+dependencies: [
+    ...
+    .package(url: "https://gitlab.futo.org/circles/matrix.swift", branch: "main")
+],
+targets: [
+    .target(
+        name: "YOUR TARGET",
+        dependencies: [
+            ...
+            .product(name: "Matrix", package: "Matrix.swift")
+        ]
+    )
+]
+```
+
+Or in Xcode, add Matrix.swift to the `Package Dependencies` for your project:
+
+![Xcode screenshot](assets/xcode-screenshot.png)
