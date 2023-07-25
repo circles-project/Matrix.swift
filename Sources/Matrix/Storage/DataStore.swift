@@ -45,4 +45,10 @@ public protocol DataStore {
     func saveRoomTimestamp(roomId: RoomId, state: RoomMemberContent.Membership, timestamp: UInt64) async throws
     
     func deleteStrippedState(for roomId: RoomId) async throws -> Int
+    
+    func loadAccountData(of type: String, in roomId: RoomId?) async throws -> Codable?
+    
+    func loadAccountDataEvents(roomId: RoomId?, limit: Int, offset: Int?) async throws -> [Matrix.AccountDataEvent]
+    
+    func saveAccountData(events: [Matrix.AccountDataEvent], in roomId: RoomId?) async throws
 }

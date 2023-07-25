@@ -211,6 +211,14 @@ extension Matrix {
                 }
             }
             
+            // Load our account data
+            if let store = self.dataStore {
+                let events = try await store.loadAccountDataEvents(roomId: nil, limit: 1000, offset: nil)
+                for event in events {
+                    self.accountData[event.type] = event
+                }
+            }
+            
             // Are we supposed to start syncing?
             if startSyncing {
                 try await startBackgroundSync()
@@ -999,10 +1007,12 @@ extension Matrix {
                 logger.debug("\(tag)\tLoaded \(stateEvents.count) timeline events")
                 */
                 let timelineEvents = [ClientEventWithoutRoomId]()
+                
+                let accountDataEvents = try await store.loadAccountDataEvents(roomId: roomId, limit: 1000, offset: nil)
                  
                 if stateEvents.count > 0 {
                     logger.debug("\(tag)\tConstructing the room")
-                    if let room = try? T(roomId: roomId, session: self, initialState: stateEvents, initialTimeline: timelineEvents) {
+                    if let room = try? T(roomId: roomId, session: self, initialState: stateEvents, initialTimeline: timelineEvents, initialAccountData: accountDataEvents) {
                         logger.debug("\(tag)\tAdding new room to the cache")
                         await MainActor.run {
                             self.rooms[roomId] = room

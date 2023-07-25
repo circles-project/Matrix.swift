@@ -17,6 +17,11 @@ extension Matrix {
             case content
         }
         
+        public init(type: String, content: Codable) {
+            self.type = type
+            self.content = content
+        }
+        
         public init(from decoder: Decoder) throws {
             logger.debug("Decoding account data event")
             let container = try decoder.container(keyedBy: CodingKeys.self)
