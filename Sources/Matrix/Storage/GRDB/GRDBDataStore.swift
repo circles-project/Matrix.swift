@@ -525,6 +525,19 @@ public struct GRDBDataStore: DataStore {
         return record?.content
     }
     
+    public func loadAccountDataEvents(from roomId: RoomId? = nil, limit: Int = 1000) async throws -> [Matrix.AccountDataEvent] {
+        let roomIdColumn = AccountDataRecord.Columns.roomId
+        let records = try await database.read { db in
+            try AccountDataRecord
+                .filter(roomIdColumn == roomId?.stringValue ?? "")
+                .fetchAll(db)
+        }
+        let events = records.compactMap {
+            Matrix.AccountDataEvent(type: $0.type, content: $0.content)
+        }
+        return events
+    }
+    
     public func saveAccountData(events: [Matrix.AccountDataEvent], in roomId: RoomId? = nil) async throws {
         let records = events.compactMap {
             AccountDataRecord(from: $0, in: roomId)
