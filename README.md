@@ -7,6 +7,10 @@ clients on Apple platforms (iOS / MacOS / etc).
 Matrix.swift wraps the [Matrix Rust Crypto SDK](https://github.com/matrix-org/matrix-rust-sdk/tree/main/bindings/apple)
 to provide support for end-to-end encryption (E2EE).
 
+Main repo: https://gitlab.futo.org/circles/Matrix.swift
+
+Github mirror: https://github.com/futo-org/Matrix.swift
+
 ## Status
 This project is **alpha** (ie, pre-beta) quality software.
 It is **NOT READY** for production use by 3rd parties.
