@@ -90,11 +90,10 @@ public struct GRDBDataStore: DataStore {
             // In the Swift code, we would use `nil`, but SQL doesn't
             // like to have NULLs in primary keys.
             try db.create(table: "account_data") { t in
-                t.column("user_id", .text).notNull()
                 t.column("room_id", .text).notNull()
                 t.column("type", .text).notNull()
-                t.column("content", .blob)
-                t.primaryKey(["user_id", "room_id", "type"])
+                t.column("content", .blob).notNull()
+                t.primaryKey(["room_id", "type"])
             }
             
             // FIXME: Really this should move into a different type
@@ -514,7 +513,26 @@ public struct GRDBDataStore: DataStore {
     
     // MARK: Account data
     
-    public func loadAccountData(for userId: UserId, of type: String, in roomId: RoomId? = nil) async throws -> Codable {
-        throw Matrix.Error("Not Implemented")
+    public func loadAccountData(of type: String, in roomId: RoomId? = nil) async throws -> Codable? {
+        let roomIdColumn = AccountDataRecord.Columns.roomId
+        let typeColumn = AccountDataRecord.Columns.type
+        let record = try await database.read { db -> AccountDataRecord? in
+            try AccountDataRecord
+                .filter(roomIdColumn == roomId?.stringValue ?? "")
+                .filter(typeColumn == type)
+                .fetchOne(db)
+        }
+        return record?.content
+    }
+    
+    public func saveAccountData(events: [Matrix.AccountDataEvent], in roomId: RoomId? = nil) async throws {
+        let records = events.compactMap {
+            AccountDataRecord(from: $0, in: roomId)
+        }
+        try await database.write { db in
+            for record in records {
+                try record.save(db)
+            }
+        }
     }
 }
