@@ -1002,11 +1002,10 @@ extension Matrix {
                 logger.debug("\(tag)\tLoading room from data store")
                 let stateEvents = try await store.loadEssentialState(for: roomId)
                 logger.debug("\(tag)\tLoaded \(stateEvents.count) state events")
-                /*
+                
                 let timelineEvents = try await store.loadTimeline(for: roomId, limit: 25, offset: 0)
                 logger.debug("\(tag)\tLoaded \(stateEvents.count) timeline events")
-                */
-                let timelineEvents = [ClientEventWithoutRoomId]()
+                //let timelineEvents = [ClientEventWithoutRoomId]()
                 
                 let accountDataEvents = try await store.loadAccountDataEvents(roomId: roomId, limit: 1000, offset: nil)
                  
