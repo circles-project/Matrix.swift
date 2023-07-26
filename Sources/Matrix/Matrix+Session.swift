@@ -159,6 +159,15 @@ extension Matrix {
             // Phase 1 init is done -- Now we can reference `self`
             // Ok now we're initialized as a valid Matrix.Client (super class)
 
+            // Initialize our user profile stuff, in case we weren't given initial values
+            if self.avatarUrl == nil {
+                if let newUrl = try? await getAvatarUrl(userId: self.creds.userId) {
+                    self.avatarUrl = newUrl
+                    if let data = try? await downloadData(mxc: newUrl) {
+                        self.avatar = UIImage(data: data)
+                    }
+                }
+            }
             
             // Set up crypto stuff
             // Secret storage
