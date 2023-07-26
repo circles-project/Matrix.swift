@@ -236,12 +236,12 @@ public class Client {
     }
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3profileuseridavatar_url
-    public func getAvatarUrl(userId: UserId) async throws -> String? {
+    public func getAvatarUrl(userId: UserId) async throws -> MXC? {
         let path = "/_matrix/client/\(version)/profile/\(userId)/avatar_url"
         let (data, response) = try await call(method: "GET", path: path)
         
         struct ResponseBody: Codable {
-            var avatarUrl: String?
+            var avatarUrl: MXC?
         }
         
         let decoder = JSONDecoder()
@@ -257,15 +257,9 @@ public class Client {
     
     public func getAvatarImage(userId: UserId) async throws -> Matrix.NativeImage? {
         // Download the bytes from the given uri
-        guard let uri = try await getAvatarUrl(userId: userId)
+        guard let mxc = try await getAvatarUrl(userId: userId)
         else {
             let msg = "Couldn't get mxc:// URI"
-            print("USER\t\(msg)")
-            throw Matrix.Error(msg)
-        }
-        guard let mxc = MXC(uri)
-        else {
-            let msg = "Invalid mxc:// URI"
             print("USER\t\(msg)")
             throw Matrix.Error(msg)
         }
