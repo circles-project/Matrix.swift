@@ -496,6 +496,10 @@ extension Matrix {
             messages.first
         }
         
+        public var threads: [EventId: Set<Message>] {
+            relations[M_THREAD] ?? [:]
+        }
+        
         public var tags: [String] {
             guard let content = self.accountData[M_TAG] as? TagContent
             else {
