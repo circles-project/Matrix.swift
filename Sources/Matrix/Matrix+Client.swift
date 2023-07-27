@@ -645,6 +645,35 @@ public class Client {
         return try await sendMessageEvent(to: roomId, type: M_REACTION, content: content)
     }
     
+    // https://spec.matrix.org/v1.6/client-server-api/#get_matrixclientv1roomsroomidrelationseventidreltype
+    public func getThreadedMessages(for threadId: EventId,
+                                    in roomId: RoomId,
+                                    from startToken: String? = nil,
+                                    to endToken: String? = nil,
+                                    limit: UInt? = 25
+    ) async throws -> RoomMessagesResponseBody {
+        let path = "/_matrix/client/v1/rooms/\(roomId)/relations/\(threadId)/m.thread"
+        var params: [String:String] = [
+            "dir" : "b",
+        ]
+        if let start = startToken {
+            params["from"] = start
+        }
+        if let end = endToken {
+            params["to"] = end
+        }
+        if let limit = limit {
+            params["limit"] = "\(limit)"
+        }
+        let (data, response) = try await call(method: "GET", path: path, params: params)
+        
+        let decoder = JSONDecoder()
+        
+        let responseBody = try decoder.decode(RoomMessagesResponseBody.self, from: data)
+        
+        return responseBody
+    }
+    
     public func sendRedactionEvent(to roomId: RoomId,
                             for eventId: EventId,
                             reason: String? = nil
