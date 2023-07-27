@@ -645,35 +645,6 @@ public class Client {
         return try await sendMessageEvent(to: roomId, type: M_REACTION, content: content)
     }
     
-    // https://spec.matrix.org/v1.6/client-server-api/#get_matrixclientv1roomsroomidrelationseventidreltype
-    public func getThreadedMessages(for threadId: EventId,
-                                    in roomId: RoomId,
-                                    from startToken: String? = nil,
-                                    to endToken: String? = nil,
-                                    limit: UInt? = 25
-    ) async throws -> RoomMessagesResponseBody {
-        let path = "/_matrix/client/v1/rooms/\(roomId)/relations/\(threadId)/m.thread"
-        var params: [String:String] = [
-            "dir" : "b",
-        ]
-        if let start = startToken {
-            params["from"] = start
-        }
-        if let end = endToken {
-            params["to"] = end
-        }
-        if let limit = limit {
-            params["limit"] = "\(limit)"
-        }
-        let (data, response) = try await call(method: "GET", path: path, params: params)
-        
-        let decoder = JSONDecoder()
-        
-        let responseBody = try decoder.decode(RoomMessagesResponseBody.self, from: data)
-        
-        return responseBody
-    }
-    
     public func sendRedactionEvent(to roomId: RoomId,
                             for eventId: EventId,
                             reason: String? = nil
@@ -849,25 +820,84 @@ public class Client {
         return responseBody
     }
     
-    open func getRelatedEvents(roomId: RoomId,
+    // MARK: Relations
+    
+    // https://spec.matrix.org/v1.6/client-server-api/#get_matrixclientv1roomsroomidrelationseventidreltype
+    open func getRelatedMessages(roomId: RoomId,
                                  eventId: EventId,
-                                 relType: String
-    ) async throws -> [ClientEventWithoutRoomId] {
+                                 relType: String,
+                                 from startToken: String? = nil,
+                                 to endToken: String? = nil,
+                                 limit: UInt? = 25
+    ) async throws -> RelatedMessagesResponseBody {
         let path = "/_matrix/client/v1/rooms/\(roomId)/relations/\(eventId)/\(relType)"
-
-        let (data, response) = try await call(method: "GET", path: path)
-        
-        struct ResponseBody: Codable {
-            var chunk: [ClientEventWithoutRoomId]
-            // blah blah plus some other crap that we don't care about right now
+        var params: [String:String] = [
+            "dir" : "b",
+        ]
+        if let start = startToken {
+            params["from"] = start
         }
+        if let end = endToken {
+            params["to"] = end
+        }
+        if let limit = limit {
+            params["limit"] = "\(limit)"
+        }
+        let (data, response) = try await call(method: "GET", path: path, params: params)
         
         let decoder = JSONDecoder()
-        guard let responseBody = try? decoder.decode(RoomMessagesResponseBody.self, from: data)
-        else {
-            throw Matrix.Error("Failed to decode response body")
+        
+        let responseBody = try decoder.decode(RelatedMessagesResponseBody.self, from: data)
+        
+        return responseBody
+    }
+    
+    
+    // MARK: Threads
+    
+    // https://spec.matrix.org/v1.6/client-server-api/#querying-threads-in-a-room
+    public func getThreadRoots(roomId: RoomId,
+                               from startToken: String? = nil,
+                               include: String? = nil,
+                               limit: UInt? = 25
+    ) async throws -> [ClientEvent] {
+        let path = "/_matrix/client/v1/rooms/\(roomId)/threads"
+        var params: [String:String] = [:]
+        if let start = startToken {
+            params["start"] = start
         }
+        if let include = include {
+            params["include"] = include
+        }
+        if let limit = limit {
+            params["limit"] = "\(limit)"
+        }
+        let (data, response) = try await call(method: "GET", path: path, params: params)
+        
+        let decoder = JSONDecoder()
+        
+        guard let responseBody = try? decoder.decode(RelatedMessagesResponseBody.self, from: data)
+        else {
+            let msg = "Failed to decode GET /threads response body"
+            logger.error("\(msg)")
+            throw Matrix.Error(msg)
+        }
+        
         return responseBody.chunk
+    }
+    
+    open func getThreadedMessages(roomId: RoomId,
+                                  threadId: EventId,
+                                  from startToken: String? = nil,
+                                  to endToken: String? = nil,
+                                  limit: UInt? = 25
+    ) async throws -> RelatedMessagesResponseBody {
+        return try await getRelatedMessages(roomId: roomId,
+                                            eventId: threadId,
+                                            relType: M_THREAD,
+                                            from: startToken,
+                                            to: endToken,
+                                            limit: limit)
     }
     
     
