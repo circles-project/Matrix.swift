@@ -60,8 +60,9 @@ Current features include:
 * ~~Secret storage~~
 * ~~Cross-signing~~
 * ~~Encrypted key backup~~
-* [Use the Keychain to hold secret storage keys on the device](https://gitlab.futo.org/circles/matrix.swift/-/issues/22)
 * ~~[Store account data locally in the database](https://gitlab.futo.org/circles/matrix.swift/-/issues/23)~~
+* [Support for Matrix threads](https://gitlab.futo.org/circles/matrix.swift/-/issues/25)
+* [Use the Keychain to hold secret storage keys on the device](https://gitlab.futo.org/circles/matrix.swift/-/issues/22)
 * [Update to the latest Rust Crypto SDK](https://gitlab.futo.org/circles/matrix.swift/-/issues/14)
 
 
