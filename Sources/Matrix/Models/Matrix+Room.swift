@@ -234,9 +234,15 @@ extension Matrix {
                             {
                                 logger.debug("Adding event \(event.eventId) as a reaction to message \(relatedEventId)")
                                 await relatedMessage.addReaction(event: event)
-                            } else {
-                                logger.debug("Event \(event.eventId) doesn't look like a reaction")
                             }
+                            else if relType == M_THREAD && event.type == M_ROOM_MESSAGE {
+                                logger.debug("Adding event \(event.eventId) as a reply to \(relatedEventId)")
+                                await relatedMessage.addReply(message: message)
+                            }
+                            else {
+                                logger.debug("Event \(event.eventId) doesn't look like a relation that we understand")
+                            }
+                            
                         } else {
                             logger.debug("Couldn't find relation parent message \(relatedEventId)")
                         }
@@ -738,6 +744,61 @@ extension Matrix {
         
         public var isEncrypted: Bool {
             self.encryptionParams != nil
+        }
+        
+        // MARK: Fetching messages
+        
+        public func getMessages(forward: Bool = false,
+                                from startToken: String? = nil,
+                                to endToken: String? = nil,
+                                limit: UInt? = 25
+        ) async throws -> RoomMessagesResponseBody {
+            let response = try await session.getMessages(roomId: self.roomId, forward: forward, from: startToken, to: endToken, limit: limit)
+            
+            let events = response.chunk
+            
+            try await self.updateTimeline(from: events)
+            await self.updateRelations(events: events)
+            
+            return response
+        }
+        
+        public func getRelatedMessages(eventId: EventId,
+                                       relType: String,
+                                       from startToken: String? = nil,
+                                       to endToken: String? = nil,
+                                       limit: UInt? = 25
+        ) async throws -> RelatedMessagesResponseBody {
+            let response = try await session.getRelatedMessages(roomId: self.roomId, eventId: eventId, relType: relType, from: startToken, to: endToken, limit: limit)
+            
+            let events = response.chunk
+            
+            try await self.updateTimeline(from: events)
+            await self.updateRelations(events: events)
+            
+            return response
+        }
+        
+        public func getThreadRoots(from startToken: String? = nil,
+                                   include: String? = nil,
+                                   limit: UInt? = 25
+        ) async throws -> RelatedMessagesResponseBody {
+            let response = try await session.getThreadRoots(roomId: self.roomId, from: startToken, include: include, limit: limit)
+            
+            let events = response.chunk
+            
+            try await self.updateTimeline(from: events)
+            await self.updateRelations(events: events)
+            
+            return response
+        }
+        
+        public func getThreadedMessages(threadId: EventId,
+                                        from startToken: String? = nil,
+                                        to endToken: String? = nil,
+                                        limit: UInt? = 25
+        ) async throws -> RelatedMessagesResponseBody {
+            return try await getRelatedMessages(eventId: threadId, relType: M_THREAD, from: startToken, to: endToken, limit: limit)
         }
         
         // MARK: Sending messages

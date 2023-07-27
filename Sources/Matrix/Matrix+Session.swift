@@ -1407,14 +1407,31 @@ extension Matrix {
             }
         }
         
-        public override func getRelatedEvents(roomId: RoomId, eventId: EventId, relType: String) async throws -> [ClientEventWithoutRoomId] {
-            let events = try await super.getRelatedEvents(roomId: roomId, eventId: eventId, relType: relType)
+        public override func getRelatedMessages(roomId: RoomId,
+                                                eventId: EventId,
+                                                relType: String,
+                                                from startToken: String? = nil,
+                                                to endToken: String? = nil,
+                                                limit: UInt? = 25
+        ) async throws -> RelatedMessagesResponseBody {
+            let response = try await super.getRelatedMessages(roomId: roomId, eventId: eventId, relType: relType, from: startToken, to: endToken, limit: limit)
+            
+            let events = response.chunk
             
             if let store = dataStore {
                 try await store.saveTimeline(events: events, in: roomId)
             }
             
-            return events
+            return response
+        }
+        
+        public override func getThreadedMessages(roomId: RoomId,
+                                                 threadId: EventId,
+                                                 from startToken: String? = nil,
+                                                 to endToken: String? = nil,
+                                                 limit: UInt? = 25
+        ) async throws -> RelatedMessagesResponseBody {
+            return try await self.getRelatedMessages(roomId: roomId, eventId: threadId, relType: M_THREAD, from: startToken, to: endToken, limit: limit)
         }
         
         // MARK: Decrypting Messsages

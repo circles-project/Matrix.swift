@@ -860,7 +860,7 @@ public class Client {
                                from startToken: String? = nil,
                                include: String? = nil,
                                limit: UInt? = 25
-    ) async throws -> [ClientEvent] {
+    ) async throws -> RelatedMessagesResponseBody {
         let path = "/_matrix/client/v1/rooms/\(roomId)/threads"
         var params: [String:String] = [:]
         if let start = startToken {
@@ -883,7 +883,7 @@ public class Client {
             throw Matrix.Error(msg)
         }
         
-        return responseBody.chunk
+        return responseBody
     }
     
     open func getThreadedMessages(roomId: RoomId,
