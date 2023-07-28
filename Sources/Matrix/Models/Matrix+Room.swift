@@ -216,16 +216,16 @@ extension Matrix {
                     if let relType = content.relationType,
                        let relatedEventId = content.relatedEventId
                     {
+                        logger.debug("relType = \(relType) relatedEventId = \(relatedEventId)")
                         // Update our state here in the Room
                         if var set = self.relations[relType]?[relatedEventId] {
-                            set.insert(message)
+                            self.relations[relType]![relatedEventId] = set.union([message])
                         } else {
                             self.relations[relType] = self.relations[relType] ?? [:]
                             self.relations[relType]![relatedEventId] = [message]
                         }
                         
                         // Also update the Message if we have it in memory
-                        // FIXME: We only support m.reaction relations for now
                         if let relatedMessage = self.timeline[relatedEventId]
                         {
                             if relType == M_ANNOTATION && event.type == M_REACTION /*,
@@ -236,7 +236,7 @@ extension Matrix {
                                 await relatedMessage.addReaction(event: event)
                             }
                             else if relType == M_THREAD && event.type == M_ROOM_MESSAGE {
-                                logger.debug("Adding event \(event.eventId) as a reply to \(relatedEventId)")
+                                logger.debug("THREAD Adding event \(event.eventId) as a reply to \(relatedEventId)")
                                 await relatedMessage.addReply(message: message)
                             }
                             else {
