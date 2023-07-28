@@ -961,10 +961,10 @@ extension Matrix {
                    relatedContent.relationType == M_THREAD,
                    let threadId = relatedContent.relatedEventId
                 {
-                    relatesTo = mRelatesTo(relType: M_THREAD, eventId: threadId, inReplyTo: event.eventId)
+                    relatesTo = mRelatesTo(relType: M_THREAD, eventId: threadId)
 
                 } else {
-                    relatesTo = mRelatesTo(relType: M_THREAD, eventId: event.eventId, inReplyTo: event.eventId)
+                    relatesTo = mRelatesTo(relType: M_THREAD, eventId: event.eventId)
                 }
             
             } else {
