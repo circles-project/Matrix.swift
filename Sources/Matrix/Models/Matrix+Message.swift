@@ -151,6 +151,10 @@ extension Matrix {
             return nil
         }
         
+        public var thread: Set<Message>? {
+            self.room.threads[self.eventId]
+        }
+        
         // https://github.com/uhoreg/matrix-doc/blob/aggregations-reactions/proposals/2677-reactions.md
         public func addReaction(event: ClientEventWithoutRoomId) async {
             logger.debug("Adding reaction message \(event.eventId)")
