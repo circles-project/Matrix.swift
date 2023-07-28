@@ -218,7 +218,7 @@ extension Matrix {
                     {
                         logger.debug("relType = \(relType) relatedEventId = \(relatedEventId)")
                         // Update our state here in the Room
-                        if var set = self.relations[relType]?[relatedEventId] {
+                        if let set = self.relations[relType]?[relatedEventId] {
                             self.relations[relType]![relatedEventId] = set.union([message])
                         } else {
                             self.relations[relType] = self.relations[relType] ?? [:]
@@ -483,7 +483,7 @@ extension Matrix {
                 timeline
                     .values
                     .filter {
-                        $0.stateKey == nil
+                        $0.stateKey == nil && ($0.type == M_ROOM_MESSAGE || $0.type == M_ROOM_ENCRYPTED)
                     }
             )
         }
