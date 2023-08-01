@@ -324,8 +324,10 @@ extension Matrix {
         // MARK: Account Data
 
         public func updateAccountData(events: [AccountDataEvent]) async {
-            for event in events {
-                self.accountData[event.type] = event.content
+            await MainActor.run {
+                for event in events {
+                    self.accountData[event.type] = event.content
+                }
             }
         }
 
