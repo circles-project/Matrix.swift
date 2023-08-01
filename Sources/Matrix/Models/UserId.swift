@@ -51,6 +51,18 @@ public struct UserId: LosslessStringConvertible, Codable, Identifiable, Equatabl
         return true
     }
     
+    public init?(username: String, domain: String, port: UInt16? = nil) {
+        guard !username.contains(":"),
+              !domain.contains(":")
+        else {
+            return nil
+        }
+        
+        self.username = username
+        self.domain = domain
+        self.port = port
+    }
+    
     // for LosslessStringConvertible
     public init?(_ stringValue: String) {
         self.init(stringValue: stringValue)
