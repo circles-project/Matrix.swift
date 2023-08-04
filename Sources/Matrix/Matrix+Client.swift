@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 #if !os(macOS)
 import UIKit
 #else
@@ -25,10 +26,16 @@ public class Client {
     private var mediaUrlSession: URLSession // For downloading media
     private var mediaCache: URLCache        // For downloading media
     
+    private var logger: os.Logger
+    
     // MARK: Init
     
     public init(creds: Matrix.Credentials) async throws {
         self.version = "v3"
+        let logger = os.Logger(subsystem: "matrix", category: "client")
+        self.logger = logger
+        
+        logger.debug("Creating a new Matrix Client for user \(creds.userId)")
         
         if let wk = creds.wellKnown {
             self.creds = creds
@@ -42,6 +49,7 @@ public class Client {
             self.baseUrl = URL(string: wk.homeserver.baseUrl)!
         }
         
+        logger.debug("Setting up URLSession for API calls")
         let apiConfig = URLSessionConfiguration.default
         apiConfig.httpAdditionalHeaders = [
             "Content-Type": "application/json",
@@ -52,6 +60,7 @@ public class Client {
         apiConfig.httpMaximumConnectionsPerHost = 4 // Default is 6 but we're getting some 429's from Synapse...
         self.apiUrlSession = URLSession(configuration: apiConfig)
         
+        logger.debug("Setting up URLSession for media access")
         // https://developer.apple.com/documentation/foundation/urlcache
         // Unfortunately this thing kind of sucks, and doesn't persist across restarts of the app
         let urlCachePath = [
@@ -62,19 +71,29 @@ public class Client {
             "\(creds.deviceId)",
             "urlcache"
         ].joined(separator: "/")
+        logger.debug("URL cache path = [\(urlCachePath)]")
         let mediaCacheDir = URL(filePath: urlCachePath)
+        logger.debug("Media cache dir = \(mediaCacheDir)")
         if !FileManager.default.fileExists(atPath: urlCachePath) {
+            logger.debug("URL cache path doesn't exist.  Creating it now...")
             try FileManager.default.createDirectory(at: mediaCacheDir, withIntermediateDirectories: true)
+        } else {
+            logger.debug("URL cache path already exists")
         }
+        logger.debug("Creating media URL session config")
         let mediaConfig = URLSessionConfiguration.default
         mediaConfig.httpAdditionalHeaders = [
             "Authorization": "Bearer \(creds.accessToken)",
         ]
+        logger.debug("Creating URL cache")
         let cache = URLCache(memoryCapacity: 64*1024*1024, diskCapacity: 512*1024*1024, directory: mediaCacheDir)
         mediaConfig.urlCache = cache
         mediaConfig.requestCachePolicy = .returnCacheDataElseLoad
+        logger.debug("Creating media URL session")
         self.mediaUrlSession = URLSession(configuration: mediaConfig)
         self.mediaCache = cache
+        
+        logger.debug("Done with init()")
     }
     
     // MARK: API Call
