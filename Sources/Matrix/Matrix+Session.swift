@@ -310,10 +310,13 @@ extension Matrix {
         @Sendable
         private func syncRequestTaskOperation() async throws -> String? {
             
-            var logger = self.syncLogger
+            let logger = self.syncLogger
+            
+            logger.debug("Doing a sync")
             
             // Following the Rust Crypto SDK example https://github.com/matrix-org/matrix-rust-sdk/blob/8ac7f88d22e2fa0ca96eba7239ba7ec08658552c/crates/matrix-sdk-crypto/src/lib.rs#L540
             // We first send any outbound messages from the crypto module before we actually call /sync
+            logger.debug("Sending outbound crypto requests")
             try await cryptoQueue.run {
                 let requests = try self.crypto.outgoingRequests()
                 for request in requests {
@@ -321,22 +324,25 @@ extension Matrix {
                 }
             }
             
-            logger.debug("User \(self.creds.userId) syncing with token \(self.syncToken ?? "(none)")")
             let url = "/_matrix/client/v3/sync"
             var params = [
                 "timeout": "\(syncRequestTimeout)",
             ]
             if let token = syncToken {
+                logger.debug("User \(self.creds.userId) syncing with token \(token)")
+
                 params["since"] = token
+            } else {
+                logger.debug("User \(self.creds.userId) syncing without any token")
             }
             let (data, response) = try await self.call(method: "GET", path: url, params: params)
-            //logger.debug("User \(self.creds.userId) got sync response")
+            logger.debug("User \(self.creds.userId) got sync response with status \(response.statusCode, privacy: .public)")
             
             //let rawDataString = String(data: data, encoding: .utf8)
             //print("\n\n\(rawDataString!)\n\n")
             
             guard response.statusCode == 200 else {
-                logger.error("\(self.creds.userId) Error: got HTTP \(response.statusCode) \(response.description)")
+                logger.error("\(self.creds.userId) Error: got HTTP \(response.statusCode, privacy: .public) \(response.description, privacy: .public)")
                 self.syncRequestTask = nil
                 //return self.syncToken
                 return nil
@@ -347,9 +353,8 @@ extension Matrix {
             guard let responseBody = try? decoder.decode(SyncResponseBody.self, from: data)
             else {
                 self.syncRequestTask = nil
-                let msg = "Could not decode /sync response"
-                logger.error("\(msg)")
-                throw Matrix.Error(msg)
+                logger.error("Failed to decode /sync response")
+                throw Matrix.Error("Failed to decode /sync response")
             }
             
             // Process the sync response, updating local state if necessary
@@ -388,7 +393,7 @@ extension Matrix {
                     logger.error("Failed to get outgoing crypto requests")
                     return
                 }
-                logger.debug("Sending \(cryptoRequests.count) crypto requests")
+                logger.debug("Sending \(cryptoRequests.count, privacy: .public) crypto requests")
                 for request in cryptoRequests {
                     try await self.sendCryptoRequest(request: request)
                 }
@@ -406,7 +411,7 @@ extension Matrix {
             
             // Handle invites
             if let invitedRoomsDict = responseBody.rooms?.invite {
-                logger.debug("Found \(invitedRoomsDict.count) invited rooms")
+                logger.debug("Found \(invitedRoomsDict.count, privacy: .public) invited rooms")
                 for (roomId, info) in invitedRoomsDict {
                     logger.debug("Found invited room \(roomId)")
                     guard let events = info.inviteState?.events
@@ -431,7 +436,7 @@ extension Matrix {
             
             // Handle rooms where we're already joined
             if let joinedRoomsDict = responseBody.rooms?.join {
-                logger.debug("Found \(joinedRoomsDict.count) joined rooms")
+                logger.debug("Found \(joinedRoomsDict.count, privacy: .public) joined rooms")
                 for (roomId, info) in joinedRoomsDict {
                     logger.debug("Found joined room \(roomId)")
                     let stateEvents = info.state?.events ?? []
@@ -542,7 +547,7 @@ extension Matrix {
             
             // Handle rooms that we've left
             if let leftRoomsDict = responseBody.rooms?.leave {
-                logger.debug("Found \(leftRoomsDict.count) left rooms")
+                logger.debug("Found \(leftRoomsDict.count, privacy: .public) left rooms")
                 for (roomId, info) in leftRoomsDict {
                     logger.debug("Found left room \(roomId)")
                     // TODO: What should we do here?
@@ -558,10 +563,10 @@ extension Matrix {
             
             // FIXME: Do something with AccountData
             if let newAccountDataEvents = responseBody.accountData?.events {
-                logger.debug("Handling account data")
+                logger.debug("Found \(newAccountDataEvents.count, privacy: .public) account data events")
                 var updates = [String: Codable]()
                 for event in newAccountDataEvents {
-                    logger.debug("Got account data with type = \(event.type)")
+                    logger.debug("Got account data with type = \(event.type, privacy: .public)")
                     updates[event.type] = event.content
                     for (filter,handler) in self.accountDataHandlers {
                         if filter(event.type) {
@@ -592,9 +597,11 @@ extension Matrix {
                 UserDefaults.standard.set(self.syncToken, forKey: "sync_token[\(creds.userId)::\(creds.deviceId)]")
                 
                 //print("/sync:\t\(creds.userId) Done!")
+                logger.debug("sync successful!")
                 self.syncRequestTask = nil
                 return responseBody.nextBatch
             } else {
+                logger.error("sync failed")
                 return self.syncToken
             }
         }
@@ -621,7 +628,7 @@ extension Matrix {
                 let encoder = JSONEncoder()
                 let eventsData = try encoder.encode(events)
                 eventsListString = String(data: eventsData, encoding: .utf8)!
-                logger.debug("Sending \(events.count) to-device event to Rust crypto module:   \(eventsListString)")
+                logger.debug("Sending \(events.count, privacy: .public) to-device event to Rust crypto module:   \(eventsListString)")
             }
             let eventsString = "{\"events\": \(eventsListString)}"
             // Ugh we have to translate the device lists back to raw String's
@@ -629,13 +636,13 @@ extension Matrix {
                 changed: responseBody.deviceLists?.changed?.map { $0.description } ?? [],
                 left: responseBody.deviceLists?.left?.map { $0.description } ?? []
             )
-            logger.debug("\(deviceLists.changed.count) Changed devices")
-            logger.debug("\(deviceLists.left.count) Left devices")
-            logger.debug("\(responseBody.deviceOneTimeKeysCount?.keys.count ?? 0) device one-time keys")
+            logger.debug("\(deviceLists.changed.count, privacy: .public) Changed devices")
+            logger.debug("\(deviceLists.left.count, privacy: .public) Left devices")
+            logger.debug("\(responseBody.deviceOneTimeKeysCount?.keys.count ?? 0, privacy: .public) device one-time keys")
             if let dotkc = responseBody.deviceOneTimeKeysCount {
                 logger.debug("\(dotkc)")
             }
-            logger.debug("\(responseBody.deviceUnusedFallbackKeyTypes?.count ?? 0) unused fallback keys")
+            logger.debug("\(responseBody.deviceUnusedFallbackKeyTypes?.count ?? 0, privacy: .public) unused fallback keys")
 
             guard let result = try? self.crypto.receiveSyncChanges(events: eventsString,
                                                                    deviceChanges: deviceLists,
@@ -800,13 +807,15 @@ extension Matrix {
         public func pause() async throws {
             // pause() doesn't actually make any API calls
             // It just tells our own local sync task to take a break
+            syncLogger.debug("Pausing session")
             self.keepSyncing = false
         }
         
         public func close() async throws {
             // close() is like pause; it doesn't make any API calls
             // It just tells our local sync task to shut down
-            throw Matrix.Error("Not implemented yet")
+            Matrix.logger.error("Session.close() is not implemented yet")
+            throw Matrix.Error("Session.close() is not implemented yet")
         }
         
         // MARK: UIA
@@ -838,42 +847,42 @@ extension Matrix {
             switch uia.state {
             case .finished:
                 // Yay, got it in one!  The server did not require us to authenticate again.
-                logger.debug("UIA was not required for \(path)")
+                logger.debug("UIA was not required for \(path, privacy: .public)")
                 return nil
                 
             case .connected(let uiaState):
-                logger.debug("UIA is connected.  Must be completed to execute the API endpoint \(path)")
+                logger.debug("UIA is connected.  Must be completed to execute the API endpoint \(path, privacy: .public)")
                 
                 // At this point, there could potentially be many UIA flows available to us
                 
                 for flow in uiaState.flows {
-                    logger.debug("Found UIA flow \(flow.stages)")
+                    logger.debug("Found UIA flow \(flow.stages, privacy: .public)")
                 }
 
                 // If the caller provided a filter to select from the flows,
                 // we filter the flows with it and take the first one that passes
                 
                 if let flowFilter = filter {
-                    logger.debug("Filtering \(uiaState.flows.count) flows")
+                    logger.debug("Filtering \(uiaState.flows.count, privacy: .public) flows")
                     guard let flow = uiaState.flows.filter(flowFilter).first
                     else {
                         throw Matrix.Error("No compatible authentication flows")
                     }
                     
-                    logger.debug("Selecting flow \(flow.stages)")
+                    logger.debug("Selecting flow \(flow.stages, privacy: .public)")
                     await uia.selectFlow(flow: flow)
                 } else {
-                    logger.debug("No flow filter; \(uiaState.flows.count) available flows")
+                    logger.debug("No flow filter; \(uiaState.flows.count, privacy: .public) available flows")
                 }
                 
             case .inProgress(let uiaState, _):
                 logger.debug("UIA is now in progress.  Must be completed to execute the API endpoint \(path)")
                 for flow in uiaState.flows {
-                    logger.debug("Found UIA flow \(flow.stages)")
+                    logger.debug("Found UIA flow \(flow.stages, privacy: .public)")
                 }
             default:
                 // The caller will have to complete UIA before the request can go through
-                logger.debug("UIA is in some other state.  Client needs to complete UIA to execute API endpoint \(path)")
+                logger.debug("UIA is in some other state.  Client needs to complete UIA to execute API endpoint \(path, privacy: .public)")
             }
             
             await MainActor.run {
