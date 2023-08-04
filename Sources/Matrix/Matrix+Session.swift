@@ -119,17 +119,20 @@ extension Matrix {
             
             self.dataStore = try await GRDBDataStore(userId: creds.userId, type: storageType)
             
-            let cryptoStorePath = [
-                NSHomeDirectory(),
-                ".matrix",
-                Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift",
-                "\(creds.userId)",
-                "\(creds.deviceId)",
-                "crypto"
-            ].joined(separator: "/")
+            // Rust Crypto SDK
+            let appSupportUrl = try FileManager.default.url(for: .applicationSupportDirectory,
+                                                            in: .userDomainMask,
+                                                            appropriateFor: nil,
+                                                            create: true)
+            let applicationName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift"
+            let cryptoStoreDir = appSupportUrl.appendingPathComponent(applicationName)
+                                              .appendingPathComponent(creds.userId.stringValue)
+                                              .appendingPathComponent(creds.deviceId)
+                                              .appendingPathComponent("crypto")
+            try FileManager.default.createDirectory(at: cryptoStoreDir, withIntermediateDirectories: true)
             self.crypto = try OlmMachine(userId: "\(creds.userId)",
                                          deviceId: "\(creds.deviceId)",
-                                         path: cryptoStorePath,
+                                         path: cryptoStoreDir.path,
                                          passphrase: nil)
             MatrixSDKCrypto.setLogger(logger: Matrix.CryptoLogger())
             self.cryptoQueue = TicketTaskQueue<Void>()
