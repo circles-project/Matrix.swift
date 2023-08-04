@@ -966,13 +966,22 @@ extension Matrix {
         // MARK: Rooms
         
         public override func getRoomStateEvents(roomId: RoomId) async throws -> [ClientEventWithoutRoomId] {
+            logger.debug("getRoomStateEvents Getting room state events for room \(roomId)")
             let events = try await super.getRoomStateEvents(roomId: roomId)
+            logger.debug("getRoomStateEvents Got \(events.count, privacy: .public) state events for \(roomId)")
             if let store = self.dataStore {
+                logger.debug("getRoomStateEvents Saving events to data store")
                 try await store.saveState(events: events, in: roomId)
+            } else {
+                logger.debug("getRoomStateEvents No data store - Not saving events")
             }
             if let room = self.rooms[roomId] {
-                try await room.updateState(from: events)
+                logger.debug("getRoomStateEvents Updating room object for \(roomId) with new events")
+                await room.updateState(from: events)
+            } else {
+                logger.debug("getRoomStateEvents No current room object for \(roomId)")
             }
+            logger.debug("getRoomStateEvents Returning \(events.count, privacy: .public) events for room \(roomId)")
             return events
         }
         
@@ -980,10 +989,9 @@ extension Matrix {
         public func getRoom<T: Matrix.Room>(roomId: RoomId,
                                             as type: T.Type = Matrix.Room.self
         ) async throws -> T? {
-            let tag = "getRoom(\(roomId))"
-            logger.debug("\(tag)\tStarting")
+            logger.debug("getRoom Starting")
             if let existingRoom = self.rooms[roomId] as? T {
-                logger.debug("\(tag)\tFound room in the cache.  Done.")
+                logger.debug("getRoom \(roomId) Found room in the cache.  Done.")
                 return existingRoom
             }
             
@@ -992,20 +1000,20 @@ extension Matrix {
             
             // Do we have this room in our data store?
             if let store = self.dataStore {
-                logger.debug("\(tag)\tLoading room from data store")
+                logger.debug("getRoom \(roomId) Loading room from data store")
                 let stateEvents = try await store.loadEssentialState(for: roomId)
-                logger.debug("\(tag)\tLoaded \(stateEvents.count) state events")
+                logger.debug("getRoom \(roomId) Loaded \(stateEvents.count, privacy: .public) state events")
                 
                 let timelineEvents = try await store.loadTimeline(for: roomId, limit: 25, offset: 0)
-                logger.debug("\(tag)\tLoaded \(stateEvents.count) timeline events")
+                logger.debug("getRoom \(roomId) Loaded \(stateEvents.count, privacy: .public) timeline events")
                 //let timelineEvents = [ClientEventWithoutRoomId]()
                 
                 let accountDataEvents = try await store.loadAccountDataEvents(roomId: roomId, limit: 1000, offset: nil)
                  
                 if stateEvents.count > 0 {
-                    logger.debug("\(tag)\tConstructing the room")
+                    logger.debug("getRoom \(roomId) Constructing the room")
                     if let room = try? T(roomId: roomId, session: self, initialState: stateEvents, initialTimeline: timelineEvents, initialAccountData: accountDataEvents) {
-                        logger.debug("\(tag)\tAdding new room to the cache")
+                        logger.debug("getRoom \(roomId) Adding new room to the cache")
                         await MainActor.run {
                             self.rooms[roomId] = room
                         }
@@ -1015,23 +1023,29 @@ extension Matrix {
             }
             
             // Ok we didn't have the room state cached locally
-            logger.debug("\(tag)\tFailed to load from data store")
+            logger.debug("getRoom \(roomId) Failed to load room from data store")
             // Maybe the server knows about this room?
-            logger.debug("\(tag)\tAsking the server")
-            let events = try await getRoomStateEvents(roomId: roomId)
-            logger.debug("\(tag)\tGot \(events.count) events from the server")
+            logger.debug("getRoom \(roomId) Asking the server for room state")
+            guard let events = try? await getRoomStateEvents(roomId: roomId)
+            else {
+                logger.error("getRoom \(roomId) Failed to get room state events")
+                return nil
+            }
+            logger.debug("getRoom \(roomId) Got \(events.count, privacy: .public) events from the server")
+            
             if let room = try? T(roomId: roomId, session: self, initialState: events, initialTimeline: []) {
-                logger.debug("\(tag)\tCreated room.  Adding to cache.")
+                logger.debug("getRoom \(roomId) Created room.  Adding to cache.")
                 await MainActor.run {
                     self.rooms[roomId] = room
                 }
                 return room
             } else {
-                logger.error("\(tag)\tFailed to create room from the server's state events")
+                logger.error("getRoom \(roomId) Failed to create room from the server's state events")
+                // Looks like we got nothing
+                return nil
             }
             
-            // Looks like we got nothing
-            return nil
+
         }
         
         public var systemNoticesRoom: Matrix.Room? {
