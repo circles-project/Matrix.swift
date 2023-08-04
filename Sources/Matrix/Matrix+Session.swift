@@ -61,9 +61,7 @@ extension Matrix {
         private var syncDelayNS: UInt64 = 30_000_000_000
         private var backgroundSyncTask: Task<UInt,Swift.Error>? // FIXME use a TaskGroup
         private var backgroundSyncDelayMS: UInt64?
-        
-        private let mediaCachePath: String
-        
+                
         var syncLogger: os.Logger
         
         public var ignoredUserIds: [UserId] {
@@ -118,23 +116,6 @@ extension Matrix {
             //self.backgroundSyncDelayMS = 1_000
             
             self.uiaSession = nil
-            
-            // FIXME: Pick a better / more appropriate location for this cache
-            //        See https://www.swiftbysundell.com/articles/working-with-files-and-folders-in-swift/
-            let mediaCachePath = [
-                NSHomeDirectory(),
-                ".matrix",
-                Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift",
-                "\(creds.userId)",
-                "\(creds.deviceId)",
-                "media",
-                "cache",
-            ].joined(separator: "/")
-            self.mediaCachePath = mediaCachePath
-            if !FileManager.default.fileExists(atPath: mediaCachePath) {
-                try FileManager.default.createDirectory(at: URL(filePath: mediaCachePath), withIntermediateDirectories: true)
-            }
-            
             
             self.dataStore = try await GRDBDataStore(userId: creds.userId, type: storageType)
             
