@@ -133,27 +133,29 @@ public struct GRDBDataStore: DataStore {
         case .inMemory:
             self.database = DatabaseQueue()
         case .persistent(let preserve):
-            let dirPath = [
-                NSHomeDirectory(),
-                ".matrix",
-                Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift",
-                "\(userId)"
-            ].joined(separator: "/")
-            let filePath = dirPath + "/matrix.sqlite3"
+            
+            let appSupportUrl = try FileManager.default.url(for: .applicationSupportDirectory,
+                                                            in: .userDomainMask,
+                                                            appropriateFor: nil,
+                                                            create: true)
+            let applicationName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift"
+
+            let dirUrl = appSupportUrl.appendingPathComponent(applicationName)
+                                      .appendingPathComponent(userId.stringValue)
+            let databaseUrl = dirUrl.appendingPathComponent("matrix.sqlite3")
             
             if !preserve {
-                try FileManager.default.removeItem(atPath: filePath)
+                try? FileManager.default.removeItem(at: databaseUrl)
             }
             
-            Matrix.logger.debug("Trying to open database at [\(filePath)]")
-            if let pool = try? DatabasePool(path: filePath) {
+            Matrix.logger.debug("Trying to open database at [\(databaseUrl)]")
+            if let pool = try? DatabasePool(path: databaseUrl.path) {
                 self.database = pool
             } else {
                 Matrix.logger.debug("Failed to open database.  Maybe it doesn't exist?  Trying to create the path now...")
-                let url = URL(fileURLWithPath: dirPath)
-                try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                try FileManager.default.createDirectory(at: dirUrl, withIntermediateDirectories: true)
                 Matrix.logger.debug("Now trying again to create database")
-                self.database = try DatabasePool(path: filePath)
+                self.database = try DatabasePool(path: databaseUrl.path)
             }
         }
         
