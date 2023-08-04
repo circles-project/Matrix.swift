@@ -9,12 +9,15 @@ import Foundation
 
 /// m.room.encryption: https://spec.matrix.org/v1.5/client-server-api/#mroomencryption
 public struct RoomEncryptionContent: Codable {
+    static let defaultRotationPeriodMs: UInt64 = 604800000
+    static let defaultRotationPeriodMsgs: UInt64 = 100
+    
     public enum Algorithm: String, Codable {
         case megolmV1AesSha2 = "m.megolm.v1.aes-sha2"
     }
     public let algorithm: Algorithm
-    public let rotationPeriodMs: UInt64
-    public let rotationPeriodMsgs: UInt64
+    public let rotationPeriodMs: UInt64?
+    public let rotationPeriodMsgs: UInt64?
     
     public init() {
         algorithm = .megolmV1AesSha2
