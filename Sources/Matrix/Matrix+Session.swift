@@ -1268,8 +1268,8 @@ extension Matrix {
             }
             
             let settings = EncryptionSettings(algorithm: .megolmV1AesSha2,
-                                              rotationPeriod: params.rotationPeriodMs,
-                                              rotationPeriodMsgs: params.rotationPeriodMsgs,
+                                              rotationPeriod: params.rotationPeriodMs ?? RoomEncryptionContent.defaultRotationPeriodMs,
+                                              rotationPeriodMsgs: params.rotationPeriodMsgs ?? RoomEncryptionContent.defaultRotationPeriodMsgs,
                                               historyVisibility: translate(roomHistoryVisibility),
                                               onlyAllowTrustedDevices: onlyTrusted)
                     
