@@ -63,6 +63,13 @@ public class Client {
         logger.debug("Setting up URLSession for media access")
         // https://developer.apple.com/documentation/foundation/urlcache
         // Unfortunately this thing kind of sucks, and doesn't persist across restarts of the app
+        
+        let topCacheDirectory = try FileManager.default.url(for: .cachesDirectory,
+                                                            in: .userDomainMask,
+                                                            appropriateFor: nil,
+                                                            create: true)
+        let applicationName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift"
+        /*
         let urlCachePath = [
             NSHomeDirectory(),
             ".matrix",
@@ -71,15 +78,23 @@ public class Client {
             "\(creds.deviceId)",
             "urlcache"
         ].joined(separator: "/")
-        logger.debug("URL cache path = [\(urlCachePath)]")
         let mediaCacheDir = URL(filePath: urlCachePath)
+        */
+        let mediaCacheDir = topCacheDirectory
+            .appendingPathComponent(".matrix")
+            .appendingPathComponent(applicationName)
+            .appendingPathComponent(creds.userId.stringValue)
+            .appendingPathComponent(creds.deviceId)
+            .appendingPathComponent("urlcache")
         logger.debug("Media cache dir = \(mediaCacheDir)")
-        if !FileManager.default.fileExists(atPath: urlCachePath) {
-            logger.debug("URL cache path doesn't exist.  Creating it now...")
+        do {
+            logger.debug("Ensuring media cache dir exists")
             try FileManager.default.createDirectory(at: mediaCacheDir, withIntermediateDirectories: true)
-        } else {
-            logger.debug("URL cache path already exists")
+        } catch {
+            logger.error("Failed to create media cache dir")
+            throw Matrix.Error("Failed to create media cache dir")
         }
+
         logger.debug("Creating media URL session config")
         let mediaConfig = URLSessionConfiguration.default
         mediaConfig.httpAdditionalHeaders = [
