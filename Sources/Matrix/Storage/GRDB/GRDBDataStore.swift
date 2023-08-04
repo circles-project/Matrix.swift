@@ -148,20 +148,19 @@ public struct GRDBDataStore: DataStore {
                 try? FileManager.default.removeItem(at: databaseUrl)
             }
             
+            Matrix.logger.debug("Ensuring that database directory exists")
+            try FileManager.default.createDirectory(at: dirUrl, withIntermediateDirectories: true)
+
             Matrix.logger.debug("Trying to open database at [\(databaseUrl)]")
-            if let pool = try? DatabasePool(path: databaseUrl.path) {
-                self.database = pool
-            } else {
-                Matrix.logger.debug("Failed to open database.  Maybe it doesn't exist?  Trying to create the path now...")
-                try FileManager.default.createDirectory(at: dirUrl, withIntermediateDirectories: true)
-                Matrix.logger.debug("Now trying again to create database")
-                self.database = try DatabasePool(path: databaseUrl.path)
-            }
+            self.database = try DatabasePool(path: databaseUrl.path)
+            Matrix.logger.debug("Success opening database")
         }
         
+        Matrix.logger.debug("Running migrations")
         self.migrator = DatabaseMigrator()
         try runMigrations()
-        
+     
+        Matrix.logger.debug("Initialized GRDB database for \(userId.stringValue)")
     }
     
     public func close() async throws {
