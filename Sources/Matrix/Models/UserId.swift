@@ -13,7 +13,7 @@ public struct UserId: LosslessStringConvertible, Codable, Identifiable, Equatabl
     public let domain: String
     public let port: UInt16?
     
-    private static func validate(_ userId: String) -> Bool {
+    public static func validate(_ userId: String) -> Bool {
         let toks = userId.split(separator: ":")
         // First we validate the user part
         guard userId.starts(with: "@"),
