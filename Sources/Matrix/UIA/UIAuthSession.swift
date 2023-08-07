@@ -266,8 +266,13 @@ public class UIAuthSession: UIASession, ObservableObject {
     
     // MARK: doUIAuthStage()
     
-    // FIXME: We need some way to know if this succeeded or failed
     public func doUIAuthStage(auth: [String:Codable]) async throws {
+        try await doUIAuthStage(auth: auth, onFail: nil)
+    }
+
+    public func doUIAuthStage(auth: [String:Codable],
+                              onFail: ((Int,Data) async -> Void)?
+    ) async throws {
         guard let AUTH_TYPE = auth["type"] as? String else {
             print("No auth type")
             return
@@ -330,6 +335,11 @@ public class UIAuthSession: UIASession, ObservableObject {
             logger.error("\(tag, privacy: .public)\tError: UI auth stage failed")
             logger.error("\(tag, privacy: .public)\tStatus Code: \(httpResponse.statusCode, privacy: .public)")
             logger.error("\(tag, privacy: .public)\tRaw response: \(stringResponse)")
+            
+            if let handler = onFail {
+                await handler(httpResponse.statusCode, data)
+            }
+            
             throw Matrix.Error(msg)
         }
         
@@ -607,7 +617,26 @@ public class UIAuthSession: UIASession, ObservableObject {
         ]
         print("BS-SPEKE: About to send args \(args)")
         
-        try await doUIAuthStage(auth: args)
+        try await doUIAuthStage(auth: args, onFail: { (statusCode, data) async in
+            if statusCode == 403 {
+                // Rejected.  Password must have been wrong.
+                guard case .inProgress(let uiaState, let stages) = self.state
+                else {
+                    self.logger.error("Just failed the BS-SPEKE verify stage but apparently we are not even in progress.  No idea what is going on.")
+                    return
+                }
+                guard stages.first == AUTH_TYPE_LOGIN_BSSPEKE_VERIFY
+                else {
+                    self.logger.error("Just failed the BS-SPEKE verify stage but it's not the current stage?  Something is very wrong.")
+                    return
+                }
+
+                // Push the OPRF stage back onto the stack
+                await MainActor.run {
+                    self.state = .inProgress(uiaState, [AUTH_TYPE_LOGIN_BSSPEKE_OPRF] + stages)
+                }
+            }
+        })
     }
     
     public func getBSSpekeClient() -> BlindSaltSpeke.ClientSession? {
