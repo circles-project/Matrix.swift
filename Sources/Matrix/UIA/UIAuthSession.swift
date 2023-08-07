@@ -274,11 +274,11 @@ public class UIAuthSession: UIASession, ObservableObject {
         }
         let tag = AUTH_TYPE
         
-        logger.debug("\(tag)\tValidating")
+        logger.debug("\(tag, privacy: .public)\tValidating")
         
         guard case .inProgress(let uiaState, let stages) = state else {
             let msg = "Signup session must be started before attempting stages"
-            logger.error("\(tag)\t\(msg)")
+            logger.error("\(tag, privacy: .public)\t\(msg)")
             throw Matrix.Error(msg)
         }
         
@@ -286,11 +286,11 @@ public class UIAuthSession: UIASession, ObservableObject {
         guard stages.first == AUTH_TYPE
         else {
             let msg = "Attempted stage \(AUTH_TYPE) but next required stage is [\(stages.first ?? "none")]"
-            logger.error("\(tag)\t\(msg)")
+            logger.error("\(tag, privacy: .public)\t\(msg, privacy: .public)")
             throw Matrix.Error("Incorrect next stage: \(AUTH_TYPE)")
         }
         
-        logger.debug("\(tag)\tStarting")
+        logger.debug("\(tag, privacy: .public)\tStarting")
         
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -315,26 +315,26 @@ public class UIAuthSession: UIASession, ObservableObject {
         let (data, response) = try await URLSession.shared.data(for: request)
         
         let stringResponse = String(data: data, encoding: .utf8)!
-        logger.debug("\(tag)\tGot response: \(stringResponse)")
+        logger.debug("\(tag, privacy: .public)\tGot response: \(stringResponse)")
 
         guard let httpResponse = response as? HTTPURLResponse
         else {
             let msg = "Couldn't decode UI auth stage response"
-            logger.error("\(tag)\tError: \(msg)")
+            logger.error("\(tag, privacy: .public)\tError: \(msg, privacy: .public)")
             throw Matrix.Error(msg)
         }
         
         guard [200,401].contains(httpResponse.statusCode)
         else {
             let msg = "UI auth stage failed"
-            logger.error("\(tag)\tError: \(msg)")
-            logger.error("\(tag)\tStatus Code: \(httpResponse.statusCode)")
-            logger.error("\(tag)\tRaw response: \(stringResponse)")
+            logger.error("\(tag, privacy: .public)\tError: UI auth stage failed")
+            logger.error("\(tag, privacy: .public)\tStatus Code: \(httpResponse.statusCode, privacy: .public)")
+            logger.error("\(tag, privacy: .public)\tRaw response: \(stringResponse)")
             throw Matrix.Error(msg)
         }
         
         if httpResponse.statusCode == 200 {
-            logger.debug("\(tag)\tAll done!")
+            logger.debug("\(tag, privacy: .public)\tAll done!")
             await MainActor.run {
                 state = .finished(data)
             }
@@ -348,32 +348,32 @@ public class UIAuthSession: UIASession, ObservableObject {
         guard let newUiaaState = try? decoder.decode(UIAA.SessionState.self, from: data)
         else {
             let msg = "Couldn't decode UIA response"
-            logger.error("\(tag)\tError: \(msg)")
+            logger.error("\(tag, privacy: .public)\tError: \(msg, privacy: .public)")
             let rawDataString = String(data: data, encoding: .utf8)!
-            logger.error("\(tag)\tRaw response:\n\(rawDataString)")
+            logger.error("\(tag, privacy: .public)\tRaw response:\n\(rawDataString)")
             throw Matrix.Error(msg)
         }
         
         if let completed = newUiaaState.completed {
             if completed.contains(AUTH_TYPE) {
-                logger.debug("\(tag)\tComplete")
+                logger.debug("\(tag, privacy: .public)\tComplete")
                 let newStages: [String] = Array(stages.suffix(from: 1))
                 await MainActor.run {
                     state = .inProgress(newUiaaState,newStages)
                 }
                 logger.debug("New UIA state:")
-                logger.debug("\tFlows:\t\(newUiaaState.flows)")
-                logger.debug("\tCompleted:\t\(completed)")
+                logger.debug("\tFlows:\t\(newUiaaState.flows, privacy: .public)")
+                logger.debug("\tCompleted:\t\(completed, privacy: .public)")
                 if let params = newUiaaState.params {
                     logger.debug("\tParams:\t\(params)")
                 }
-                logger.debug("\tStages:\t\(newStages)")
+                logger.debug("\tStages:\t\(newStages, privacy: .public)")
 
             } else {
-                logger.debug("\(tag)\tStage isn't complete???  Completed = \(completed)")
+                logger.debug("\(tag, privacy: .public)\tStage isn't complete???  Completed = \(completed, privacy: .public)")
             }
         } else {
-            logger.debug("\(tag)\tNo completed stages :(")
+            logger.debug("\(tag, privacy: .public)\tNo completed stages :(")
         }
         
     }
