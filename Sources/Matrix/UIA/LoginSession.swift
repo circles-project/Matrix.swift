@@ -38,7 +38,8 @@ public class LoginSession: UIAuthSession {
                             password: String? = nil,
                             deviceId: String? = nil,
                             initialDeviceDisplayName: String? = nil,
-                            completion: ((UIAuthSession,Data) async throws -> Void)? = nil
+                            completion: ((UIAuthSession,Data) async throws -> Void)? = nil,
+                            cancellation: (() async -> Void)? = nil
     ) async throws {
 
         let wellknown = try await Matrix.fetchWellKnown(for: userId.domain)
@@ -53,7 +54,8 @@ public class LoginSession: UIAuthSession {
                             password: password,
                             deviceId: deviceId,
                             initialDeviceDisplayName: initialDeviceDisplayName,
-                            completion: completion)
+                            completion: completion,
+                            cancellation: cancellation)
     }
     
     public init(homeserver: URL,
@@ -61,7 +63,8 @@ public class LoginSession: UIAuthSession {
                 password: String? = nil,
                 deviceId: String? = nil,
                 initialDeviceDisplayName: String? = nil,
-                completion: ((UIAuthSession,Data) async throws -> Void)? = nil
+                completion: ((UIAuthSession,Data) async throws -> Void)? = nil,
+                cancellation: (() async -> Void)? = nil
     ) async throws {
         let version = "v3"
         let urlPath = "/_matrix/client/\(version)/login"
@@ -89,7 +92,7 @@ public class LoginSession: UIAuthSession {
             args["initial_device_display_name"] = initialDeviceDisplayName
         }
         
-        super.init(method: "POST", url: url, requestDict: args, completion: completion)
+        super.init(method: "POST", url: url, requestDict: args, completion: completion, cancellation: cancellation)
         
         self.storage["userId"] = userId
     }
@@ -98,7 +101,8 @@ public class LoginSession: UIAuthSession {
                             domain: String,
                             deviceId: String? = nil,
                             initialDeviceDisplayName: String? = nil,
-                            completion: ((UIAuthSession,Data) async throws -> Void)? = nil
+                            completion: ((UIAuthSession,Data) async throws -> Void)? = nil,
+                            cancellation: (() async -> Void)? = nil
     ) async throws {
         guard let userId = UserId("@\(username):\(domain)")
         else {
@@ -107,6 +111,7 @@ public class LoginSession: UIAuthSession {
         try await self.init(userId: userId,
                             deviceId: deviceId,
                             initialDeviceDisplayName: initialDeviceDisplayName,
-                            completion: completion)
+                            completion: completion,
+                            cancellation: cancellation)
     }
 }

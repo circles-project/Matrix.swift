@@ -34,7 +34,8 @@ public class SignupSession: UIAuthSession {
                             initialDeviceDisplayName: String? = nil,
                             //showMSISDN: Bool = false,
                             inhibitLogin: Bool = false,
-                            completion: ((UIAuthSession,Data) async throws -> Void)? = nil
+                            completion: ((UIAuthSession,Data) async throws -> Void)? = nil,
+                            cancellation: (() async -> Void)? = nil
     ) async throws {
 
         let wellKnown = try await Matrix.fetchWellKnown(for: domain)
@@ -50,7 +51,8 @@ public class SignupSession: UIAuthSession {
                             deviceId: deviceId,
                             initialDeviceDisplayName: initialDeviceDisplayName,
                             inhibitLogin: inhibitLogin,
-                            completion: completion)
+                            completion: completion,
+                            cancellation: cancellation)
     }
 
 
@@ -62,7 +64,8 @@ public class SignupSession: UIAuthSession {
                 initialDeviceDisplayName: String? = nil,
                 //showMSISDN: Bool = false,
                 inhibitLogin: Bool = false,
-                completion: ((UIAuthSession,Data) async throws -> Void)? = nil
+                completion: ((UIAuthSession,Data) async throws -> Void)? = nil,
+                cancellation: (() async -> Void)? = nil
     ) async throws {
         
         guard let signupURL = URL(string: "/_matrix/client/v3/register", relativeTo: homeserver)
@@ -94,7 +97,7 @@ public class SignupSession: UIAuthSession {
             requestDict["initial_device_display_name"] = initialDeviceDisplayName
         }
 
-        super.init(method: "POST", url: signupURL, requestDict: requestDict, completion: completion)
+        super.init(method: "POST", url: signupURL, requestDict: requestDict, completion: completion, cancellation: cancellation)
         
         self.storage["domain"] = domain
     }

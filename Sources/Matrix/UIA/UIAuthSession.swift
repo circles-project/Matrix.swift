@@ -38,11 +38,13 @@ public class UIAuthSession: UIASession, ObservableObject {
     public typealias Completion = (UIAuthSession, Data) async throws -> Void
     
     var completion: Completion?
+    var cancellation: (() async -> Void)?
         
     public init(method: String, url: URL,
                 credentials: Matrix.Credentials? = nil,
                 requestDict: [String:Codable],
-                completion: Completion? = nil
+                completion: Completion? = nil,
+                cancellation: (() async -> Void)? = nil
     ) {
         self.method = method
         self.url = url
@@ -51,6 +53,7 @@ public class UIAuthSession: UIASession, ObservableObject {
         self.state = .notConnected
         self.realRequestDict = requestDict
         self.completion = completion
+        self.cancellation = cancellation
         
         /*
         let initTask = Task {
@@ -163,9 +166,12 @@ public class UIAuthSession: UIASession, ObservableObject {
         }
         
         guard httpResponse.statusCode == 401 else {
-            let msg = "Got unexpected HTTP response code (\(httpResponse.statusCode))"
-            logger.error("\(msg)")
-            throw Matrix.Error(msg)
+            let error = Matrix.Error("Got unexpected HTTP response code (\(httpResponse.statusCode))")
+            logger.error("Got unexpected HTTP response code (\(httpResponse.statusCode, privacy: .public))")
+            await MainActor.run {
+                self.state = .failed(error)
+            }
+            throw error
         }
         
         let rawStringResponse = String(data: data, encoding: .utf8)!
@@ -184,6 +190,16 @@ public class UIAuthSession: UIASession, ObservableObject {
         //self.state = .inProgress(sessionState)
         await MainActor.run {
             self.state = .connected(sessionState)
+        }
+    }
+    
+    // MARK: cancel()
+    public func cancel() async throws {
+        await MainActor.run {
+            self.state = .canceled
+        }
+        if let handler = self.cancellation {
+            await handler()
         }
     }
     

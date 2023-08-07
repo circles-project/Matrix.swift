@@ -13,6 +13,8 @@ import BlindSaltSpeke
 
 public enum UIASessionState {
     case notConnected
+    case failed(Matrix.Error)
+    case canceled
     case connected(UIAA.SessionState)
     case inProgress(UIAA.SessionState,[String])
     case finished(Data)
@@ -31,6 +33,8 @@ public protocol UIASession {
     var sessionId: String? { get }
     
     func connect() async throws
+    
+    func cancel() async throws
     
     func selectFlow(flow: UIAA.Flow) async
     
