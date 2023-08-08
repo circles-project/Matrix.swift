@@ -951,7 +951,8 @@ extension Matrix {
         ) async throws {
             logger.debug("Updating authentication for user \(self.creds.userId.stringValue)")
             let path =  "/_matrix/client/v3/devices/\(deviceId)"
-            let uia = try await uiaCall(method: "DELETE", path: path,
+            let uia = try await uiaCall(method: "DELETE",
+                                        path: path,
                                         requestDict: [:],
                                         filter: { _ in true },
                                         completion: { (us,data) in
@@ -960,6 +961,17 @@ extension Matrix {
                                                 try await handler(us,data)
                                             }
                                         })
+        }
+        
+        public func deactivateAccount() async throws {
+            logger.debug("Deactivating account for user \(self.creds.userId.stringValue)")
+                        
+            let path = "/_matrix/client/v3/account/deactivate"
+            let uia = try await uiaCall(method: "POST",
+                                        path: path,
+                                        requestDict: [:],
+                                        filter: { _ in true },
+                                        completion: nil)
         }
         
         // MARK: who Am I
