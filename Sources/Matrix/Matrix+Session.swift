@@ -963,7 +963,7 @@ extension Matrix {
                                         })
         }
         
-        public func deactivateAccount() async throws {
+        public func deactivateAccount(completion handler: UiaCompletionHandler? = nil) async throws {
             logger.debug("Deactivating account for user \(self.creds.userId.stringValue)")
                         
             let path = "/_matrix/client/v3/account/deactivate"
@@ -971,7 +971,12 @@ extension Matrix {
                                         path: path,
                                         requestDict: [:],
                                         filter: { _ in true },
-                                        completion: nil)
+                                        completion: { (us,data) in
+                                            logger.debug("Successfully deactivated account")
+                                            if let handler = handler {
+                                                try await handler(us,data)
+                                            }
+                                        })
         }
         
         // MARK: who Am I
