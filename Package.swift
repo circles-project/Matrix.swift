@@ -23,7 +23,7 @@ let package = Package(
         .package(url: "https://github.com/stephencelis/SQLite.swift.git", from: "0.13.3"),
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "5.24.0"),
         .package(url: "https://github.com/Flight-School/AnyCodable", from: "0.6.0"),
-        .package(url: "https://gitlab.futo.org/cvwright/BlindSaltSpeke.git", from: "0.4.1"),
+        .package(url: "https://gitlab.futo.org/cvwright/BlindSaltSpeke.git", from: "0.4.2"),
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0"),
         .package(url: "https://gitlab.futo.org/circles/MatrixSDKCrypto.git", exact: "0.2.1"), //from: "0.1.5"),
         .package(url: "https://github.com/iosdevzone/IDZSwiftCommonCrypto.git", from: "0.13.0"),
