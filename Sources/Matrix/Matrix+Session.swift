@@ -814,8 +814,15 @@ extension Matrix {
         public func close() async throws {
             // close() is like pause; it doesn't make any API calls
             // It just tells our local sync task to shut down
-            Matrix.logger.error("Session.close() is not implemented yet")
-            throw Matrix.Error("Session.close() is not implemented yet")
+            
+            syncLogger.debug("Closing session")
+            self.keepSyncing = false
+            if let task = syncRequestTask {
+                syncLogger.debug("Canceling sync task")
+                task.cancel()
+            }
+            
+            syncLogger.debug("Session closed")
         }
         
         // MARK: UIA
