@@ -25,6 +25,7 @@ extension Matrix {
             
             guard let codableType = messageTypes[msgtype]
             else {
+                logger.error("Cannot decode unknown message type \(msgtype, privacy: .public)")
                 throw Matrix.Error("Cannot decode unknown message type \(msgtype)")
             }
             
@@ -32,6 +33,7 @@ extension Matrix {
             return content
         }
         
+        logger.error("Cannot decode unknown event type \(eventType, privacy: .public)")
         throw Matrix.Error("Cannot decode unknown event type \(eventType)")
     }
     
@@ -52,12 +54,14 @@ extension Matrix {
             // Now use the msgtype to determine how we decode the content
             guard let codableType = messageTypes[mmc.msgtype]
             else {
+                logger.error("Cannot decode unknown message type \(mmc.msgtype, privacy: .public)")
                 throw Matrix.Error("Cannot decode unknown message type \(mmc.msgtype)")
             }
             let content = try container.decode(codableType.self, forKey: .content)
             return content
         }
         
+        logger.error("Cannot decode unknown event type \(eventType, privacy: .public)")
         throw Matrix.Error("Cannot decode unknown event type \(eventType)")
     }
     
@@ -65,12 +69,12 @@ extension Matrix {
         enum CodingKeys: String, CodingKey {
             case content
         }
-        logger.debug("Matrix decoding Account Data content of type \(dataType)")
+        logger.debug("Matrix decoding Account Data content of type \(dataType, privacy: .public)")
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
         if let codableType = accountDataTypes[dataType] {
             let content = try container.decode(codableType.self, forKey: .content)
-            logger.debug("Matrix decoded content of type \(codableType)")
+            logger.debug("Matrix decoded content of type \(codableType, privacy: .public)")
             return content
         }
         
@@ -78,26 +82,26 @@ extension Matrix {
             guard let keyId = dataType.split(separator: ".").last
             else {
                 let msg = "Couldn't get key id for \(M_SECRET_STORAGE_KEY_PREFIX)"
-                logger.error("Couldn't get key id for \(M_SECRET_STORAGE_KEY_PREFIX)")
+                logger.error("Couldn't get key id for \(M_SECRET_STORAGE_KEY_PREFIX, privacy: .public)")
                 throw Matrix.Error(msg)
             }
             let content = try container.decode(KeyDescriptionContent.self, forKey: .content)
-            logger.debug("Matrix decoded content of type \(KeyDescriptionContent.self)")
+            logger.debug("Matrix decoded content of type \(KeyDescriptionContent.self, privacy: .public)")
             return content
         }
         
         if dataType.starts(with: "\(ORG_FUTO_SSSS_KEY_PREFIX).") {
             guard let keyId = dataType.split(separator: ".").last
             else {
-                logger.error("Couldn't get key id for \(ORG_FUTO_SSSS_KEY_PREFIX)")
+                logger.error("Couldn't get key id for \(ORG_FUTO_SSSS_KEY_PREFIX, privacy: .public)")
                 throw Matrix.Error("Couldn't get key id for \(ORG_FUTO_SSSS_KEY_PREFIX)")
             }
             let content = try container.decode(SecretStore.Secret.self, forKey: .content)
-            logger.debug("Matrix decoded content of type \(SecretStore.Secret.self)")
+            logger.debug("Matrix decoded content of type \(SecretStore.Secret.self, privacy: .public)")
             return content
         }
         
-        logger.error("Cannot decode unknown account data type \(dataType)")
+        logger.error("Cannot decode unknown account data type \(dataType, privacy: .public)")
         throw Matrix.Error("Cannot decode unknown account data type \(dataType)")
     }
 
