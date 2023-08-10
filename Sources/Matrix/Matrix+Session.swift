@@ -1353,11 +1353,18 @@ extension Matrix {
             }
             let ciphertext = Data(encryptedBytes)
             let mxc = try await self.uploadData(data: ciphertext, contentType: contentType)
-
+            
+            guard let unpaddedSHA256 = Base64.unpadded(sha256sum),
+                  let unpaddedIV = Base64.unpadded(iv)
+            else {
+                logger.error("Failed to remove base64 padding")
+                throw Matrix.Error("Failed to remove base64 padding")
+            }
+            
             return mEncryptedFile(url: mxc,
                                   key: Matrix.JWK(key),
-                                  iv: Data(iv).base64EncodedString(),
-                                  hashes: ["sha256": Data(sha256sum).base64EncodedString()],
+                                  iv: unpaddedIV,
+                                  hashes: ["sha256": unpaddedSHA256],
                                   v: "v2")
         }
         
@@ -1373,7 +1380,8 @@ extension Matrix {
             // Cryptographic doom principle: Verify that the ciphertext is what we expected,
             // before we do anything crazy like trying to decrypt
             guard let gotSHA256 = Digest(algorithm: .sha256).update(ciphertext)?.final(),
-                  let wantedSHA256base64 = info.hashes["sha256"],
+                  let wantedSHA256base64unpadded = info.hashes["sha256"],
+                  let wantedSHA256base64 = Base64.ensurePadding(wantedSHA256base64unpadded),
                   let wantedSHA256data = Data(base64Encoded: wantedSHA256base64),
                   gotSHA256.count == wantedSHA256data.count
             else {
@@ -1396,8 +1404,8 @@ extension Matrix {
             
             // OK now it's finally safe to (try to) decrypt this thing
             
-            guard let key = Data(base64Encoded: info.key.k),
-                  let iv = Data(base64Encoded: info.iv)
+            guard let key = Base64.data(info.key.k),
+                  let iv = Base64.data(info.iv)
             else {
                 logger.error("Couldn't parse key and IV")
                 throw Matrix.Error("Couldn't parse key and IV")

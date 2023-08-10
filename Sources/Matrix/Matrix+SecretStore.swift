@@ -155,6 +155,46 @@ extension Matrix {
             public var iv: String
             public var ciphertext: String
             public var mac: String
+            
+            public enum CodingKeys: CodingKey {
+                case iv
+                case ciphertext
+                case mac
+            }
+            
+            public init(iv: String, ciphertext: String, mac: String) {
+                self.iv = iv
+                self.ciphertext = ciphertext
+                self.mac = mac
+            }
+            
+            public init(from decoder: Decoder) throws {
+                let container: KeyedDecodingContainer<Matrix.SecretStore.EncryptedData.CodingKeys> = try decoder.container(keyedBy: Matrix.SecretStore.EncryptedData.CodingKeys.self)
+                
+                let unpaddedIV = try container.decode(String.self, forKey: Matrix.SecretStore.EncryptedData.CodingKeys.iv)
+                let unpaddedCiphertext = try container.decode(String.self, forKey: Matrix.SecretStore.EncryptedData.CodingKeys.ciphertext)
+                let unpaddedMac = try container.decode(String.self, forKey: Matrix.SecretStore.EncryptedData.CodingKeys.mac)
+                
+                self.iv = Base64.ensurePadding(unpaddedIV)!
+                self.ciphertext = Base64.ensurePadding(unpaddedCiphertext)!
+                self.mac = Base64.ensurePadding(unpaddedMac)!
+            }
+
+            public func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: Matrix.SecretStore.EncryptedData.CodingKeys.self)
+                
+                guard let unpaddedIV = Base64.removePadding(self.iv),
+                      let unpaddedCiphertext = Base64.removePadding(self.ciphertext),
+                      let unpaddedMac = Base64.removePadding(self.mac)
+                else {
+                    Matrix.logger.error("Failed to remove base64 padding for encoding")
+                    throw Matrix.Error("Failed to remove base64 padding for encoding")
+                }
+                
+                try container.encode(unpaddedIV, forKey: Matrix.SecretStore.EncryptedData.CodingKeys.iv)
+                try container.encode(unpaddedCiphertext, forKey: Matrix.SecretStore.EncryptedData.CodingKeys.ciphertext)
+                try container.encode(unpaddedMac, forKey: Matrix.SecretStore.EncryptedData.CodingKeys.mac)
+            }
         }
 
         public struct Secret: Codable {
@@ -337,7 +377,12 @@ extension Matrix {
                     return
                 }
                 
-                let key = Data(base64Encoded: base64key)
+                guard let key = Base64.data(base64key)
+                else {
+                    logger.error("Failed to base64 decode the key")
+                    return
+                }
+                
                 // Whew now we finally have the raw bytes of our new key
                 // Construct its official Matrix key id
                 let keyId = M_SECRET_STORAGE_KEY_PREFIX + "." + event.type.dropFirst(ORG_FUTO_SSSS_KEY_PREFIX.count + 1)
@@ -405,9 +450,17 @@ extension Matrix {
                 throw Matrix.Error("Couldn't compute HMAC")
             }
             
-            let encrypted = EncryptedData(iv: Data(iv).base64EncodedString(),
-                                          ciphertext: Data(ciphertext).base64EncodedString(),
-                                          mac: Data(mac).base64EncodedString())
+            guard let b64iv = Base64.unpadded(iv),
+                  let b64ciphertext = Base64.unpadded(ciphertext),
+                  let b64mac = Base64.unpadded(mac)
+            else {
+                logger.error("Failed to convert to unpadded base64")
+                throw Matrix.Error("Failed to convert to unpadded base64")
+            }
+            
+            let encrypted = EncryptedData(iv: b64iv,
+                                          ciphertext: b64ciphertext,
+                                          mac: b64mac)
             
             /*
             // TEST: Can we decrypt what we just encrypted???
@@ -432,12 +485,13 @@ extension Matrix {
                      encrypted: EncryptedData,
                      key: Data
         ) throws -> Data {
-            logger.debug("Decrypting \(name)")
+            logger.debug("Decrypting \(name, privacy: .public)")
             
-            guard let iv = Data(base64Encoded: encrypted.iv),
-                  let ciphertext = Data(base64Encoded: encrypted.ciphertext),
-                  let mac = Data(base64Encoded: encrypted.mac)
+            guard let iv = Base64.data(encrypted.iv),
+                  let ciphertext = Base64.data(encrypted.ciphertext),
+                  let mac = Base64.data(encrypted.mac)
             else {
+                logger.error("Couldn't parse encrypted data")
                 throw Matrix.Error("Couldn't parse encrypted data")
             }
             
@@ -465,8 +519,8 @@ extension Matrix {
             
             guard storedMAC.count == computedMAC.count
             else {
-                logger.error("MAC doesn't match (\(storedMAC.count) bytes vs \(computedMAC.count) bytes)")
-                throw Matrix.Error("MAC doesn't match")
+                logger.error("MAC lengths don't match (\(storedMAC.count, privacy: .public) bytes vs \(computedMAC.count, privacy: .public) bytes)")
+                throw Matrix.Error("MAC lengths don't match")
             }
             
             var macIsValid = true
@@ -608,7 +662,7 @@ extension Matrix {
             
             logger.debug("Looking for encrypted key \(keyId) in secret storage")
             if let base64Key: String = try await getSecret(type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(keyId)") {
-                let key = Data(base64Encoded: base64Key)
+                let key = Base64.data(base64Key)
                 return key
             }
             
@@ -632,14 +686,15 @@ extension Matrix {
             // Now we need to be sure to keep all our bookkeeping stuff in order
             switch state {
             case .online(let oldDefaultKeyId):
-                let base64Key = key.base64EncodedString()
+                let base64Key = Base64.unpadded(key)
+                
                 
                 guard let oldDefaultKey = self.keys[oldDefaultKeyId]
                 else {
                     logger.error("Failed to get old default key for key id \(oldDefaultKeyId)")
                     throw Matrix.Error("Failed to get old default key for key id \(oldDefaultKeyId)")
                 }
-                let oldBase64Key = oldDefaultKey.base64EncodedString()
+                let oldBase64Key = Base64.unpadded(oldDefaultKey)
                 
                 // Save our new key, encrypted under the old key, so other clients can access it
                 try await self.saveSecret(base64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(keyId)")
