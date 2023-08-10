@@ -1362,8 +1362,14 @@ extension Matrix {
         }
         
         public func downloadAndDecryptData(_ info: mEncryptedFile) async throws -> Data {
-            let ciphertext = try await self.downloadData(mxc: info.url)
+            logger.debug("Downloading and decrypting encrypted file from \(info.url, privacy: .public)")
+            guard let ciphertext = try? await self.downloadData(mxc: info.url)
+            else {
+                logger.error("Failed to download encrypted blob from \(info.url, privacy: .public)")
+                throw Matrix.Error("Failed to download media")
+            }
             
+            logger.debug("Checking SHA256 hash")
             // Cryptographic doom principle: Verify that the ciphertext is what we expected,
             // before we do anything crazy like trying to decrypt
             guard let gotSHA256 = Digest(algorithm: .sha256).update(ciphertext)?.final(),
@@ -1371,7 +1377,8 @@ extension Matrix {
                   let wantedSHA256data = Data(base64Encoded: wantedSHA256base64),
                   gotSHA256.count == wantedSHA256data.count
             else {
-                throw Matrix.Error("Couldn't get SHA256 digest(s)")
+                logger.error("Failed to get sha256 hashes")
+                throw Matrix.Error("Failed to get sha256 hashes")
             }
             let wantedSHA256 = [UInt8](wantedSHA256data)
             // WTF, CommonCrypto doesn't have a Digest.verify() ???!?!?!
@@ -1383,6 +1390,7 @@ extension Matrix {
                 }
             }
             guard match == true else {
+                logger.error("SHA256 hash does not match!")
                 throw Matrix.Error("SHA256 hash does not match!")
             }
             
@@ -1391,6 +1399,7 @@ extension Matrix {
             guard let key = Data(base64Encoded: info.key.k),
                   let iv = Data(base64Encoded: info.iv)
             else {
+                logger.error("Couldn't parse key and IV")
                 throw Matrix.Error("Couldn't parse key and IV")
             }
             
@@ -1404,9 +1413,11 @@ extension Matrix {
             
             guard let decryptedBytes = cryptor.update(ciphertext)?.final()
             else {
+                logger.error("Failed to decrypt ciphertext")
                 throw Matrix.Error("Failed to decrypt ciphertext")
             }
             
+            logger.debug("Decryption success")
             return Data(decryptedBytes)
         }
 
