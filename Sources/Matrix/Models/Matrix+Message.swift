@@ -292,42 +292,39 @@ extension Matrix {
             
             
             self.fetchThumbnailTask = Task {
-                guard let info = content.thumbnail_info
-                else {
-                    self.fetchThumbnailTask = nil
-                    return
-                }
-                
-                if let encryptedFile = content.thumbnail_file {
-                    guard let data = try? await room.session.downloadAndDecryptData(encryptedFile)
-                    else {
+                if let info = content.thumbnail_info {
+                    
+                    if let encryptedFile = content.thumbnail_file {
+                        guard let data = try? await room.session.downloadAndDecryptData(encryptedFile)
+                        else {
+                            self.fetchThumbnailTask = nil
+                            return
+                        }
+                        let image = NativeImage(data: data)
+                        await MainActor.run {
+                            self.thumbnail = image
+                        }
                         self.fetchThumbnailTask = nil
                         return
                     }
-                    let image = NativeImage(data: data)
-                    await MainActor.run {
-                        self.thumbnail = image
-                    }
-                    self.fetchThumbnailTask = nil
-                    return
-                }
-                
-                if let mxc = content.thumbnail_url {
-                    guard let data = try? await room.session.downloadData(mxc: mxc)
-                    else {
+                    
+                    if let mxc = content.thumbnail_url {
+                        guard let data = try? await room.session.downloadData(mxc: mxc)
+                        else {
+                            self.fetchThumbnailTask = nil
+                            return
+                        }
+                        let image = NativeImage(data: data)
+                        await MainActor.run {
+                            self.thumbnail = image
+                        }
                         self.fetchThumbnailTask = nil
                         return
                     }
-                    let image = NativeImage(data: data)
-                    await MainActor.run {
-                        self.thumbnail = image
-                    }
-                    self.fetchThumbnailTask = nil
-                    return
                 }
                 
                 // m.image is a special case - If it doesn't have a thumbnail, we can just use the full-resolution image
-                if self.thumbnail == nil,
+                else if self.thumbnail == nil,
                    content.msgtype == .image,
                    let imageContent = content as? mImageContent
                 {
