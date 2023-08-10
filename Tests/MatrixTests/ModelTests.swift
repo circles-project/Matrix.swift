@@ -161,14 +161,14 @@ final class ModelTests: XCTestCase {
         let knock = syncResponse.rooms!.knock!
         let knockRoomId = RoomId("!223asd456:example.com")!
         print("Room Knock:\n\t \(knock)")
-        XCTAssertEqual(knock[knockRoomId]!.knockState!.events[0].type, M_ROOM_NAME)
-        XCTAssertEqual(knock[knockRoomId]!.knockState!.events[0].sender, UserId("@alice:example.com"))
-        XCTAssertEqual((knock[knockRoomId]!.knockState!.events[0].content
+        XCTAssertEqual(knock[knockRoomId]!.knockState!.events![0].type, M_ROOM_NAME)
+        XCTAssertEqual(knock[knockRoomId]!.knockState!.events![0].sender, UserId("@alice:example.com"))
+        XCTAssertEqual((knock[knockRoomId]!.knockState!.events![0].content
                         as! RoomNameContent).name, "My Room Name")
-        XCTAssertEqual(knock[knockRoomId]!.knockState!.events[1].type, M_ROOM_MEMBER)
-        XCTAssertEqual(knock[knockRoomId]!.knockState!.events[1].sender, UserId("@bob:example.com"))
-        XCTAssertEqual(knock[knockRoomId]!.knockState!.events[1].stateKey, "@bob:example.com")
-        XCTAssertEqual((knock[knockRoomId]!.knockState!.events[1].content
+        XCTAssertEqual(knock[knockRoomId]!.knockState!.events![1].type, M_ROOM_MEMBER)
+        XCTAssertEqual(knock[knockRoomId]!.knockState!.events![1].sender, UserId("@bob:example.com"))
+        XCTAssertEqual(knock[knockRoomId]!.knockState!.events![1].stateKey, "@bob:example.com")
+        XCTAssertEqual((knock[knockRoomId]!.knockState!.events![1].content
                         as! RoomMemberContent).membership, RoomMemberContent.Membership.knock)
     }
     
