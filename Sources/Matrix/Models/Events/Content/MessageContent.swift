@@ -72,6 +72,13 @@ extension Matrix {
         public var replyToEventId: EventId? {
             self.relatesTo?.inReplyTo?.eventId
         }
+        
+        public var debugString: String {
+            """
+            msg_type: \(msgtype)
+            body: \(body)
+            """
+        }
     }
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-emote
@@ -158,6 +165,20 @@ extension Matrix {
         
         public var replyToEventId: EventId? {
             self.relatesTo?.inReplyTo?.eventId
+        }
+        
+        public var debugString: String {
+            """
+            msg_type: \(msgtype)
+            body: \(body)
+            url: \(url?.description ?? "none")
+            file: \(file?.url.description ?? "none")
+            thumbnail_url: \(info.thumbnail_url?.description ?? "none")
+            thumbnail_file: \(info.thumbnail_file?.url.description ?? "none")
+            blurhash: \(info.blurhash ?? "none")
+            thumbhash: \(info.thumbhash ?? "none")
+            caption: \(caption ?? "none")
+            """
         }
     }
 

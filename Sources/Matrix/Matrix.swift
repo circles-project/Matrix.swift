@@ -240,4 +240,15 @@ public protocol _MatrixMessageContent: Codable, RelatedEventContent {
     var thumbnail_url: MXC? {get}
     var blurhash: String? {get}
     var thumbhash: String? {get}
+    
+    var debugString: String {get}
+}
+
+extension _MatrixMessageContent {
+    public var debugString: String {
+        """
+        msg_type: \(msgtype)
+        body: \(body)
+        """
+    }
 }
