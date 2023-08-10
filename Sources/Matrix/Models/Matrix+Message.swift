@@ -279,24 +279,32 @@ extension Matrix {
         }
         
         public func fetchThumbnail() async throws {
+            logger.debug("Fetching thumbnail for message \(self.eventId)")
             guard event.type == M_ROOM_MESSAGE,
                   let content = event.content as? MessageContent
             else {
+                logger.debug("Event \(self.eventId) is not an m.room.message -- Not fetching thumbnail")
                 return
             }
             
             if let task = self.fetchThumbnailTask {
+                logger.debug("Message \(self.eventId) is already fetching its thumbnail.  Waiting on that task.")
                 try await task.value
                 return
             }
             
             
             self.fetchThumbnailTask = Task {
+                logger.debug("Starting fetch thumbnail task for message \(self.eventId)")
                 if let info = content.thumbnail_info {
+                    logger.debug("Message \(self.eventId) has a thumbnail")
                     
                     if let encryptedFile = content.thumbnail_file {
+                        logger.debug("Message \(self.eventId) has an encrypted thumbnail")
+
                         guard let data = try? await room.session.downloadAndDecryptData(encryptedFile)
                         else {
+                            logger.error("Failed to download encrypted thumbnail for \(self.eventId)")
                             self.fetchThumbnailTask = nil
                             return
                         }
@@ -309,8 +317,11 @@ extension Matrix {
                     }
                     
                     if let mxc = content.thumbnail_url {
+                        logger.debug("Message \(self.eventId) has a plaintext thumbnail")
+
                         guard let data = try? await room.session.downloadData(mxc: mxc)
                         else {
+                            logger.error("Failed to download plaintext thumbnail for \(self.eventId)")
                             self.fetchThumbnailTask = nil
                             return
                         }
@@ -328,9 +339,14 @@ extension Matrix {
                    content.msgtype == .image,
                    let imageContent = content as? mImageContent
                 {
+                    logger.debug("Message \(self.eventId) does not have a thumbnail, but it is an m.image")
+
                     if let encryptedFile = imageContent.file {
+                        logger.debug("Message \(self.eventId) has an encrypted image")
+
                         guard let data = try? await room.session.downloadAndDecryptData(encryptedFile)
                         else {
+                            logger.error("Failed to download encrypted image for \(self.eventId)")
                             self.fetchThumbnailTask = nil
                             return
                         }
@@ -343,8 +359,11 @@ extension Matrix {
                     }
                     
                     if let mxc = imageContent.url {
+                        logger.debug("Message \(self.eventId) has a plaintext image")
+
                         guard let data = try? await room.session.downloadData(mxc: mxc)
                         else {
+                            logger.error("Failed to download plaintext image for \(self.eventId)")
                             self.fetchThumbnailTask = nil
                             return
                         }
@@ -355,6 +374,10 @@ extension Matrix {
                         self.fetchThumbnailTask = nil
                         return
                     }
+                }
+                
+                else {
+                    logger.warning("Message \(self.eventId) doesn't seem to have any usable thumbnail")
                 }
                 
                 self.fetchThumbnailTask = nil
