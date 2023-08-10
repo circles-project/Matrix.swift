@@ -38,25 +38,31 @@ extension Matrix {
     }
     
     public static func decodeEventContent(of eventType: String, from decoder: Decoder) throws -> Codable {
+        logger.debug("Decoding event of type \(eventType, privacy: .public)")
+        
         let container = try decoder.container(keyedBy: MinimalEvent.CodingKeys.self)
 
         if let codableType = eventTypes[eventType] {
+            logger.debug("Decoding \(eventType, privacy: .public) as \(codableType.self, privacy: .public)")
             let content = try container.decode(codableType.self, forKey: .content)
             return content
         }
         
         if eventType == M_ROOM_MESSAGE {
+            logger.debug("Decoding room message")
             // Peek into the content struct to examine the `msgtype`
             struct MinimalMessageContent: Codable {
                 var msgtype: String
             }
             let mmc = try container.decode(MinimalMessageContent.self, forKey: .content)
             // Now use the msgtype to determine how we decode the content
+            logger.debug("Room message type is \(mmc.msgtype, privacy: .public)")
             guard let codableType = messageTypes[mmc.msgtype]
             else {
                 logger.error("Cannot decode unknown message type \(mmc.msgtype, privacy: .public)")
                 throw Matrix.Error("Cannot decode unknown message type \(mmc.msgtype)")
             }
+            logger.debug("Decoding room message of type \(mmc.msgtype, privacy: .public) as \(codableType.self, privacy: .public)")
             let content = try container.decode(codableType.self, forKey: .content)
             return content
         }
