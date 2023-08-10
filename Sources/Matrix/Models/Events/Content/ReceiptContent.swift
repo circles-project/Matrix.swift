@@ -20,10 +20,14 @@ public struct EventReceiptInfo: Codable {
     public struct Timestamp: Codable {
         var ts: UInt
         var threadId: EventId?
+        public enum CodingKeys: String, CodingKey {
+            case ts
+            case threadId = "thread_id"
+        }
     }
-    public var read: [UserId: Timestamp]
-    public var readPrivate: [UserId: Timestamp]
-    public var fullyRead: [UserId: Timestamp]
+    public var read: [UserId: Timestamp]?
+    public var readPrivate: [UserId: Timestamp]?
+    public var fullyRead: [UserId: Timestamp]?
     
     public enum CodingKeys: String, CodingKey {
         case read = "m.read"
