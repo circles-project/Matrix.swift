@@ -12,12 +12,34 @@ extension Matrix {
     public struct SyncResponseBody: Decodable {
         public struct MinimalEventsContainer: Decodable {
             public var events: [MinimalEvent]?
+            
+            public enum CodingKeys: CodingKey {
+                case events
+            }
+            
+            public init(from decoder: Decoder) throws {
+                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.MinimalEventsContainer.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.MinimalEventsContainer.CodingKeys.self)
+                if let lossy = try container.decodeIfPresent(LossyCodableList<MinimalEvent>.self, forKey: .events) {
+                    self.events = lossy.elements
+                } else {
+                    self.events = nil
+                }
+            }
         }
         
         public struct AccountData: Codable {
             // Here we can't use the MinimalEvent type that we already defined
             // Because Matrix is batshit and puts crazy stuff into these `type`s
             public var events: [AccountDataEvent]?
+            
+            public init(from decoder: Decoder) throws {
+                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.AccountData.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.AccountData.CodingKeys.self)
+                if let lossy = try container.decodeIfPresent(LossyCodableList<AccountDataEvent>.self, forKey: .events) {
+                    self.events = lossy.elements
+                } else {
+                    self.events = nil
+                }
+            }
         }
         
         public typealias Presence =  MinimalEventsContainer
@@ -51,9 +73,7 @@ extension Matrix {
         }
         
         public struct InvitedRoomSyncInfo: Decodable {
-            public struct InviteState: Decodable {
-                public var events: [StrippedStateEvent]?
-            }
+            public typealias InviteState = StrippedStateEventsContainer
             public var inviteState: InviteState?
             
             public enum CodingKeys: String, CodingKey {
@@ -63,7 +83,35 @@ extension Matrix {
         
         public struct StateEventsContainer: Decodable {
             public var events: [ClientEventWithoutRoomId]?
+            
+            public enum CodingKeys: CodingKey {
+                case events
+            }
+            
+            public init(from decoder: Decoder) throws {
+                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.StateEventsContainer.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.StateEventsContainer.CodingKeys.self)
+                if let lossy = try container.decodeIfPresent(LossyCodableList<ClientEventWithoutRoomId>.self, forKey: .events) {
+                    self.events = lossy.elements
+                } else {
+                    self.events = nil
+                }
+            }
         }
+        
+        public struct StrippedStateEventsContainer: Decodable {
+            public var events: [StrippedStateEvent]?
+            
+            public enum CodingKeys: CodingKey {
+                case events
+            }
+            
+            public init(from decoder: Decoder) throws {
+                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.KnockedRoomSyncInfo.KnockState.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.KnockedRoomSyncInfo.KnockState.CodingKeys.self)
+                let lossy = try container.decode(LossyCodableList<StrippedStateEvent>.self, forKey: .events)
+                self.events = lossy.elements
+            }
+        }
+        
         
         public struct Timeline: Decodable {
             public var events: [ClientEventWithoutRoomId]
@@ -74,6 +122,14 @@ extension Matrix {
                 case events
                 case limited
                 case prevBatch = "prev_batch"
+            }
+            
+            public init(from decoder: Decoder) throws {
+                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.Timeline.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.Timeline.CodingKeys.self)
+                let lossy = try container.decode(LossyCodableList<ClientEventWithoutRoomId>.self, forKey: .events)
+                self.events = lossy.elements
+                self.limited = try container.decodeIfPresent(Bool.self, forKey: Matrix.SyncResponseBody.Timeline.CodingKeys.limited)
+                self.prevBatch = try container.decodeIfPresent(String.self, forKey: Matrix.SyncResponseBody.Timeline.CodingKeys.prevBatch)
             }
         }
         
@@ -145,9 +201,7 @@ extension Matrix {
         }
         
         public struct KnockedRoomSyncInfo: Decodable {
-            public struct KnockState: Decodable {
-                public var events: [StrippedStateEvent]
-            }
+            public typealias KnockState = StrippedStateEventsContainer
             public var knockState: KnockState?
             
             public enum CodingKeys: String, CodingKey {
@@ -169,6 +223,16 @@ extension Matrix {
         
         public struct ToDevice: Decodable {
             public var events: [ToDeviceEvent]
+            
+            public enum CodingKeys: CodingKey {
+                case events
+            }
+            
+            public init(from decoder: Decoder) throws {
+                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.ToDevice.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.ToDevice.CodingKeys.self)
+                let lossy = try container.decode(LossyCodableList<ToDeviceEvent>.self, forKey: .events)
+                self.events = lossy.elements
+            }
         }
         
         public struct DeviceLists: Decodable {
