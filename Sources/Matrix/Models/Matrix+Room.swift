@@ -825,6 +825,7 @@ extension Matrix {
         
         public func sendImage(image: NativeImage,
                               thumbnailSize: (Int,Int)?=(800,600),
+                              caption: String?=nil,
                               withBlurhash: Bool=true,
                               withThumbhash: Bool=true
         ) async throws -> EventId {
@@ -908,7 +909,11 @@ extension Matrix {
                                                          size: thumbnailData.count)
                     info.thumbnail_url = thumbnailMXC
                 }
-                let content = mImageContent(msgtype: .image, body: "\(mxc.mediaId).jpeg", url: mxc, info: info)
+                let content = mImageContent(msgtype: .image,
+                                            body: "\(mxc.mediaId).jpeg",
+                                            url: mxc,
+                                            info: info,
+                                            caption: caption)
                 let eventId =  try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
                 let localEchoEvent = try ClientEventWithoutRoomId(content: content,
                                                                   eventId: eventId,
@@ -934,7 +939,11 @@ extension Matrix {
                     info.thumbnail_file = thumbnailFile
                 }
                 
-                let content = mImageContent(msgtype: .image, body: "\(encryptedFile.url.mediaId).jpeg", file: encryptedFile, info: info)
+                let content = mImageContent(msgtype: .image,
+                                            body: "\(encryptedFile.url.mediaId).jpeg",
+                                            file: encryptedFile,
+                                            info: info,
+                                            caption: caption)
                 let eventId = try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
                 let localEchoEvent = try ClientEventWithoutRoomId(content: content,
                                                                   eventId: eventId,
