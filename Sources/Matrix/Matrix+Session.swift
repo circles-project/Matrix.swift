@@ -1376,7 +1376,7 @@ extension Matrix {
                 throw Matrix.Error("Failed to download media")
             }
             
-            logger.debug("Checking SHA256 hash")
+            logger.debug("Checking SHA256 hash for \(info.url, privacy: .public)")
             // Cryptographic doom principle: Verify that the ciphertext is what we expected,
             // before we do anything crazy like trying to decrypt
             guard let gotSHA256 = Digest(algorithm: .sha256).update(ciphertext)?.final(),
@@ -1404,6 +1404,8 @@ extension Matrix {
             
             // OK now it's finally safe to (try to) decrypt this thing
             
+            logger.debug("Got key \(info.key.k) and iv \(info.iv) for \(info.url, privacy: .public)")
+            
             guard let key = Base64.data(info.key.k),
                   let iv = Base64.data(info.iv)
             else {
@@ -1425,7 +1427,7 @@ extension Matrix {
                 throw Matrix.Error("Failed to decrypt ciphertext")
             }
             
-            logger.debug("Decryption success")
+            logger.debug("Decryption success for \(info.url, privacy: .public)")
             return Data(decryptedBytes)
         }
 
