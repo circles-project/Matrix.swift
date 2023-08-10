@@ -151,7 +151,7 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual((join[joinRoomId]!.timeline!.events[1].content
                         as! Matrix.mTextContent).formatted_body, "<b>This is an example text message</b>")
         XCTAssertEqual((join[joinRoomId]!.timeline!.events[1].content
-                        as! Matrix.mTextContent).msgtype, Matrix.MessageType.text)
+                        as! Matrix.mTextContent).msgtype, M_TEXT)
         
         XCTAssertEqual(join[joinRoomId]!.unreadNotifications!.highlightCount, 1)
         XCTAssertEqual(join[joinRoomId]!.unreadNotifications!.notificationCount, 5)

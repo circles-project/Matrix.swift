@@ -11,7 +11,7 @@ extension Matrix {
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-text
     public struct mTextContent: Matrix.MessageContent {
-        public var msgtype: Matrix.MessageType
+        public var msgtype: String
         public var body: String
         public var format: String?
         public var formatted_body: String?
@@ -20,7 +20,7 @@ extension Matrix {
         // Maybe should have made the "Rich replies" functionality a protocol...
         public var relatesTo: mRelatesTo?
 
-        public init(msgtype: Matrix.MessageType, body: String, format: String? = nil,
+        public init(msgtype: String, body: String, format: String? = nil,
                     formatted_body: String? = nil, relatesTo: mRelatesTo? = nil) {
             self.msgtype = msgtype
             self.body = body
@@ -91,7 +91,7 @@ extension Matrix {
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-image
     public struct mImageContent: Matrix.MessageContent {
-        public var msgtype: Matrix.MessageType
+        public var msgtype: String
         public var body: String
         public var file: mEncryptedFile?
         public var url: MXC?
@@ -99,7 +99,7 @@ extension Matrix {
         public var caption: String?
         public var relatesTo: mRelatesTo?
         
-        public init(msgtype: Matrix.MessageType,
+        public init(msgtype: String,
                     body: String,
                     url: MXC? = nil,
                     info: mImageInfo,
@@ -115,7 +115,7 @@ extension Matrix {
             self.relatesTo = relatesTo
         }
 
-        public init(msgtype: Matrix.MessageType,
+        public init(msgtype: String,
                     body: String,
                     file: mEncryptedFile? = nil,
                     info: mImageInfo,
@@ -229,14 +229,14 @@ extension Matrix {
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-file
     public struct mFileContent: Matrix.MessageContent {
-        public let msgtype: Matrix.MessageType
+        public let msgtype: String
         public var body: String
         public var filename: String
         public var info: mFileInfo
         public var file: mEncryptedFile
         public var relatesTo: mRelatesTo?
         
-        public init(msgtype: Matrix.MessageType,
+        public init(msgtype: String,
                     body: String,
                     filename: String,
                     info: mFileInfo,
@@ -368,14 +368,14 @@ extension Matrix {
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-audio
     public struct mAudioContent: Matrix.MessageContent {
-        public let msgtype: Matrix.MessageType
+        public let msgtype: String
         public var body: String
         public var info: mAudioInfo
         public var file: mEncryptedFile?
         public var url: MXC?
         public var relatesTo: mRelatesTo?
         
-        public init(msgtype: Matrix.MessageType,
+        public init(msgtype: String,
                     body: String,
                     info: mAudioInfo,
                     file: mEncryptedFile,
@@ -389,7 +389,7 @@ extension Matrix {
             self.relatesTo = relatesTo
         }
         
-        public init(msgtype: Matrix.MessageType,
+        public init(msgtype: String,
                     body: String,
                     info: mAudioInfo,
                     url: MXC,
@@ -454,13 +454,13 @@ extension Matrix {
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-location
     public struct mLocationContent: Matrix.MessageContent {
-        public let msgtype: Matrix.MessageType
+        public let msgtype: String
         public var body: String
         public var geo_uri: String
         public var info: mLocationInfo
         public var relatesTo: mRelatesTo?
         
-        public init(msgtype: Matrix.MessageType,
+        public init(msgtype: String,
                     body: String,
                     geo_uri: String,
                     info: mLocationInfo,
@@ -532,7 +532,7 @@ extension Matrix {
 
     // https://matrix.org/docs/spec/client_server/r0.6.0#m-video
     public struct mVideoContent: Matrix.MessageContent {
-        public let msgtype: Matrix.MessageType
+        public let msgtype: String
         public var body: String
         public var info: mVideoInfo
         public var file: mEncryptedFile?
@@ -540,7 +540,7 @@ extension Matrix {
         public var caption: String?
         public var relatesTo: mRelatesTo?
         
-        public init(msgtype: Matrix.MessageType,
+        public init(msgtype: String,
                     body: String,
                     info: mVideoInfo,
                     file: mEncryptedFile,
@@ -556,7 +556,7 @@ extension Matrix {
             self.relatesTo = relatesTo
         }
         
-        public init(msgtype: Matrix.MessageType,
+        public init(msgtype: String,
                     body: String,
                     info: mVideoInfo,
                     url: MXC,

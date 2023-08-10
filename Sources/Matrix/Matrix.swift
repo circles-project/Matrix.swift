@@ -126,7 +126,6 @@ public enum Matrix {
     // Well fuck you too Swift, we're doing it anyway.
     // See below for the "real" type definitions.
     public typealias Event = _MatrixEvent
-    public typealias MessageType = _MatrixMessageType
     public typealias MessageContent = _MatrixMessageContent
     
     // We're still in this dumb situation where Apple uses UIImage everywhere except MacOS
@@ -216,22 +215,11 @@ public protocol _MatrixEvent: Codable {
     var content: Codable {get}
 }
 
-// MARK: MessageType
-public enum _MatrixMessageType: String, Codable {
-    case text = "m.text"
-    case emote = "m.emote"
-    case notice = "m.notice"
-    case image = "m.image"
-    case file = "m.file"
-    case audio = "m.audio"
-    case video = "m.video"
-    case location = "m.location"
-}
 
 // MARK: MessageContent
 public protocol _MatrixMessageContent: Codable, RelatedEventContent {
     var body: String {get}
-    var msgtype: Matrix.MessageType {get}
+    var msgtype: String {get}
     
     var mimetype: String? {get}
     

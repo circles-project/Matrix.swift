@@ -810,7 +810,7 @@ extension Matrix {
         // MARK: Sending messages
         
         public func sendText(text: String) async throws -> EventId {
-            let content = mTextContent(msgtype: .text, body: text)
+            let content = mTextContent(msgtype: M_TEXT, body: text)
             let eventId = try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             let localEchoEvent = try ClientEventWithoutRoomId(content: content,
                                                               eventId: eventId,
@@ -911,7 +911,7 @@ extension Matrix {
                                                          size: thumbnailData.count)
                     info.thumbnail_url = thumbnailMXC
                 }
-                let content = mImageContent(msgtype: .image,
+                let content = mImageContent(msgtype: M_IMAGE,
                                             body: "\(mxc.mediaId).jpeg",
                                             url: mxc,
                                             info: info,
@@ -941,7 +941,7 @@ extension Matrix {
                     info.thumbnail_file = thumbnailFile
                 }
                 
-                let content = mImageContent(msgtype: .image,
+                let content = mImageContent(msgtype: M_IMAGE,
                                             body: "\(encryptedFile.url.mediaId).jpeg",
                                             file: encryptedFile,
                                             info: info,
@@ -984,7 +984,7 @@ extension Matrix {
                 relatesTo = mRelatesTo(inReplyTo: event.eventId)
             }
             
-            let content = mTextContent(msgtype: .text,
+            let content = mTextContent(msgtype: M_TEXT,
                                        body: text,
                                        relatesTo: relatesTo)
             
