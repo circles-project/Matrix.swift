@@ -335,8 +335,7 @@ extension Matrix {
                 }
                 
                 // m.image is a special case - If it doesn't have a thumbnail, we can just use the full-resolution image
-                else if self.thumbnail == nil,
-                        content.msgtype == M_IMAGE
+                else if content.msgtype == M_IMAGE
                 {
                     logger.debug("Message \(self.eventId) does not have a thumbnail, but it is an m.image")
 
