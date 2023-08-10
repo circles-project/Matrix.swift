@@ -1406,7 +1406,7 @@ extension Matrix {
             
             logger.debug("Got key \(info.key.k) and iv \(info.iv) for \(info.url, privacy: .public)")
             
-            guard let key = Base64.data(info.key.k),
+            guard let key = Base64.data(info.key.k, urlSafe: true),
                   let iv = Base64.data(info.iv)
             else {
                 logger.error("Couldn't parse key and IV")

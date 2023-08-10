@@ -52,13 +52,19 @@ extension Matrix {
             removePadding(Data(array).base64EncodedString())
         }
         
-        public static func data(_ encoded: String) -> Data? {
+        public static func data(_ encoded: String, urlSafe: Bool=false) -> Data? {
             guard let padded = ensurePadding(encoded)
             else {
                 logger.error("Can't base64 decode a non-base64 string")
                 return nil
             }
-            return Data(base64Encoded: padded)
+            if urlSafe {
+                let translated = padded.replacingOccurrences(of: "_", with: "/")
+                                       .replacingOccurrences(of: "-", with: "+")
+                return Data(base64Encoded: translated)
+            } else {
+                return Data(base64Encoded: padded)
+            }
         }
 
     }
