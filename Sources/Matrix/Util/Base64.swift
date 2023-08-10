@@ -11,6 +11,7 @@ extension Matrix {
     public enum Base64 {
 
         public static func ensurePadding(_ encoded: String) -> String? {
+            /* YOLO
             guard encoded.allSatisfy({c in
                 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=".contains(c)
             })
@@ -18,6 +19,7 @@ extension Matrix {
                 logger.error("Can't base64-pad a non-base64 string")
                 return nil
             }
+            */
             
             if encoded.count % 4 == 0 {
                 return encoded
@@ -29,6 +31,7 @@ extension Matrix {
         }
         
         public static func removePadding(_ padded: String) -> String? {
+            /* YOLO
             guard padded.allSatisfy({c in
                 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=".contains(c)
             })
@@ -36,7 +39,8 @@ extension Matrix {
                 logger.error("Can't remove base64 pading from a non-base64 string")
                 return nil
             }
-
+            */
+            
             return padded.trimmingCharacters(in: CharacterSet(["="]))
         }
         
