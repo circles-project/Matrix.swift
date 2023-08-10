@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 
 @propertyWrapper
 public struct LossyCodableList<Element> {
@@ -24,6 +25,9 @@ extension LossyCodableList: Decodable where Element: Decodable {
         init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
             element = try? container.decode(Element.self)
+            if element == nil {
+                Matrix.logger.error("Failed to decode an element of type \(Element.self, privacy: .public)")
+            }
         }
     }
 
