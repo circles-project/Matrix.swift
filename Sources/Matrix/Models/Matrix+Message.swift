@@ -255,14 +255,20 @@ extension Matrix {
                        let thumbhashData = Data(base64Encoded: thumbhashString)
                     {
                         // Use the thumbhash if it's available
-                        self.thumbnail = thumbHashToImage(hash: thumbhashData)
+                        await MainActor.run {
+                            self.thumbnail = thumbHashToImage(hash: thumbhashData)
+                        }
                     } else if let blurhash = messageContent.blurhash,
                               let thumbnailInfo = messageContent.thumbnail_info
                     {
                         // Fall back to blurhash
-                        self.thumbnail = .init(blurHash: blurhash, size: CGSize(width: thumbnailInfo.w, height: thumbnailInfo.h))
+                        await MainActor.run {
+                            self.thumbnail = .init(blurHash: blurhash, size: CGSize(width: thumbnailInfo.w, height: thumbnailInfo.h))
+                        }
                     } else {
-                        self.thumbnail = nil
+                        await MainActor.run {
+                            self.thumbnail = nil
+                        }
                     }
 
                 }
