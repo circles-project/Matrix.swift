@@ -44,12 +44,19 @@ extension Matrix {
             return padded.trimmingCharacters(in: CharacterSet(["="]))
         }
         
-        public static func unpadded(_ data: Data) -> String? {
-            removePadding(data.base64EncodedString())
+        public static func unpadded(_ data: Data, urlSafe: Bool=false) -> String? {
+            if urlSafe {
+                let safe = data.base64EncodedString()
+                               .replacingOccurrences(of: "/", with: "_")
+                               .replacingOccurrences(of: "+", with: "-")
+                return removePadding(safe)
+            } else {
+                return removePadding(data.base64EncodedString())
+            }
         }
         
-        public static func unpadded(_ array: [UInt8]) -> String? {
-            removePadding(Data(array).base64EncodedString())
+        public static func unpadded(_ array: [UInt8], urlSafe: Bool=false) -> String? {
+            unpadded(Data(array), urlSafe: urlSafe)
         }
         
         public static func data(_ encoded: String, urlSafe: Bool=false) -> Data? {

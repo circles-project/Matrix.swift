@@ -395,19 +395,31 @@ extension Matrix {
         public var k: String
         public var ext: Bool
 
-        public init(_ key: [UInt8]) {
+        public init?(_ key: [UInt8]) {
             self.kty = .oct
             self.key_ops = [.decrypt]
             self.alg = .A256CTR
-            self.k = Data(key).base64EncodedString()
+            guard let b64key = Base64.unpadded(key, urlSafe: true)
+            else {
+                Matrix.logger.error("Failed to convert JWK key to urlsafe base64")
+                return nil
+            }
+            self.k = b64key
             self.ext = true
         }
         
-        public init(kty: KeyType, key_ops: [KeyOperation], alg: Algorithm, k: String, ext: Bool) {
+        public init?(kty: KeyType, key_ops: [KeyOperation], alg: Algorithm, k: String, ext: Bool) {
             self.kty = kty
             self.key_ops = key_ops
             self.alg = alg
-            self.k = k
+            guard let b64key = Base64.removePadding(k)?
+                                     .replacingOccurrences(of: "/", with: "_")
+                                     .replacingOccurrences(of: "+", with: "-")
+            else {
+                Matrix.logger.error("Failed to convert JWK key to urlsafe base64")
+                return nil
+            }
+            self.k = b64key
             self.ext = ext
         }
         

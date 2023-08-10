@@ -1355,14 +1355,15 @@ extension Matrix {
             let mxc = try await self.uploadData(data: ciphertext, contentType: contentType)
             
             guard let unpaddedSHA256 = Base64.unpadded(sha256sum),
-                  let unpaddedIV = Base64.unpadded(iv)
+                  let unpaddedIV = Base64.unpadded(iv),
+                  let jwk = Matrix.JWK(key)
             else {
                 logger.error("Failed to remove base64 padding")
                 throw Matrix.Error("Failed to remove base64 padding")
             }
             
             return mEncryptedFile(url: mxc,
-                                  key: Matrix.JWK(key),
+                                  key: jwk,
                                   iv: unpaddedIV,
                                   hashes: ["sha256": unpaddedSHA256],
                                   v: "v2")
