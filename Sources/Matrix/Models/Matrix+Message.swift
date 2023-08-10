@@ -336,10 +336,16 @@ extension Matrix {
                 
                 // m.image is a special case - If it doesn't have a thumbnail, we can just use the full-resolution image
                 else if self.thumbnail == nil,
-                   content.msgtype == M_IMAGE,
-                   let imageContent = content as? mImageContent
+                        content.msgtype == M_IMAGE
                 {
                     logger.debug("Message \(self.eventId) does not have a thumbnail, but it is an m.image")
+
+                    guard let imageContent = event.content as? mImageContent
+                    else {
+                        logger.error("Failed to parse event \(self.eventId) content as an m.image")
+                        self.fetchThumbnailTask = nil
+                        return
+                    }
 
                     if let encryptedFile = imageContent.file {
                         logger.debug("Message \(self.eventId) has an encrypted image")
@@ -374,14 +380,19 @@ extension Matrix {
                         self.fetchThumbnailTask = nil
                         return
                     }
+                    
+                    logger.error("Message \(self.eventId) appears to be an m.image without any actual image")
+                    self.fetchThumbnailTask = nil
+                    return
                 }
                 
                 else {
                     logger.warning("Message \(self.eventId) doesn't seem to have any usable thumbnail")
+                    self.fetchThumbnailTask = nil
+                    return
                 }
                 
-                self.fetchThumbnailTask = nil
-                return
+
             }
         }
         
