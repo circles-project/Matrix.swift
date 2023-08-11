@@ -1339,7 +1339,7 @@ extension Matrix {
         
         public func encryptAndUploadData(plaintext: Data, contentType: String) async throws -> mEncryptedFile {
             let key = try Random.generateBytes(byteCount: 32)
-            let iv = try Random.generateBytes(byteCount: 16)
+            let iv = try Random.generateBytes(byteCount: 8) + Array<UInt8>(repeating: 0, count: 8)
             var cryptor = Cryptor(operation: .encrypt,
                                   algorithm: Cryptor.Algorithm.aes,
                                   mode: Cryptor.Mode.CTR,
