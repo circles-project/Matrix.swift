@@ -426,7 +426,12 @@ extension Matrix {
             //logger.debug("MAC key        = \(Data(macKey).base64EncodedString())")
             
             // Generate random IV
-            let iv = try Random.generateBytes(byteCount: 16)
+            // https://spec.matrix.org/v1.7/client-server-api/#msecret_storagev1aes-hmac-sha2
+            // > Generate 16 random bytes, set bit 63 to 0 (in order to work around
+            // > differences in AES-CTR implementations), and use this as the AES
+            // > initialization vector. This becomes the iv property, encoded using base64.
+            
+            let iv = try [UInt8.random(in: UInt8(0)..<UInt8(128))] + Random.generateBytes(byteCount: 15)
             
             // Encrypt data with encryption key and IV to create ciphertext
             let cryptor = Cryptor(operation: .encrypt,
