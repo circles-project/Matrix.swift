@@ -115,7 +115,7 @@ public class Client {
     public func call(method: String,
                      path: String,
                      params: [String:String]? = nil,
-                     body: Codable? = nil,
+                     body: Encodable? = nil,
                      expectedStatuses: [Int] = [200]
     ) async throws -> (Data, HTTPURLResponse) {
         if let stringBody = body as? String {
@@ -516,15 +516,18 @@ public class Client {
     
     // https://spec.matrix.org/v1.2/client-server-api/#post_matrixclientv3createroom
     public func createRoom(name: String,
-                    type: String? = nil,
-                    encrypted: Bool = true,
-                    invite userIds: [UserId] = [],
-                    direct: Bool = false
+                           type: String? = nil,
+                           version: String? = nil,
+                           encrypted: Bool = true,
+                           powerLevels: RoomPowerLevelsContent? = nil,
+                           invite userIds: [UserId] = [],
+                           allowGuestAccess: Bool = false,
+                           direct: Bool = false
     ) async throws -> RoomId {
         print("CREATEROOM\tCreating room with name=[\(name)] and type=[\(type ?? "(none)")]")
         
-        struct CreateRoomRequestBody: Codable {
-            var creation_content: [String: String] = [:]
+        struct CreateRoomRequestBody: Encodable {
+            var creation_content: [String: AnyCodable] = [:]
             
             struct StateEvent: Matrix.Event {
                 var content: Codable
@@ -556,20 +559,21 @@ public class Client {
                     var container = encoder.container(keyedBy: CodingKeys.self)
                     try container.encode(stateKey, forKey: .stateKey)
                     try container.encode(type, forKey: .type)
-                    try container.encode(AnyCodable(content), forKey:.content)
+                    try container.encode(content, forKey:.content)
                 }
             }
-            var initial_state: [StateEvent]?
+            var initial_state: [StateEvent]
             var invite: [String]?
             var invite_3pid: [String]?
             var is_direct: Bool = false
             var name: String?
+            var power_level_content_override: RoomPowerLevelsContent?
             enum Preset: String, Codable {
                 case private_chat
                 case public_chat
                 case trusted_private_chat
             }
-            var preset: Preset = .private_chat
+            var preset: Preset?
             var room_alias_name: String?
             var room_version: String = "7"
             var topic: String?
@@ -579,27 +583,53 @@ public class Client {
             }
             var visibility: Visibility = .priv
             
-            init(name: String, type: String? = nil, encrypted: Bool) {
+            init(name: String, type: String? = nil) {
                 self.name = name
-                if encrypted {
-                    let encryptionEvent = StateEvent(
-                        type: M_ROOM_ENCRYPTION,
-                        stateKey: "",
-                        content: RoomEncryptionContent()
-                    )
-                    self.initial_state = [encryptionEvent]
-                }
+                self.initial_state = []
                 if let roomType = type {
-                    self.creation_content = ["type": roomType]
+                    self.creation_content = ["type": AnyCodable(roomType)]
+                } else {
+                    self.creation_content = [:]
                 }
             }
         }
-        let requestBody = CreateRoomRequestBody(name: name, type: type, encrypted: encrypted)
+        var requestBody = CreateRoomRequestBody(name: name, type: type)
+        if let version = version {
+            requestBody.room_version = version
+        }
+        requestBody.is_direct = direct
+        if allowGuestAccess {
+            let event = CreateRoomRequestBody.StateEvent(type: M_ROOM_GUEST_ACCESS,
+                                                         stateKey: "",
+                                                         content: RoomGuestAccessContent(guestAccess: .canJoin))
+            requestBody.initial_state.append(event)
+        }
+        if encrypted {
+            let event = CreateRoomRequestBody.StateEvent(type: M_ROOM_ENCRYPTION,
+                                                         stateKey: "",
+                                                         content: RoomEncryptionContent())
+            requestBody.initial_state.append(event)
+        }
+        requestBody.invite = userIds.map { $0.stringValue }
         
-        print("CREATEROOM\tSending Matrix API request...")
+        let defaultPowerLevels = RoomPowerLevelsContent(events: [
+                                                            M_ROOM_MESSAGE : 0,
+                                                            M_REACTION : -1,
+                                                            M_ROOM_ENCRYPTED : 0,
+                                                        ],
+                                                        eventsDefault: 0,
+                                                        stateDefault: 50,
+                                                        users: [
+                                                            self.creds.userId : 101 // Founder
+                                                        ],
+                                                        usersDefault: 0)
+        requestBody.power_level_content_override = powerLevels ?? defaultPowerLevels
+
+        
+        logger.debug("Sending /createRoom request...")
         let (data, response) = try await call(method: "POST",
-                                    path: "/_matrix/client/\(version)/createRoom",
-                                    body: requestBody)
+                                              path: "/_matrix/client/v3/createRoom",
+                                              body: requestBody)
         print("CREATEROOM\tGot Matrix API response")
         
         struct CreateRoomResponseBody: Codable {
@@ -610,7 +640,7 @@ public class Client {
         guard let responseBody = try? decoder.decode(CreateRoomResponseBody.self, from: data)
         else {
             let msg = "Failed to decode response from server"
-            print(msg)
+            logger.error("Failed to decode /createRoom response from server")
             throw Matrix.Error(msg)
         }
         
