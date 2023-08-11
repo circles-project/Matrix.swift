@@ -397,7 +397,7 @@ extension Matrix {
 
         public init?(_ key: [UInt8]) {
             self.kty = .oct
-            self.key_ops = [.decrypt]
+            self.key_ops = [.decrypt, .encrypt]
             self.alg = .A256CTR
             guard let b64key = Base64.unpadded(key, urlSafe: true)
             else {
