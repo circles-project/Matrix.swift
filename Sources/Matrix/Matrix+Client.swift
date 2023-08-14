@@ -1145,14 +1145,19 @@ public class Client {
     
     // MARK: Media API
     
-    private func getMediaHttpUrl(mxc: MXC) -> URL? {
-        let path = "/_matrix/media/\(version)/download/\(mxc.serverName)/\(mxc.mediaId)"
+    private func getMediaHttpUrl(mxc: MXC, allowRedirect: Bool = true) -> URL? {
+        let path = "/_matrix/media/v3/download/\(mxc.serverName)/\(mxc.mediaId)"
         let url = URL(string: path, relativeTo: baseUrl)
-        return url
+        
+        if allowRedirect {
+            return url?.appending(queryItems: [URLQueryItem(name: "allow_redirect", value: "true")])
+        } else {
+            return url
+        }
     }
     
-    public func downloadData(mxc: MXC) async throws -> Data {
-        guard let url = getMediaHttpUrl(mxc: mxc)
+    public func downloadData(mxc: MXC, allowRedirect: Bool = true) async throws -> Data {
+        guard let url = getMediaHttpUrl(mxc: mxc, allowRedirect: allowRedirect)
         else {
             logger.error("Invalid mxc:// URL \(mxc.description)")
             throw Matrix.Error("Invalid mxc:// URL \(mxc.description)")
@@ -1172,8 +1177,11 @@ public class Client {
         return data
     }
     
-    public func downloadFile(mxc: MXC, delegate: URLSessionDownloadDelegate? = nil) async throws -> URL {
-        guard let url = getMediaHttpUrl(mxc: mxc)
+    public func downloadFile(mxc: MXC,
+                             allowRedirect: Bool = true,
+                             delegate: URLSessionDownloadDelegate? = nil
+    ) async throws -> URL {
+        guard let url = getMediaHttpUrl(mxc: mxc, allowRedirect: allowRedirect)
         else {
             logger.error("Invalid mxc:// URL \(mxc)")
             throw Matrix.Error("Invalid mxc:// URL \(mxc)")
