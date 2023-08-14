@@ -83,6 +83,9 @@ extension Matrix {
         // Key Backup
         var backupRecoveryKey: MatrixSDKCrypto.BackupRecoveryKey?
         
+        // Encrypted Media
+        private var downloadAndDecryptTasks: [MXC: Task<URL,Swift.Error>]
+        
         // MARK: init
         
         public init(creds: Credentials,
@@ -136,6 +139,8 @@ extension Matrix {
                                          passphrase: nil)
             MatrixSDKCrypto.setLogger(logger: Matrix.CryptoLogger())
             self.cryptoQueue = TicketTaskQueue<Void>()
+            
+            self.downloadAndDecryptTasks = [:]
             
             try await super.init(creds: creds)
             
@@ -1323,17 +1328,6 @@ extension Matrix {
                                                     content: encryptedContent)
         }
         
-        // MARK: Media
-        
-        public override func downloadData(mxc: MXC) async throws -> Data {
-            // FIXME: First check to see if we already have the item in our cache
-            
-            let data = try await super.downloadData(mxc: mxc)
-            
-            // FIXME: Save the data in our cache
-            
-            return data
-        }
 
         // MARK: Encrypted Media
         
@@ -1370,11 +1364,11 @@ extension Matrix {
         }
         
         public func downloadAndDecryptData(_ info: mEncryptedFile) async throws -> Data {
-            logger.debug("Downloading and decrypting encrypted file from \(info.url, privacy: .public)")
+            logger.debug("Downloading and decrypting encrypted data from \(info.url, privacy: .public)")
             guard let ciphertext = try? await self.downloadData(mxc: info.url)
             else {
-                logger.error("Failed to download encrypted blob from \(info.url, privacy: .public)")
-                throw Matrix.Error("Failed to download media")
+                logger.error("Failed to download encrypted data from \(info.url, privacy: .public)")
+                throw Matrix.Error("Failed to download media data")
             }
             
             logger.debug("Checking SHA256 hash for \(info.url, privacy: .public)")
@@ -1431,6 +1425,137 @@ extension Matrix {
             logger.debug("Decryption success for \(info.url, privacy: .public)")
             return Data(decryptedBytes)
         }
+        
+        
+        public func downloadAndDecryptFile(_ info: mEncryptedFile,
+                                           allowRedirect: Bool = true,
+                                           delegate: URLSessionDownloadDelegate? = nil
+        ) async throws -> URL {
+            logger.debug("Downloading and decrypting encrypted file from \(info.url, privacy: .public)")
+            
+            // FIXME: Figure out what our decrypted cache dir should be
+            let topLevelCachesUrl = try FileManager.default.url(for: .cachesDirectory,
+                                                                in: .userDomainMask,
+                                                                appropriateFor: nil,
+                                                                create: true)
+            let applicationName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift"
+            let decryptedDir = topLevelCachesUrl.appendingPathComponent(applicationName)
+                                                 .appendingPathComponent(creds.userId.stringValue)
+                                                 .appendingPathComponent("decrypted")
+            let domainDecryptedDir = decryptedDir.appendingPathComponent(info.url.serverName)
+            try FileManager.default.createDirectory(at: domainDecryptedDir, withIntermediateDirectories: true)
+            let decryptedUrl = domainDecryptedDir.appendingPathComponent(info.url.mediaId)
+            
+            // First check: Are we already working on this one?
+            if let task = self.downloadAndDecryptTasks[info.url] {
+                logger.debug("Already working on downloading \(info.url, privacy: .public)")
+                return try await task.value
+            }
+            
+            if FileManager.default.isReadableFile(atPath: decryptedUrl.path()) {
+                logger.debug("Found downloaded file for \(info.url, privacy: .public)")
+                return decryptedUrl
+            }
+            
+            let task = Task {
+                logger.debug("Starting download task for \(info.url, privacy: .public)")
+                guard let ciphertextUrl = try? await self.downloadFile(mxc: info.url, allowRedirect: allowRedirect, delegate: delegate)
+                else {
+                    logger.error("Failed to download encrypted file from \(info.url, privacy: .public)")
+                    throw Matrix.Error("Failed to download media file")
+                }
+                
+                logger.debug("Checking SHA256 hash for \(info.url, privacy: .public)")
+                var sha256 = Digest(algorithm: .sha256)
+                guard let sha256file = try? FileHandle(forReadingFrom: ciphertextUrl)
+                else {
+                    logger.error("Failed to open downloaded file")
+                    throw Matrix.Error("Failed to open downloaded file")
+                }
+                
+                while let data = try sha256file.read(upToCount: 1<<20) {
+                    sha256.update(data: data)
+                }
+                let gotSHA256 = sha256.final()
+                try sha256file.close()
+                
+                guard let wantedSHA256base64unpadded = info.hashes["sha256"],
+                      let wantedSHA256base64 = Base64.ensurePadding(wantedSHA256base64unpadded),
+                      let wantedSHA256data = Data(base64Encoded: wantedSHA256base64)
+                else {
+                    logger.error("Couldn't parse stored SHA256 hash")
+                    throw Matrix.Error("Couldn't parse stored SHA256 hash")
+                }
+                let wantedSHA256 = [UInt8](wantedSHA256data)
+                
+                guard gotSHA256.count == 32,
+                      wantedSHA256.count == 32
+                else {
+                    logger.error("Hash lengths are not correct")
+                    throw Matrix.Error("Hash lengths are not correct")
+                }
+                // WTF, CommonCrypto doesn't have a Digest.verify() ???!?!?!
+                // Verify manually that the two hashes match... grumble grumble grumble
+                var match = true
+                for i in gotSHA256.indices {
+                    if gotSHA256[i] != wantedSHA256[i] {
+                        match = false
+                    }
+                }
+                guard match == true else {
+                    logger.error("SHA256 hash does not match!")
+                    throw Matrix.Error("SHA256 hash does not match!")
+                }
+                logger.debug("SHA256 hash checks out OK")
+                
+                // OK now it's finally safe to (try to) decrypt this thing
+                
+                logger.debug("Got key \(info.key.k) and iv \(info.iv) for \(info.url, privacy: .public)")
+                
+                guard let key = Base64.data(info.key.k, urlSafe: true),
+                      let iv = Base64.data(info.iv)
+                else {
+                    logger.error("Couldn't parse key and IV")
+                    throw Matrix.Error("Couldn't parse key and IV")
+                }
+                
+                var cryptor = StreamCryptor(operation: .decrypt,
+                                            algorithm: .aes,
+                                            mode: .CTR,
+                                            padding: .NoPadding,
+                                            key: [UInt8](key),
+                                            iv: [UInt8](iv)
+                )
+                
+                guard let encrypted = try? FileHandle(forReadingFrom: ciphertextUrl),
+                      let decrypted = try? FileHandle(forWritingTo: decryptedUrl)
+                else {
+                    logger.error("Couldn't open file handles")
+                    throw Matrix.Error("Couldn't open file handles")
+                }
+                
+                while let data = try encrypted.read(upToCount: 1<<20) {
+                    
+                    var buffer = Array<UInt8>(repeating: 0, count: cryptor.getOutputLength(inputByteCount: data.count))
+                    let (count, status) = cryptor.update(dataIn: data, byteArrayOut: &buffer)
+                    if status == Status.success {
+                        try decrypted.write(contentsOf: buffer)
+                    } else {
+                        logger.error("Failed to decrypt")
+                        throw Matrix.Error("Failed to decrypt")
+                    }
+                }
+                // Shouldn't need to do anything else for CTR mode
+                // Close the file handles
+                try encrypted.close()
+                try decrypted.close()
+                // Return the URL of the decrypted file
+                return decryptedUrl
+            }
+            self.downloadAndDecryptTasks[info.url] = task
+            return try await task.value
+        }
+        
 
         // MARK: Fetching Messages
         
