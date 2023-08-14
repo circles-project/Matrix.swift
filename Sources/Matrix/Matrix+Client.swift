@@ -69,17 +69,7 @@ public class Client {
                                                             appropriateFor: nil,
                                                             create: true)
         let applicationName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift"
-        /*
-        let urlCachePath = [
-            NSHomeDirectory(),
-            ".matrix",
-            Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift",
-            "\(creds.userId)",
-            "\(creds.deviceId)",
-            "urlcache"
-        ].joined(separator: "/")
-        let mediaCacheDir = URL(filePath: urlCachePath)
-        */
+
         let mediaCacheDir = topCacheDirectory
             .appendingPathComponent(".matrix")
             .appendingPathComponent(applicationName)
@@ -1162,7 +1152,11 @@ public class Client {
     }
     
     public func downloadData(mxc: MXC) async throws -> Data {
-        let url = getMediaHttpUrl(mxc: mxc)!
+        guard let url = getMediaHttpUrl(mxc: mxc)
+        else {
+            logger.error("Invalid mxc:// URL \(mxc.description)")
+            throw Matrix.Error("Invalid mxc:// URL \(mxc.description)")
+        }
         let request = URLRequest(url: url)
         
         let (data, response) = try await mediaUrlSession.data(for: request)
@@ -1176,6 +1170,40 @@ public class Client {
         }
         
         return data
+    }
+    
+    public func downloadFile(mxc: MXC, delegate: URLSessionDownloadDelegate? = nil) async throws -> URL {
+        guard let url = getMediaHttpUrl(mxc: mxc)
+        else {
+            logger.error("Invalid mxc:// URL \(mxc)")
+            throw Matrix.Error("Invalid mxc:// URL \(mxc)")
+        }
+
+        let (location, response) = try await mediaUrlSession.download(from: url, delegate: delegate)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200
+        else {
+            logger.error("Failed to download media from \(url.description)")
+            throw Matrix.Error("Failed to download media from \(url.description)")
+        }
+        logger.debug("Downloaded \(mxc) to temporary location \(location)")
+        
+        let cachesUrl = try FileManager.default.url(for: .cachesDirectory,
+                                                        in: .userDomainMask,
+                                                        appropriateFor: nil,
+                                                        create: true)
+        let applicationName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift"
+        let mediaStoreDir = cachesUrl.appendingPathComponent(applicationName)
+                                     .appendingPathComponent(creds.userId.stringValue)
+                                     .appendingPathComponent("media")
+        let domainMediaDir = mediaStoreDir.appendingPathComponent(mxc.serverName)
+        try FileManager.default.createDirectory(at: domainMediaDir, withIntermediateDirectories: true)
+
+        let newLocation = domainMediaDir.appendingPathComponent(mxc.mediaId)
+        logger.debug("Moving \(mxc) to \(newLocation)")
+        try FileManager.default.moveItem(at: location, to: newLocation)
+        return newLocation
     }
     
     public func uploadImage(_ original: NativeImage, maxSize: CGSize, quality: CGFloat = 0.80) async throws -> MXC {
