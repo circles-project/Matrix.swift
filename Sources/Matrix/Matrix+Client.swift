@@ -1201,17 +1201,20 @@ public class Client {
         try FileManager.default.createDirectory(at: domainMediaDir, withIntermediateDirectories: true)
         let cacheLocation = domainMediaDir.appendingPathComponent(mxc.mediaId)
         
-        // First check: Do we already have this file downloaded?
+        // First thing to check: Do we already have a download in progress for this file?
+        if let existingTask = self.mediaDownloadTasks[mxc],
+           !existingTask.isCancelled
+        {
+            return try await existingTask.value
+        }
+        
+        // Second thing to check: Did we already finish downloading this file?
         if FileManager.default.isReadableFile(atPath: cacheLocation.absoluteString) {
             // If so, just return the URL
             return cacheLocation
         }
         
-        // Second thing to check: Are we already downloading this file?
-        if let existingTask = self.mediaDownloadTasks[mxc] {
-            return try await existingTask.value
-        }
-
+        // Finally, if it's really necessary, connect to the server and download the file
         let task = Task {
             let (location, response) = try await mediaUrlSession.download(from: url, delegate: delegate)
             
@@ -1219,12 +1222,17 @@ public class Client {
                   httpResponse.statusCode == 200
             else {
                 logger.error("Failed to download media from \(url.description)")
+                self.mediaDownloadTasks.removeValue(forKey: mxc)
                 throw Matrix.Error("Failed to download media from \(url.description)")
             }
             logger.debug("Downloaded \(mxc) to temporary location \(location)")
             
             logger.debug("Moving \(mxc) to \(cacheLocation)")
             try FileManager.default.moveItem(at: location, to: cacheLocation)
+            
+            // Now that we're done running, remove ourself from the active tasks
+            self.mediaDownloadTasks.removeValue(forKey: mxc)
+            
             return cacheLocation
         }
         self.mediaDownloadTasks[mxc] = task
