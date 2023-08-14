@@ -1434,6 +1434,7 @@ extension Matrix {
             logger.debug("Downloading and decrypting encrypted file from \(info.url, privacy: .public)")
             
             // FIXME: Figure out what our decrypted cache dir should be
+            /* // Argh why does none of this crap work?  It doesn't actually create the directories...
             let topLevel = URL.applicationSupportDirectory
             let applicationName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift"
             let decryptedDir = topLevel.appendingPathComponent(applicationName, isDirectory: true)
@@ -1445,7 +1446,8 @@ extension Matrix {
             try FileManager.default.createDirectory(at: domainDecryptedDir, withIntermediateDirectories: true)
             let decryptedUrl = domainDecryptedDir.appendingPathComponent(info.url.mediaId)
                                                  .standardizedFileURL
-            
+            */
+            let decryptedUrl = URL.temporaryDirectory.appendingPathComponent("\(info.url.serverName):\(info.url.mediaId)")
             // First check: Are we already working on this one?
             if let task = self.downloadAndDecryptTasks[info.url] {
                 logger.debug("Already working on downloading \(info.url, privacy: .public)")
@@ -1538,8 +1540,8 @@ extension Matrix {
                 guard let decrypted = try? FileHandle(forWritingTo: decryptedUrl)
                 else {
                     logger.error("Couldn't open file for decrypted data for \(info.url)")
-                    let parentExists = FileManager.default.fileExists(atPath: domainDecryptedDir.absoluteString)
-                    logger.debug("Parent directory exists? \(parentExists) for \(info.url)")
+                    //let parentExists = FileManager.default.fileExists(atPath: domainDecryptedDir.absoluteString)
+                    //logger.debug("Parent directory exists? \(parentExists) for \(info.url)")
                     throw Matrix.Error("Couldn't open file for decrypted data")
                 }
                 
@@ -1566,8 +1568,9 @@ extension Matrix {
                 return decryptedUrl
             }
             self.downloadAndDecryptTasks[info.url] = task
-            logger.debug("Finished downloadAndDecrypt for \(info.url)")
-            return try await task.value
+            let result = try await task.value
+            logger.debug("Finished downloadAndDecryptFile for \(info.url)")
+            return result
         }
         
 
