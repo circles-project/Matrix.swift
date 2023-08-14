@@ -46,3 +46,7 @@ public struct MXC: Codable, Equatable, LosslessStringConvertible {
         try self.description.encode(to: encoder)
     }
 }
+
+extension MXC: Hashable {
+    
+}
