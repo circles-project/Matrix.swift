@@ -1434,11 +1434,11 @@ extension Matrix {
             logger.debug("Downloading and decrypting encrypted file from \(info.url, privacy: .public)")
             
             // FIXME: Figure out what our decrypted cache dir should be
-            let topLevelCachesUrl = URL.cachesDirectory
+            let topLevel = URL.applicationSupportDirectory
             let applicationName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift"
-            let decryptedDir = topLevelCachesUrl.appendingPathComponent(applicationName, isDirectory: true)
-                                                .appendingPathComponent(creds.userId.stringValue, isDirectory: true)
-                                                .appendingPathComponent("decrypted", isDirectory: true)
+            let decryptedDir = topLevel.appendingPathComponent(applicationName, isDirectory: true)
+                                       .appendingPathComponent(creds.userId.stringValue, isDirectory: true)
+                                       .appendingPathComponent("decrypted", isDirectory: true)
             try FileManager.default.createDirectory(at: decryptedDir, withIntermediateDirectories: true)
             let domainDecryptedDir = decryptedDir.appendingPathComponent(info.url.serverName, isDirectory: true)
                                                  .standardizedFileURL
