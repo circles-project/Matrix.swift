@@ -1439,6 +1439,7 @@ extension Matrix {
             let decryptedDir = topLevelCachesUrl.appendingPathComponent(applicationName, isDirectory: true)
                                                 .appendingPathComponent(creds.userId.stringValue, isDirectory: true)
                                                 .appendingPathComponent("decrypted", isDirectory: true)
+            try FileManager.default.createDirectory(at: decryptedDir, withIntermediateDirectories: true)
             let domainDecryptedDir = decryptedDir.appendingPathComponent(info.url.serverName, isDirectory: true)
                                                  .standardizedFileURL
             try FileManager.default.createDirectory(at: domainDecryptedDir, withIntermediateDirectories: true)
