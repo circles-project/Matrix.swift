@@ -1436,12 +1436,14 @@ extension Matrix {
             // FIXME: Figure out what our decrypted cache dir should be
             let topLevelCachesUrl = URL.cachesDirectory
             let applicationName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift"
-            let decryptedDir = topLevelCachesUrl.appendingPathComponent(applicationName)
-                                                 .appendingPathComponent(creds.userId.stringValue)
-                                                 .appendingPathComponent("decrypted")
-            let domainDecryptedDir = decryptedDir.appendingPathComponent(info.url.serverName)
+            let decryptedDir = topLevelCachesUrl.appendingPathComponent(applicationName, isDirectory: true)
+                                                .appendingPathComponent(creds.userId.stringValue, isDirectory: true)
+                                                .appendingPathComponent("decrypted", isDirectory: true)
+            let domainDecryptedDir = decryptedDir.appendingPathComponent(info.url.serverName, isDirectory: true)
+                                                 .standardizedFileURL
             try FileManager.default.createDirectory(at: domainDecryptedDir, withIntermediateDirectories: true)
             let decryptedUrl = domainDecryptedDir.appendingPathComponent(info.url.mediaId)
+                                                 .standardizedFileURL
             
             // First check: Are we already working on this one?
             if let task = self.downloadAndDecryptTasks[info.url] {
