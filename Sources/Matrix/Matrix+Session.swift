@@ -1434,10 +1434,7 @@ extension Matrix {
             logger.debug("Downloading and decrypting encrypted file from \(info.url, privacy: .public)")
             
             // FIXME: Figure out what our decrypted cache dir should be
-            let topLevelCachesUrl = try FileManager.default.url(for: .cachesDirectory,
-                                                                in: .userDomainMask,
-                                                                appropriateFor: nil,
-                                                                create: true)
+            let topLevelCachesUrl = URL.cachesDirectory
             let applicationName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift"
             let decryptedDir = topLevelCachesUrl.appendingPathComponent(applicationName)
                                                  .appendingPathComponent(creds.userId.stringValue)
@@ -1469,7 +1466,7 @@ extension Matrix {
                 var sha256 = Digest(algorithm: .sha256)
                 guard let sha256file = try? FileHandle(forReadingFrom: ciphertextUrl)
                 else {
-                    logger.error("Failed to open downloaded file")
+                    logger.error("Failed to open downloaded file for \(info.url)")
                     throw Matrix.Error("Failed to open downloaded file")
                 }
                 
@@ -1483,7 +1480,7 @@ extension Matrix {
                       let wantedSHA256base64 = Base64.ensurePadding(wantedSHA256base64unpadded),
                       let wantedSHA256data = Data(base64Encoded: wantedSHA256base64)
                 else {
-                    logger.error("Couldn't parse stored SHA256 hash")
+                    logger.error("Couldn't parse stored SHA256 hash for \(info.url)")
                     throw Matrix.Error("Couldn't parse stored SHA256 hash")
                 }
                 let wantedSHA256 = [UInt8](wantedSHA256data)
@@ -1491,7 +1488,7 @@ extension Matrix {
                 guard gotSHA256.count == 32,
                       wantedSHA256.count == 32
                 else {
-                    logger.error("Hash lengths are not correct")
+                    logger.error("Hash lengths are not correct for \(info.url)")
                     throw Matrix.Error("Hash lengths are not correct")
                 }
                 // WTF, CommonCrypto doesn't have a Digest.verify() ???!?!?!
@@ -1503,10 +1500,10 @@ extension Matrix {
                     }
                 }
                 guard match == true else {
-                    logger.error("SHA256 hash does not match!")
+                    logger.error("SHA256 hash does not match for \(info.url)")
                     throw Matrix.Error("SHA256 hash does not match!")
                 }
-                logger.debug("SHA256 hash checks out OK")
+                logger.debug("SHA256 hash checks out OK for \(info.url)")
                 
                 // OK now it's finally safe to (try to) decrypt this thing
                 
@@ -1515,7 +1512,7 @@ extension Matrix {
                 guard let key = Base64.data(info.key.k, urlSafe: true),
                       let iv = Base64.data(info.iv)
                 else {
-                    logger.error("Couldn't parse key and IV")
+                    logger.error("Couldn't parse key and IV for \(info.url)")
                     throw Matrix.Error("Couldn't parse key and IV")
                 }
                 
@@ -1527,11 +1524,16 @@ extension Matrix {
                                             iv: [UInt8](iv)
                 )
                 
-                guard let encrypted = try? FileHandle(forReadingFrom: ciphertextUrl),
-                      let decrypted = try? FileHandle(forWritingTo: decryptedUrl)
+                guard let encrypted = try? FileHandle(forReadingFrom: ciphertextUrl)
                 else {
-                    logger.error("Couldn't open file handles")
-                    throw Matrix.Error("Couldn't open file handles")
+                    logger.error("Couldn't open encrypted file for \(info.url)")
+                    throw Matrix.Error("Couldn't open encrypted file")
+                }
+
+                guard let decrypted = try? FileHandle(forWritingTo: decryptedUrl)
+                else {
+                    logger.error("Couldn't open file for decrypted data for \(info.url)")
+                    throw Matrix.Error("Couldn't open file for decrypted data")
                 }
                 
                 while let data = try encrypted.read(upToCount: 1<<20) {
@@ -1541,18 +1543,23 @@ extension Matrix {
                     if status == Status.success {
                         try decrypted.write(contentsOf: buffer)
                     } else {
-                        logger.error("Failed to decrypt")
+                        logger.error("Failed to decrypt file for \(info.url)")
                         throw Matrix.Error("Failed to decrypt")
                     }
                 }
                 // Shouldn't need to do anything else for CTR mode
+                
+                logger.debug("Closing file handles for \(info.url)")
                 // Close the file handles
                 try encrypted.close()
                 try decrypted.close()
+                
+                logger.debug("Successfully decrypted \(info.url)")
                 // Return the URL of the decrypted file
                 return decryptedUrl
             }
             self.downloadAndDecryptTasks[info.url] = task
+            logger.debug("Finished downloadAndDecrypt for \(info.url)")
             return try await task.value
         }
         
