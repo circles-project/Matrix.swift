@@ -1524,15 +1524,19 @@ extension Matrix {
                                             iv: [UInt8](iv)
                 )
                 
+                logger.debug("Trying to open input file for \(ciphertextUrl)")
                 guard let encrypted = try? FileHandle(forReadingFrom: ciphertextUrl)
                 else {
                     logger.error("Couldn't open encrypted file for \(info.url)")
                     throw Matrix.Error("Couldn't open encrypted file")
                 }
 
+                logger.debug("Trying to open output file for \(decryptedUrl)")
                 guard let decrypted = try? FileHandle(forWritingTo: decryptedUrl)
                 else {
                     logger.error("Couldn't open file for decrypted data for \(info.url)")
+                    let parentExists = FileManager.default.fileExists(atPath: domainDecryptedDir.absoluteString)
+                    logger.debug("Parent directory exists? \(parentExists) for \(info.url)")
                     throw Matrix.Error("Couldn't open file for decrypted data")
                 }
                 
