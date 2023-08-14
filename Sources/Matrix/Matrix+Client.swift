@@ -25,6 +25,7 @@ public class Client {
     private var apiUrlSession: URLSession   // For making API calls
     private var mediaUrlSession: URLSession // For downloading media
     private var mediaCache: URLCache        // For downloading media
+    private var mediaDownloadTasks: [MXC: Task<URL,Swift.Error>] // For downloading media
     
     private var logger: os.Logger
     
@@ -97,6 +98,7 @@ public class Client {
         logger.debug("Creating media URL session")
         self.mediaUrlSession = URLSession(configuration: mediaConfig)
         self.mediaCache = cache
+        self.mediaDownloadTasks = [:]
         
         logger.debug("Done with init()")
     }
@@ -1186,32 +1188,47 @@ public class Client {
             logger.error("Invalid mxc:// URL \(mxc)")
             throw Matrix.Error("Invalid mxc:// URL \(mxc)")
         }
-
-        let (location, response) = try await mediaUrlSession.download(from: url, delegate: delegate)
         
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200
-        else {
-            logger.error("Failed to download media from \(url.description)")
-            throw Matrix.Error("Failed to download media from \(url.description)")
-        }
-        logger.debug("Downloaded \(mxc) to temporary location \(location)")
-        
-        let cachesUrl = try FileManager.default.url(for: .cachesDirectory,
-                                                        in: .userDomainMask,
-                                                        appropriateFor: nil,
-                                                        create: true)
+        let topLevelCachesUrl = try FileManager.default.url(for: .cachesDirectory,
+                                                            in: .userDomainMask,
+                                                            appropriateFor: nil,
+                                                            create: true)
         let applicationName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "matrix.swift"
-        let mediaStoreDir = cachesUrl.appendingPathComponent(applicationName)
-                                     .appendingPathComponent(creds.userId.stringValue)
-                                     .appendingPathComponent("media")
+        let mediaStoreDir = topLevelCachesUrl.appendingPathComponent(applicationName)
+                                             .appendingPathComponent(creds.userId.stringValue)
+                                             .appendingPathComponent("media")
         let domainMediaDir = mediaStoreDir.appendingPathComponent(mxc.serverName)
         try FileManager.default.createDirectory(at: domainMediaDir, withIntermediateDirectories: true)
+        let cacheLocation = domainMediaDir.appendingPathComponent(mxc.mediaId)
+        
+        // First check: Do we already have this file downloaded?
+        if FileManager.default.isReadableFile(atPath: cacheLocation.absoluteString) {
+            // If so, just return the URL
+            return cacheLocation
+        }
+        
+        // Second thing to check: Are we already downloading this file?
+        if let existingTask = self.mediaDownloadTasks[mxc] {
+            return try await existingTask.value
+        }
 
-        let newLocation = domainMediaDir.appendingPathComponent(mxc.mediaId)
-        logger.debug("Moving \(mxc) to \(newLocation)")
-        try FileManager.default.moveItem(at: location, to: newLocation)
-        return newLocation
+        let task = Task {
+            let (location, response) = try await mediaUrlSession.download(from: url, delegate: delegate)
+            
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200
+            else {
+                logger.error("Failed to download media from \(url.description)")
+                throw Matrix.Error("Failed to download media from \(url.description)")
+            }
+            logger.debug("Downloaded \(mxc) to temporary location \(location)")
+            
+            logger.debug("Moving \(mxc) to \(cacheLocation)")
+            try FileManager.default.moveItem(at: location, to: cacheLocation)
+            return cacheLocation
+        }
+        self.mediaDownloadTasks[mxc] = task
+        return try await task.value
     }
     
     public func uploadImage(_ original: NativeImage, maxSize: CGSize, quality: CGFloat = 0.80) async throws -> MXC {
