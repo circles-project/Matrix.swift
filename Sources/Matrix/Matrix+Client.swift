@@ -1237,6 +1237,7 @@ public class Client {
             logger.debug("Successfully downloaded \(mxc)")
             return cacheLocation
             */
+            self.mediaDownloadTasks.removeValue(forKey: mxc)
             return location
         }
         self.mediaDownloadTasks[mxc] = task
