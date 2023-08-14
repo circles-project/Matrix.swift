@@ -19,7 +19,7 @@ class ConsoleLoggingProgressListener: MatrixSDKCrypto.ProgressListener {
     }
     
     func onProgress(progress: Int32, total: Int32) {
-        logger.debug("\(self.message): \(progress) / \(total)")
+        logger.debug("\(self.message, privacy: .public): \(progress) / \(total)")
     }
     
 }
