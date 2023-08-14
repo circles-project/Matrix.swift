@@ -1227,13 +1227,17 @@ public class Client {
             }
             logger.debug("Downloaded \(mxc) to temporary location \(location)")
             
+            /*
             logger.debug("Moving \(mxc) to \(cacheLocation)")
             try FileManager.default.moveItem(at: location, to: cacheLocation)
             
             // Now that we're done running, remove ourself from the active tasks
             self.mediaDownloadTasks.removeValue(forKey: mxc)
             
+            logger.debug("Successfully downloaded \(mxc)")
             return cacheLocation
+            */
+            return location
         }
         self.mediaDownloadTasks[mxc] = task
         return try await task.value
