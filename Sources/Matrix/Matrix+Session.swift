@@ -162,7 +162,7 @@ extension Matrix {
             // Secret storage
             if let (s4keyId,s4key) = secretStorageKeyInfo {
                 cryptoLogger.debug("Setting up secret storage with keyId \(s4keyId)")
-                self.secretStore = try await .init(session: self, defaultKey: s4key, defaultKeyId: s4keyId)
+                self.secretStore = try await .init(session: self, key: s4key, keyId: s4keyId)
             } else {
                 cryptoLogger.debug("Setting up secret storage -- no keys")
                 self.secretStore = try await .init(session: self, keys: [:])

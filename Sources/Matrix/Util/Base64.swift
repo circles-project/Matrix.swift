@@ -9,6 +9,10 @@ import Foundation
 
 extension Matrix {
     public enum Base64 {
+        
+        public static func padded(_ data: Data) -> String {
+            data.base64EncodedString()
+        }
 
         public static func ensurePadding(_ encoded: String) -> String? {
             /* YOLO

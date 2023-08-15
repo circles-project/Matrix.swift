@@ -209,32 +209,61 @@ extension Matrix {
         
         // MARK: init
     
-        public init(session: Session, defaultKey: Data, defaultKeyId: String) async throws {
+        public init(session: Session, key: Data, keyId: String) async throws {
             self.session = session
             self.logger = .init(subsystem: "matrix", category: "SSSS")
-            self.keys = [defaultKeyId : defaultKey]
+            self.keys = [keyId : key]
             self.keychain = KeychainSecretStore(userId: session.creds.userId)
-            self.state = .online(defaultKeyId)
+            self.state = .uninitialized
             
             logger.debug("Initializing with default key")
             
+            try await registerKey(key: key, keyId: keyId)
+
             // Make sure that our default key is registered with the server-side secret storage
             if let oldDefaultKeyId = try await getDefaultKeyId() {
                 logger.debug("Found existing default keyId [\(oldDefaultKeyId)]")
-                if oldDefaultKeyId != defaultKeyId {
-                    logger.debug("Overwriting old default keyId [\(oldDefaultKeyId)] with new default keyId [\(defaultKeyId)]")
-                    try await registerKey(key: defaultKey, keyId: defaultKeyId)
-                    try await setDefaultKeyId(keyId: defaultKeyId)
+                if oldDefaultKeyId != keyId {
                     
-                    // FIXME: Also encrypt the old key under the new key, and (maybe?) vice versa
+                    // Do we have this old key in our device keychain?
+                    if let oldDefaultKey = try await keychain.loadKey(keyId: oldDefaultKeyId, reason: "Initializing secret storage") {
+                        self.keys[oldDefaultKeyId] = oldDefaultKey
+                        self.state = .online(oldDefaultKeyId)
+                        // Save our new key under the old key
+                        try await saveKey(key: key, keyId: keyId, under: [oldDefaultKeyId])
+                        // Save the old key under our new key, in anticipation of switching sometime in the near future
+                        try await saveKey(key: oldDefaultKey, keyId: oldDefaultKeyId, under: [keyId])
+                        return
+                    }
                     
+                    // Do we have this old key in our secret storage, encrypted under our known key?
+                    if let oldDefaultKey = try await getKey(keyId: oldDefaultKeyId) {
+                        self.keys[oldDefaultKeyId] = oldDefaultKey
+                        self.state = .online(oldDefaultKeyId)
+                        // Save our new key under the old key
+                        try await saveKey(key: key, keyId: keyId, under: [oldDefaultKeyId])
+                        // Save the old key under our new key, in anticipation of switching sometime in the near future
+                        try await saveKey(key: oldDefaultKey, keyId: oldDefaultKeyId, under: [keyId])
+                        return
+                    }
+                    
+                    guard let description = try await getKeyDescription(keyId: oldDefaultKeyId)
+                    else {
+                        logger.error("Couldn't get key description for old key id \(oldDefaultKeyId, privacy: .public)")
+                        throw Matrix.Error("Couldn't get key descripiton for default key")
+                    }
+                    self.state = .needKey(description)
+                    
+                     
                 } else {
-                    logger.debug("Existing default keyId matches what we have [\(defaultKeyId)]")
+                    logger.debug("Existing default keyId matches what we have [\(keyId)]")
+                    self.state = .online(keyId)
                 }
             } else {
-                logger.debug("No existing keyId; Uploading our new one")
-                try await registerKey(key: defaultKey, keyId: defaultKeyId)
-                try await setDefaultKeyId(keyId: defaultKeyId)
+                logger.debug("No existing keyId; Setting our new one to be the default")
+                let description = KeyDescr
+                try await setDefaultKeyId(keyId: keyId)
+                self.state = .online(keyId)
             }
             
             self.registerAccountDataHandler()
@@ -259,7 +288,7 @@ extension Matrix {
             
             // First we need to connect to the server's account data and get the default key info
             // (If there is no default key, then we must remain in state `.uninitialized` and we are done here.)
-            guard let defaultKeyId = try await getDefaultKeyId()
+            guard let serverDefaultKeyId = try await getDefaultKeyId()
             else {
                 logger.warning("No default keyId for SSSS")
                 self.registerAccountDataHandler()
@@ -268,29 +297,30 @@ extension Matrix {
             
             // Next, once we know the id of the default key, we look to see if we already have it in our `keys` dictionary
             // - If we have the default key, then we are in state `.online(keyId)` where `keyId` is the id of our default key
-            if let key = keys[defaultKeyId] {
-                logger.debug("SSSS is online with key [\(defaultKeyId)]")
-                self.state = .online(defaultKeyId)
-            } else {
-                logger.debug("Can't find the actual key for keyId [\(defaultKeyId)]")
+            if let key = keys[serverDefaultKeyId] {
+                logger.debug("SSSS is online with existing key [\(serverDefaultKeyId)]")
+                self.state = .online(serverDefaultKeyId)
+            }
+            else {
+                logger.debug("Can't find the actual key for keyId [\(serverDefaultKeyId)]")
                 
-                logger.debug("Looking in Keychain for key with keyId \(defaultKeyId)")
+                logger.debug("Looking in Keychain for key with keyId \(serverDefaultKeyId)")
                 // If the key isn't already loaded in memory, then maybe we have previously saved it in the Keychain
                 // - If we have the default key, then we are in state `.online(keyId)` where `keyId` is the id of our default key
                 let keychain = KeychainSecretStore(userId: session.creds.userId)
-                if let key = try await keychain.loadKey(keyId: defaultKeyId, reason: "The app needs to load cryptographic keys for your account") {
-                    logger.debug("Found key \(defaultKeyId) in the Keychain")
-                    self.keys[defaultKeyId] = key
-                    self.state = .online(defaultKeyId)
+                if let key = try await keychain.loadKey(keyId: serverDefaultKeyId, reason: "The app needs to load cryptographic keys for your account") {
+                    logger.debug("Found key \(serverDefaultKeyId) in the Keychain")
+                    self.keys[serverDefaultKeyId] = key
+                    self.state = .online(serverDefaultKeyId)
                 } else {
-                    logger.debug("Failed to load key \(defaultKeyId) from the Keychain ")
+                    logger.debug("Failed to load key \(serverDefaultKeyId) from the Keychain ")
                     
                     // If we don't have the default key, then there's not much that we can do.
-                    logger.debug("Failed to load default SSSS key with keyId \(defaultKeyId)")
+                    logger.debug("Failed to load default SSSS key with keyId \(serverDefaultKeyId)")
                     // Set `state` to `.needKey` with the default key's description, so that the application can prompt the user
                     // to provide a passphrase.
                     logger.debug("Fetching key description")
-                    if let description = try await getKeyDescription(keyId: defaultKeyId) {
+                    if let description = try await getKeyDescription(keyId: serverDefaultKeyId) {
                         logger.debug("Setting state to .needKey")
                         self.state = .needKey(description)
                     }
@@ -300,6 +330,17 @@ extension Matrix {
             self.registerAccountDataHandler()
             
             logger.debug("Done with init")
+        }
+        
+        // MARK: Derived properties
+        
+        public var defaultKeyId: String? {
+            switch self.state {
+            case .online(let keyId):
+                return keyId
+            default:
+                return nil
+            }
         }
         
         // MARK: Account Data
@@ -620,19 +661,17 @@ extension Matrix {
         
         // MARK: Save secret
         
-        public func saveSecret<T: Codable>(_ content: T, type: String) async throws {
+        public func saveSecret<T: Codable>(_ content: T,
+                                           type: String,
+                                           under keyIds: [String]? = nil
+        ) async throws {
             logger.debug("Saving secret of type [\(type)]")
             
-            guard case let .online(keyId) = self.state
+            let encryptionKeyIds = keyIds ?? [defaultKeyId].compactMap { $0 }
+            guard !encryptionKeyIds.isEmpty
             else {
-                logger.error("Can't save secrets until secret storage is online with decryption key")
-                throw Matrix.Error("Can't save secrets until secret storage is online with decryption key")
-            }
-            
-            guard let key = self.keys[keyId]
-            else {
-                logger.error("Could not find encryption key with id [\(keyId)]")
-                throw Matrix.Error("Could not find encryption key with id [\(keyId)]")
+                logger.error("Can't save secret without any encryption keys")
+                throw Matrix.Error("Can't save secret without any encryption keys")
             }
             
             // Do we already have encrypted version(s) of this secret?
@@ -647,13 +686,32 @@ extension Matrix {
             
             let encoder = JSONEncoder()
             let data = try encoder.encode(content)
-            let encryptedData = try encrypt(name: type, data: data, key: key)
             
-            // Add our encryption to whatever was there before, overwriting any previous encryption to this key
-            secret.encrypted[keyId] = encryptedData
-            
+            for encryptionKeyId in encryptionKeyIds {
+                guard let key = self.keys[encryptionKeyId]
+                else {
+                    logger.error("No key for keyId \(encryptionKeyId) -- Not encrypting to this key")
+                    continue
+                }
+                // Encrypt the secret under this key
+                let encryptedData = try encrypt(name: type, data: data, key: key)
+                // Add our encryption to whatever was there before, overwriting any previous encryption to this key
+                secret.encrypted[encryptionKeyId] = encryptedData
+            }
+
             // Upload the updated secret to our Account Data
             try await session.putAccountData(secret, for: type)
+        }
+        
+        // MARK: Save key
+        public func saveKey(key: Data,
+                            keyId: String,
+                            under keyIds: [String]? = nil
+        ) async throws {
+            let base64Key = Base64.unpadded(key)
+            
+            try await saveSecret(base64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(keyId)", under: encryptionKeyIds)
+
         }
         
         // MARK: Get key
