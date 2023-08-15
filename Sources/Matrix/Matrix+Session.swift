@@ -1426,7 +1426,7 @@ extension Matrix {
             return Data(decryptedBytes)
         }
         
-        
+        /*
         public func downloadAndDecryptFile(_ info: mEncryptedFile,
                                            allowRedirect: Bool = true,
                                            delegate: URLSessionDownloadDelegate? = nil
@@ -1536,8 +1536,12 @@ extension Matrix {
                     throw Matrix.Error("Couldn't open encrypted file")
                 }
 
+                var outputFile: FileHandle?
+                await MainActor.run {
+                    outputFile = try? FileHandle(forWritingTo: decryptedUrl)
+                }
                 logger.debug("Trying to open output file for \(decryptedUrl)")
-                guard let decrypted = try? FileHandle(forWritingTo: decryptedUrl)
+                guard let decrypted = outputFile
                 else {
                     logger.error("Couldn't open file for decrypted data for \(info.url)")
                     //let parentExists = FileManager.default.fileExists(atPath: domainDecryptedDir.absoluteString)
@@ -1572,7 +1576,7 @@ extension Matrix {
             logger.debug("Finished downloadAndDecryptFile for \(info.url)")
             return result
         }
-        
+        */
 
         // MARK: Fetching Messages
         
