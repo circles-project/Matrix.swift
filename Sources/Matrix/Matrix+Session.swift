@@ -74,6 +74,14 @@ extension Matrix {
 
         // Secret Storage
         public private(set) var secretStore: SecretStore?
+        public var secretStorageOnline: Bool {
+            guard case let .online(defaultKeyId) = self.secretStore?.state
+            else {
+                return false
+            }
+            logger.debug("Secret storage is online with keyId \(defaultKeyId)")
+            return true
+        }
         
         // Matrix Rust crypto
         private var crypto: MatrixSDKCrypto.OlmMachine
@@ -160,35 +168,32 @@ extension Matrix {
             
             // Set up crypto stuff
             // Secret storage
+            cryptoLogger.debug("Setting up secret storage")
             if let (s4keyId,s4key) = secretStorageKeyInfo {
                 cryptoLogger.debug("Setting up secret storage with keyId \(s4keyId)")
                 self.secretStore = try await .init(session: self, key: s4key, keyId: s4keyId)
             } else {
-                cryptoLogger.debug("Setting up secret storage -- no keys")
+                cryptoLogger.debug("Setting up secret storage -- no new keys")
                 self.secretStore = try await .init(session: self, keys: [:])
             }
-            cryptoLogger.debug("Successfully set up secret storage")
-
-            // Initial requests
-            try await cryptoQueue.run {
-                self.cryptoLogger.debug("Checking for outgoing requests")
-                let cryptoRequests = try self.crypto.outgoingRequests()
-                print("Session:\tSending initial crypto requests (\(cryptoRequests.count))")
-                for request in cryptoRequests {
-                    try await self.sendCryptoRequest(request: request)
-                }
-                if useCrossSigning {
-                    // Hopefully uia is nil -- Meaning we don't have to re-authenticate so soon.
-                    // But it's possible that we might get stuck doing UIA right off the bat.
-                    // No big deal.  Handle it like any other UIA.
-                    if let uia = try await self.setupCrossSigning() {
-                        await MainActor.run {
-                            self.uiaSession = uia
+            // If we were able to find the keys that we need to bring SecretStorage online,
+            // ie it's not just sitting there waiting to be provided some keys,
+            // then we can also go ahead and enable cross-signing and key backup.
+            if secretStorageOnline {
+                try await cryptoQueue.run {
+                    if useCrossSigning {
+                        // Hopefully uia is nil -- Meaning we don't have to re-authenticate so soon.
+                        // But it's possible that we might get stuck doing UIA right off the bat.
+                        // No big deal.  Handle it like any other UIA.
+                        if let uia = try await self.setupCrossSigning() {
+                            logger.debug("Need to UIA to enable cross-signing")
+                        } else {
+                            logger.debug("Setup cross-signing without UIA")
                         }
                     }
-                }
-                if enableKeyBackup {
-                    try await self.setupKeyBackup()
+                    if enableKeyBackup {
+                        try await self.setupKeyBackup()
+                    }
                 }
             }
             
@@ -1688,6 +1693,29 @@ extension Matrix {
             try? self.crypto.getDevice(userId: self.creds.userId.description, deviceId: self.creds.deviceId.description, timeout: 0)
         }
         
+        // MARK: Secret Storage
+        public func enableSecretStorage(defaultKey: Data, defaultKeyId: String) async throws {
+            
+            if self.secretStore == nil {
+                self.secretStore = try await SecretStore(session: self, key: defaultKey, keyId: defaultKeyId)
+            }
+            
+            guard let store = self.secretStore
+            else {
+                logger.error("Failed to enable secret storage")
+                throw Matrix.Error("Failed to enable secret storage")
+            }
+            
+            switch store.state {
+            case .online(let existingDefaultKeyId):
+                logger.debug("Secret storage is already online with keyId \(existingDefaultKeyId, privacy: .public)")
+                return
+            default:
+                logger.debug("Attempting to bring secret storage online with keyId \(defaultKeyId, privacy: .public)")
+                try await store.addNewDefaultKey(key: defaultKey, keyId: defaultKeyId)
+            }
+        }
+        
         // MARK: Cross Signing
         
         public func setupCrossSigning() async throws -> UIAuthSession? {
@@ -1704,21 +1732,24 @@ extension Matrix {
             
             // If we don't have our keys, maybe they are on the server
             // (Maybe we created them on another device and uploaded them)
-            if let store = self.secretStore {
-                logger.debug("Looking for keys on the server")
-                // Look in the secret store for our cross-signing keys
-                if let privateMSK: String = try await store.getSecret(type: M_CROSS_SIGNING_MASTER),
-                   let privateSSK: String = try await store.getSecret(type: M_CROSS_SIGNING_SELF_SIGNING),
-                   let privateUSK: String = try await store.getSecret(type: M_CROSS_SIGNING_USER_SIGNING)
-                {
-                    logger.debug("Found keys on the server")
-                    let export = CrossSigningKeyExport(masterKey: privateMSK, selfSigningKey: privateSSK, userSigningKey: privateUSK)
-                    try self.crypto.importCrossSigningKeys(export: export)
-                    // Success!  And no need to do UIA!
-                    return nil
-                }
-            } else {
-                logger.warning("No secret store")
+            guard secretStorageOnline,
+                  let store = self.secretStore
+            else {
+                logger.error("No secret store")
+                throw Matrix.Error("No secret store")
+            }
+            
+            logger.debug("Looking for keys on the server")
+            // Look in the secret store for our cross-signing keys
+            if let privateMSK: String = try await store.getSecret(type: M_CROSS_SIGNING_MASTER),
+               let privateSSK: String = try await store.getSecret(type: M_CROSS_SIGNING_SELF_SIGNING),
+               let privateUSK: String = try await store.getSecret(type: M_CROSS_SIGNING_USER_SIGNING)
+            {
+                logger.debug("Found keys on the server")
+                let export = CrossSigningKeyExport(masterKey: privateMSK, selfSigningKey: privateSSK, userSigningKey: privateUSK)
+                try self.crypto.importCrossSigningKeys(export: export)
+                // Success!  And no need to do UIA!
+                return nil
             }
             
             // If we're still here, then we need to bootstrap our cross signing, ie generate a new set of keys
@@ -1760,13 +1791,11 @@ extension Matrix {
                 // Completion handler that runs after the UIA completes successfully
                 logger.debug("UIA completed successfully")
                 
-                if let store = self.secretStore {
-                    // Upload the new cross-signing keys to secret storage, so we can use them on other devices
-                    logger.debug("Saving keys to secret storage")
-                    try await store.saveSecret(privateMSK, type: M_CROSS_SIGNING_MASTER)
-                    try await store.saveSecret(privateSSK, type: M_CROSS_SIGNING_SELF_SIGNING)
-                    try await store.saveSecret(privateUSK, type: M_CROSS_SIGNING_USER_SIGNING)
-                }
+                // Upload the new cross-signing keys to secret storage, so we can use them on other devices
+                logger.debug("Saving keys to secret storage")
+                try await store.saveSecret(privateMSK, type: M_CROSS_SIGNING_MASTER)
+                try await store.saveSecret(privateSSK, type: M_CROSS_SIGNING_SELF_SIGNING)
+                try await store.saveSecret(privateUSK, type: M_CROSS_SIGNING_USER_SIGNING)
                 
                 // Also upload the signature request in `result.signatureRequest`
                 logger.debug("Uploading signatures")
@@ -1796,6 +1825,12 @@ extension Matrix {
                 // The caller will have to complete UIA before the request can go through
                 logger.debug("Client needs to complete UIA to upload keys")
             }
+            
+            // Update our state to reflect the need to do UIA
+            await MainActor.run {
+                self.uiaSession = uia
+            }
+            // And return the session object in case the caller needs it
             return uia
         }
         
