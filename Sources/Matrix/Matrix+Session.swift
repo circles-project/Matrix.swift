@@ -1922,6 +1922,13 @@ extension Matrix {
             // Step 3 - There is no existing backup.  Create one from scratch.
             logger.debug("No existing key backup.  Creating a new one.")
             
+            guard self.secretStorageOnline == true,
+                  let store = self.secretStore
+            else {
+                logger.error("Can't create a new key backup without active secret storage")
+                throw Matrix.Error("Can't create a new key backup without active secret storage")
+            }
+            
             // Step 3.1 - Generate a random recovery key
             let recoveryKey = MatrixSDKCrypto.BackupRecoveryKey()
             let recoveryPrivateKey = recoveryKey.toBase64()
@@ -1962,12 +1969,8 @@ extension Matrix {
             self.backupRecoveryKey = recoveryKey
 
             // Step 3.4 - Save the recovery key to secret storage
-            if let store = self.secretStore {
-                logger.debug("Saving new recovery key to secret storage")
-                try await store.saveSecret(recoveryPrivateKey, type: M_MEGOLM_BACKUP_V1)
-            } else {
-                logger.warning("No secret storage - Not saving new recovery key")
-            }
+            logger.debug("Saving new recovery key to secret storage")
+            try await store.saveSecret(recoveryPrivateKey, type: M_MEGOLM_BACKUP_V1)
         }
         
         func loadKeyBackupEtag(version: String) -> String? {
