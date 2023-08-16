@@ -727,10 +727,10 @@ extension Matrix {
                                              keyId: String,
                                              description: KeyDescriptionContent
         ) throws -> Bool {
-            guard let oldIV = description.iv,
+            guard let oldIVString = description.iv,
                   let oldMacString = description.mac,
-                  let oldMacData = Data(base64Encoded: oldMacString),
-                  let iv = Data(base64Encoded: oldIV)
+                  let oldMacData = Base64.data(oldMacString),
+                  let iv = Base64.data(oldIVString)
             else {
                 logger.error("Failed to parse key description for keyId \(keyId, privacy: .public)")
                 throw Matrix.Error("Failed to parse key description")
