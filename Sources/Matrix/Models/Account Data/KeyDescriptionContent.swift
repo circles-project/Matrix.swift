@@ -21,5 +21,14 @@ public struct KeyDescriptionContent: Codable {
         public var iterations: Int
         public var bits: Int?
     }
+    
+    public init(name: String? = nil, algorithm: String, passphrase: Passphrase? = nil, iv: String? = nil, mac: String? = nil) {
+        self.name = name
+        self.algorithm = algorithm
+        self.passphrase = passphrase
+        self.iv = iv
+        self.mac = mac
+    }
+
 }
 

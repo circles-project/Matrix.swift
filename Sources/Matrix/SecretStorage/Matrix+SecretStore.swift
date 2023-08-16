@@ -16,130 +16,7 @@ import LocalAuthentication
 import KeychainAccess
 
 extension Matrix {
-    
-    public class KeychainSecretStore {
-        let userId: UserId
-        private var keychain: Keychain
-        private var logger: os.Logger
-        
-        public init(userId: UserId) {
-            self.userId = userId
-            self.keychain = Keychain(service: "matrix", accessGroup: userId.stringValue)
-            self.logger = .init(subsystem: "matrix", category: "keychain")
-        }
-        
-        private func loadKey_KeychainAccess(keyId: String, reason: String) async throws -> Data? {
-            // https://github.com/kishikawakatsumi/KeychainAccess#closed_lock_with_key-obtaining-a-touch-id-face-id-protected-item
-            // Ensure this runs on a background thread - Otherwise if we try to authenticate to the keychain from the main thread, the app will lock up
-            let t = Task(priority: .background) {
-                var context = LAContext()
-                context.touchIDAuthenticationAllowableReuseDuration = 60.0
-                guard let data = try? keychain
-                    //.accessibility(.whenUnlockedThisDeviceOnly, authenticationPolicy: .userPresence)
-                    .accessibility(.whenPasscodeSetThisDeviceOnly, authenticationPolicy: [.biometryAny])
-                    .authenticationContext(context)
-                    .authenticationPrompt(reason)
-                    .getData(keyId)
-                else {
-                    self.logger.debug("Failed to get key data from keychain")
-                    throw Matrix.Error("Failed to get key data from keychain")
-                }
-                self.logger.debug("Got \(data.count) bytes of data from the keychain")
-                return data
-            }
-            return try await t.value
-        }
-        
-        private func loadKey_FakeKeychain(keyId: String, reason: String) async throws -> Data? {
-            logger.warning("WARNING TOTALLY INSECURE FAKE KEYCHAIN - FIXME")
-            return UserDefaults.standard.data(forKey: "org.futo.ssss.key.\(keyId)")
-        }
-        
-        // Use the Apple Keychain APIs directly, with no KeychainAccess
-        private func loadKey_RawKeychain(keyId: String, reason: String) async throws -> Data? {
-            // https://developer.apple.com/documentation/security/keychain_services/keychain_items/searching_for_keychain_items
-            let tag = "org.futo.ssss.key.\(keyId)".data(using: .utf8)! // From the Apple article on saving keys to keychain
-            let query: [String: Any] = [kSecClass as String: kSecClassKey,
-                                        kSecAttrApplicationTag as String: tag,
-                                        kSecAttrAccount as String: userId.stringValue,
-                                        kSecMatchLimit as String: kSecMatchLimitOne,
-                                        kSecReturnAttributes as String: true,
-                                        kSecReturnData as String: true]
-            
-            var item: CFTypeRef?
-            let status = SecItemCopyMatching(query as CFDictionary, &item)
-            guard status != errSecItemNotFound else { throw Matrix.Error("Key \(keyId) not found for user \(userId)") }
-            guard status == errSecSuccess else { throw Matrix.Error("Failed to load key \(keyId) for user \(userId): Status = \(status.description)") }
-            
-            guard let existingItem = item as? [String : Any],
-                  let keyData = existingItem[kSecValueData as String] as? Data
-                //let account = existingItem[kSecAttrAccount as String] as? String
-            else {
-                throw Matrix.Error("Failed to parse keychain data for key \(keyId) for user \(userId)")
-            }
-            logger.debug("Loaded \(keyData.count) bytes for key \(keyId) from keychain")
-            return keyData
-        }
-        
-        public func loadKey(keyId: String, reason: String) async throws -> Data? {
-            // https://developer.apple.com/documentation/security/keychain_services/keychain_items/searching_for_keychain_items
 
-            logger.debug("Attempting to load key with keyId \(keyId)")
-            //return try await loadKey_KeychainAccess(keyId: keyId, reason: reason)
-            //return try await loadKey_RawKeychain(keyId: keyId, reason: reason)
-            return try await loadKey_FakeKeychain(keyId: keyId, reason: reason)
-        }
-        
-        public func saveKey_KeychainAccess(key: Data, keyId: String) async throws {
-            // https://github.com/kishikawakatsumi/KeychainAccess#closed_lock_with_key-updating-a-touch-id-face-id-protected-item
-            // Ensure this runs on a background thread - Otherwise if we try to authenticate to the keychain from the main thread, the app will lock up
-            let t = Task(priority: .background) {
-                var context = LAContext()
-                context.touchIDAuthenticationAllowableReuseDuration = 60.0
-                self.logger.debug("Got context.  Attempting to save keyId \(keyId)")
-                try keychain
-                    .accessibility(.whenUnlockedThisDeviceOnly, authenticationPolicy: .userPresence)
-                    .authenticationContext(context)
-                    .set(key, key: keyId)
-                self.logger.debug("Success saving keyId \(keyId)")
-            }
-            try await t.value
-        }
-        
-        public func saveKey_FakeKeychain(key: Data, keyId: String) async throws {
-            logger.warning("WARNING TOTALLY INSECURE FAKE KEYCHAIN - FIXME")
-            UserDefaults.standard.set(key, forKey: "org.futo.ssss.key.\(keyId)")
-        }
-        
-        public func saveKey_RawKeychain(key: Data, keyId: String) async throws {
-            // https://developer.apple.com/documentation/security/certificate_key_and_trust_services/keys/storing_keys_in_the_keychain
-            logger.debug("Saving key with the raw Keychain API")
-            
-            let tag = "org.futo.ssss.key.\(keyId)".data(using: .utf8)!
-            let addquery: [String: Any] = [kSecClass as String: kSecClassKey,
-                                           kSecAttrApplicationTag as String: tag,
-                                           kSecAttrAccount as String: userId.stringValue, // From the Apple article on loading passwords from the keychain
-                                           kSecValueRef as String: key]
-            logger.debug("Created addQuery dictionary with \(addquery.count) entries")
-            let status = SecItemAdd(addquery as CFDictionary, nil)
-            logger.debug("Added key \(keyId) to the keychain")
-            guard status == errSecSuccess
-            else {
-                logger.debug("Failed to save key \(keyId) to the keychain -- status = \(status.description)")
-                throw Matrix.Error("Failed to save key \(keyId) for user \(userId)")
-            }
-            logger.debug("Saved key \(keyId) in the keychain")
-        }
-        
-        public func saveKey(key: Data, keyId: String) async throws {
-            logger.debug("Attempting to save key with keyId \(keyId)")
-
-            //try await saveKey_KeychainAccess(key: key, keyId: keyId)
-            //try await saveKey_RawKeychain(key: key, keyId: keyId)
-            try await saveKey_FakeKeychain(key: key, keyId: keyId)
-        }
-    }
-    
     // https://spec.matrix.org/v1.6/client-server-api/#storage
     public class SecretStore {
         
@@ -219,7 +96,7 @@ extension Matrix {
             logger.debug("Initializing with default key")
             
             try await registerKey(key: key, keyId: keyId)
-
+            
             // Make sure that our default key is registered with the server-side secret storage
             if let oldDefaultKeyId = try await getDefaultKeyId() {
                 logger.debug("Found existing default keyId [\(oldDefaultKeyId)]")
@@ -252,8 +129,21 @@ extension Matrix {
                         logger.error("Couldn't get key description for old key id \(oldDefaultKeyId, privacy: .public)")
                         throw Matrix.Error("Couldn't get key descripiton for default key")
                     }
-                    self.state = .needKey(description)
                     
+                    // Check to see if our key is actually this one in disguise
+                    let oldAndNewKeysMatch = try validateKeyVsDescription(key: key, keyId: keyId, description: description)
+                    if oldAndNewKeysMatch {
+                        logger.debug("Old and new keys match despite having different keyId's")
+                        self.keys[oldDefaultKeyId] = key
+                        self.state = .online(oldDefaultKeyId)
+                        return
+                    }
+                    
+                    // If we're still here, then we don't know where to get this key
+                    // Maybe the user can help us?
+                    logger.debug("We need a key to bring secret storage online: keyId \(oldDefaultKeyId, privacy: .public) algorithm \(description.algorithm, privacy: .public)")
+                    self.state = .needKey(description)
+                    return
                      
                 } else {
                     logger.debug("Existing default keyId matches what we have [\(keyId)]")
@@ -261,7 +151,7 @@ extension Matrix {
                 }
             } else {
                 logger.debug("No existing keyId; Setting our new one to be the default")
-                let description = KeyDescr
+                
                 try await setDefaultKeyId(keyId: keyId)
                 self.state = .online(keyId)
             }
@@ -270,6 +160,8 @@ extension Matrix {
             
             logger.debug("Done with init")
         }
+        
+        // MARK: init
         
         public init(session: Session, keys: [String: Data]) async throws {
             self.session = session
@@ -710,7 +602,7 @@ extension Matrix {
         ) async throws {
             let base64Key = Base64.unpadded(key)
             
-            try await saveSecret(base64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(keyId)", under: encryptionKeyIds)
+            try await saveSecret(base64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(keyId)", under: keyIds)
 
         }
         
@@ -731,6 +623,28 @@ extension Matrix {
             
             logger.error("Couldn't get key for keyId \(keyId)")
             return nil
+        }
+        
+        // MARK: Generate key description
+        public func generateKeyDescription(key: Data,
+                                           keyId: String,
+                                           name: String? = nil,
+                                           algorithm: String = M_SECRET_STORAGE_V1_AES_HMAC_SHA2,
+                                           passphrase: KeyDescriptionContent.Passphrase?
+        ) throws -> KeyDescriptionContent {
+            let zeroes = [UInt8](repeating: 0, count: 32)
+            let encrypted = try encrypt(name: "", data: Data(zeroes), key: key)
+            let iv = encrypted.iv
+            let mac = encrypted.mac
+            
+            return KeyDescriptionContent(name: name, algorithm: algorithm, passphrase: passphrase, iv: iv, mac: mac)
+        }
+        
+        // MARK: Save key description
+        public func saveKeyDescription(_ description: KeyDescriptionContent,
+                                       for keyId: String
+        ) async throws {
+            try await session.putAccountData(description, for: keyId)
         }
         
         // MARK: Get key description
@@ -781,17 +695,13 @@ extension Matrix {
         public func registerKey(key: Data,
                                 keyId: String,
                                 name: String? = nil,
+                                algorithm: String = M_SECRET_STORAGE_V1_AES_HMAC_SHA2,
                                 passphrase: KeyDescriptionContent.Passphrase? = nil
         ) async throws {
             logger.debug("Registering new key with keyId [\(keyId)]")
             
-            let algorithm: String = M_SECRET_STORAGE_V1_AES_HMAC_SHA2
-            let zeroes = [UInt8](repeating: 0, count: 32)
-            let encrypted = try encrypt(name: "", data: Data(zeroes), key: key)
-            let iv = encrypted.iv
-            let mac = encrypted.mac
+            let content = try generateKeyDescription(key: key, keyId: keyId, name: name, algorithm: algorithm, passphrase: passphrase)
             
-            let content = KeyDescriptionContent(name: name, algorithm: algorithm, passphrase: passphrase, iv: iv, mac: mac)
             let type = "\(M_SECRET_STORAGE_KEY_PREFIX).\(keyId)"
             
             try await session.putAccountData(content, for: type)
@@ -804,12 +714,27 @@ extension Matrix {
         ) async throws -> Bool {
             logger.debug("Validating key with keyId [\(keyId)]")
             
-            guard let description = try await getKeyDescription(keyId: keyId),
-                  let oldIV = description.iv,
+            guard let description = try await getKeyDescription(keyId: keyId)
+            else {
+                logger.error("Failed to get key description for keyId \(keyId, privacy: .public)")
+                throw Matrix.Error("Failed to get key description")
+            }
+            
+            return try validateKeyVsDescription(key: key, keyId: keyId, description: description)
+        }
+        
+        public func validateKeyVsDescription(key: Data,
+                                             keyId: String,
+                                             description: KeyDescriptionContent
+        ) throws -> Bool {
+            guard let oldIV = description.iv,
                   let oldMacString = description.mac,
                   let oldMacData = Data(base64Encoded: oldMacString),
                   let iv = Data(base64Encoded: oldIV)
-            else { return false }
+            else {
+                logger.error("Failed to parse key description for keyId \(keyId, privacy: .public)")
+                throw Matrix.Error("Failed to parse key description")
+            }
             
             // Keygen - Use HKDF to derive encryption key and MAC key from master key
             let salt = Array<UInt8>(repeating: 0, count: 32)
@@ -852,6 +777,7 @@ extension Matrix {
             // First quick check - Are they the same length?
             guard mac.count == oldMac.count
             else {
+                logger.warning("MAC lengths are not the same")
                 return false
             }
             
@@ -874,6 +800,7 @@ extension Matrix {
             // If we're still here, then everything must have matched.  We're good!
             return true
         }
+
         
         // MARK: Set default keyId
         
