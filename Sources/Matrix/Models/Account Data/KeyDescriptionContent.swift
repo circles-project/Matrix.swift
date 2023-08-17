@@ -21,7 +21,7 @@ public struct KeyDescriptionContent: Codable {
         public var iterations: Int? // Required for m.pbkdf2
         public var bits: Int?
         
-        public init(algorithm: String, salt: String?, iterations: Int?, bits: Int?=nil) {
+        public init(algorithm: String, salt: String?=nil, iterations: Int?=nil, bits: Int?=nil) {
             self.algorithm = algorithm
             self.salt = salt
             self.iterations = iterations
