@@ -326,10 +326,12 @@ extension Matrix {
         
         // MARK: Encrypt
         
-        func encrypt(name: String,
+        static func encrypt(name: String,
                      data: Data,
                      key: Data
         ) throws -> EncryptedData {
+            let logger = os.Logger(subsystem: "ssss", category: "encrypt")
+            
             logger.debug("Encrypting \(name)")
             // Keygen - Use HKDF to derive encryption key and MAC key from master key
             let salt = Array<UInt8>(repeating: 0, count: 32)
@@ -406,10 +408,12 @@ extension Matrix {
         
         // MARK: Decrypt
         
-        func decrypt(name: String,
+        static func decrypt(name: String,
                      encrypted: EncryptedData,
                      key: Data
         ) throws -> Data {
+            let logger = os.Logger(subsystem: "ssss", category: "decrypt")
+            
             logger.debug("Decrypting \(name, privacy: .public)")
             
             guard let iv = Base64.data(encrypted.iv),
@@ -496,7 +500,7 @@ extension Matrix {
                 }
                 logger.debug("Got key and description for key id [\(keyId)]")
                 
-                let decryptedData = try decrypt(name: type, encrypted: encryptedData, key: key)
+                let decryptedData = try SecretStore.decrypt(name: type, encrypted: encryptedData, key: key)
                 logger.debug("Successfully decrypted data for secret [\(type)]")
                 return decryptedData
             }
@@ -573,7 +577,7 @@ extension Matrix {
                     continue
                 }
                 // Encrypt the secret under this key
-                let encryptedData = try encrypt(name: type, data: data, key: key)
+                let encryptedData = try SecretStore.encrypt(name: type, data: data, key: key)
                 // Add our encryption to whatever was there before, overwriting any previous encryption to this key
                 secret.encrypted[encryptionKeyId] = encryptedData
             }
@@ -613,11 +617,11 @@ extension Matrix {
         }
         
         // MARK: Generate key description
-        public func generateKeyDescription(key: Data,
-                                           keyId: String,
-                                           name: String? = nil,
-                                           algorithm: String = M_SECRET_STORAGE_V1_AES_HMAC_SHA2,
-                                           passphrase: KeyDescriptionContent.Passphrase?
+        public static func generateKeyDescription(key: Data,
+                                                  keyId: String,
+                                                  name: String? = nil,
+                                                  algorithm: String = M_SECRET_STORAGE_V1_AES_HMAC_SHA2,
+                                                  passphrase: KeyDescriptionContent.Passphrase?
         ) throws -> KeyDescriptionContent {
             let zeroes = [UInt8](repeating: 0, count: 32)
             let encrypted = try encrypt(name: "", data: Data(zeroes), key: key)
