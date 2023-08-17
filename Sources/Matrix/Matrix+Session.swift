@@ -102,7 +102,7 @@ extension Matrix {
                     recoverySecretKey: Data? = nil, recoveryTimestamp: Data? = nil,
                     storageType: StorageType = .persistent(preserve: true),
                     useCrossSigning: Bool = true,
-                    secretStorageKeyInfo: (String,Data)? = nil,
+                    secretStorageKey: SecretStorageKey? = nil,
                     enableKeyBackup: Bool = true
         ) async throws {
             
@@ -169,9 +169,9 @@ extension Matrix {
             // Set up crypto stuff
             // Secret storage
             cryptoLogger.debug("Setting up secret storage")
-            if let (s4keyId,s4key) = secretStorageKeyInfo {
-                cryptoLogger.debug("Setting up secret storage with keyId \(s4keyId)")
-                self.secretStore = try await .init(session: self, key: s4key, keyId: s4keyId)
+            if let sskey = secretStorageKey {
+                cryptoLogger.debug("Setting up secret storage with keyId \(sskey.keyId)")
+                self.secretStore = try await .init(session: self, ssk: sskey)
             } else {
                 cryptoLogger.debug("Setting up secret storage -- no new keys")
                 self.secretStore = try await .init(session: self, keys: [:])
@@ -1694,10 +1694,10 @@ extension Matrix {
         }
         
         // MARK: Secret Storage
-        public func enableSecretStorage(defaultKey: Data, defaultKeyId: String) async throws {
+        public func enableSecretStorage(defaultKey: SecretStorageKey) async throws {
             
             if self.secretStore == nil {
-                self.secretStore = try await SecretStore(session: self, key: defaultKey, keyId: defaultKeyId)
+                self.secretStore = try await SecretStore(session: self, ssk: defaultKey)
             }
             
             guard let store = self.secretStore
@@ -1711,8 +1711,8 @@ extension Matrix {
                 logger.debug("Secret storage is already online with keyId \(existingDefaultKeyId, privacy: .public)")
                 return
             default:
-                logger.debug("Attempting to bring secret storage online with keyId \(defaultKeyId, privacy: .public)")
-                try await store.addNewDefaultKey(key: defaultKey, keyId: defaultKeyId)
+                logger.debug("Attempting to bring secret storage online with keyId \(defaultKey.keyId, privacy: .public)")
+                try await store.addNewDefaultKey(defaultKey)
             }
         }
         
