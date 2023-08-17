@@ -825,5 +825,43 @@ extension Matrix {
             logger.debug("Found default keyId \(content.key)`")
             return content.key
         }
+        
+        // MARK: Generate key
+        
+        public func generateKey(password: String, description: KeyDescriptionContent) throws -> SecretStorageKey? {
+            guard let algorithm = description.passphrase?.algorithm,
+                  let iterations = description.passphrase?.iterations,
+                  let salt = description.passphrase?.salt,
+                  let bitLength = description.passphrase?.bits
+            else {
+                logger.error("Can't generate secret storage key without algorithm and iterations")
+                return nil
+            }
+            
+            switch algorithm {
+            case M_PBKDF2:
+                logger.debug("Generating PBKDF2 key")
+                let rounds = UInt32(iterations)
+                let byteLength: UInt = UInt(bitLength) / 8
+                let keyBytes = PBKDF.deriveKey(password: password, salt: salt, prf: .sha512, rounds: rounds, derivedKeyLength: byteLength)
+                let keyData = Data(keyBytes)
+                logger.debug("Generated key data = \(Base64.padded(keyData))")
+                
+                let keyId = try Matrix.SecretStore.computeKeyId(key: keyData)
+
+                guard keyData.count == byteLength,
+                      try validateKeyVsDescription(key: keyData, keyId: keyId, description: description)
+                else {
+                    logger.error("Password-generated key does not match description")
+                    return nil
+                }
+                let key = SecretStorageKey(key: keyData, keyId: keyId, description: description)
+                return key
+                
+            default:
+                logger.error("Unknown key generation algorithm")
+                return nil
+            }
+        }
     }
 }
