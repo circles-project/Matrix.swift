@@ -17,9 +17,16 @@ public struct KeyDescriptionContent: Codable {
     
     public struct Passphrase: Codable {
         public var algorithm: String
-        public var salt: String
-        public var iterations: Int
+        public var salt: String?    // Required for m.pbkdf2
+        public var iterations: Int? // Required for m.pbkdf2
         public var bits: Int?
+        
+        public init(algorithm: String, salt: String?, iterations: Int?, bits: Int?=nil) {
+            self.algorithm = algorithm
+            self.salt = salt
+            self.iterations = iterations
+            self.bits = bits
+        }
     }
     
     public init(name: String? = nil, algorithm: String, passphrase: Passphrase? = nil, iv: String? = nil, mac: String? = nil) {
