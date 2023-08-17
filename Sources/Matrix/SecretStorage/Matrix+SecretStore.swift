@@ -22,7 +22,7 @@ extension Matrix {
         
         public enum State {
             case uninitialized
-            case needKey(KeyDescriptionContent)
+            case needKey(String, KeyDescriptionContent)
             case online(String)
             case error(String)
         }
@@ -142,7 +142,7 @@ extension Matrix {
                     // If we're still here, then we don't know where to get this key
                     // Maybe the user can help us?
                     logger.debug("We need a key to bring secret storage online: keyId \(oldDefaultKeyId, privacy: .public) algorithm \(description.algorithm, privacy: .public)")
-                    self.state = .needKey(description)
+                    self.state = .needKey(oldDefaultKeyId, description)
                     return
                      
                 } else {
@@ -214,7 +214,7 @@ extension Matrix {
                     logger.debug("Fetching key description")
                     if let description = try await getKeyDescription(keyId: serverDefaultKeyId) {
                         logger.debug("Setting state to .needKey")
-                        self.state = .needKey(description)
+                        self.state = .needKey(serverDefaultKeyId, description)
                     }
                 }
             }
