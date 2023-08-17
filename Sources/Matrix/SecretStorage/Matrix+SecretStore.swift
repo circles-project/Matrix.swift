@@ -642,16 +642,24 @@ extension Matrix {
         }
 
         // MARK: Add new key
+        
         public func addNewDefaultKey(key: Data, keyId: String) async throws {
+            logger.debug("Adding new default key with key id \(keyId)")
+            try await addNewSecretStorageKey(key: key, keyId: keyId, makeDefault: true)
+        }
+        
+        public func addNewSecretStorageKey(key: Data, keyId: String, makeDefault: Bool = false) async throws {
             logger.debug("Adding new key with key id \(keyId)")
             // Super basic level: Add the new key to our keys
             self.keys[keyId] = key
+            
+            // Create the key description that allows us (and other clients) to verify that we have the correct bytes for the key
+            try await self.registerKey(key: key, keyId: keyId)
             
             // Now we need to be sure to keep all our bookkeeping stuff in order
             switch state {
             case .online(let oldDefaultKeyId):
                 let base64Key = Base64.unpadded(key)
-                
                 
                 guard let oldDefaultKey = self.keys[oldDefaultKeyId]
                 else {
@@ -662,18 +670,35 @@ extension Matrix {
                 
                 // Save our new key, encrypted under the old key, so other clients can access it
                 try await self.saveSecret(base64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(keyId)")
-                // Create the key description that allows us (and other clients) to verify that we have the correct bytes for the key
-                try await self.registerKey(key: key, keyId: keyId)
-                // Switch to the new key as our default
-                self.state = .online(keyId)
-                // Save the old key, encrypted under our new key, so we can recover old secrets in the future
-                try await self.saveSecret(oldBase64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(oldDefaultKeyId)")
+
+                if makeDefault {
+                    // Switch to the new key as our default
+                    self.state = .online(keyId)
+                    // Save the old key, encrypted under our new key, so we can recover old secrets in the future
+                    try await self.saveSecret(oldBase64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(oldDefaultKeyId)")
+                    try await self.setDefaultKeyId(keyId: keyId)
+                }
+                
+            case .needKey(let neededKeyId, let neededDescription):
+                if keyId == neededKeyId {
+                    // Yay this is what we've been waiting for
+                    logger.debug("Got the key that we were waiting for?  Validating...")
+                    guard try validateKeyVsDescription(key: key, keyId: keyId, description: neededDescription)
+                    else {
+                        logger.error("Failed to validate new key.  Still waiting.")
+                        return
+                    }
+                    logger.debug("Successfully validated keyId \(keyId, privacy: .public)")
+                    self.state = .online(keyId)
+                }
+                
             default:
                 // If we were in some other state, good news!  Now we can be fully online.
-                // Create the key description that allows us (and other clients) to verify that we have the correct bytes for the key
-                try await self.registerKey(key: key, keyId: keyId)
-                // Switch to the new key as our default
-                self.state = .online(keyId)
+                if makeDefault {
+                    // Switch to the new key as our default
+                    self.state = .online(keyId)
+                    try await self.setDefaultKeyId(keyId: keyId)
+                }
             }
         }
         
