@@ -86,30 +86,30 @@ extension Matrix {
         
         // MARK: init
     
-        public init(session: Session, key: Data, keyId: String) async throws {
+        public init(session: Session, ssk: SecretStorageKey) async throws {
             self.session = session
             self.logger = .init(subsystem: "matrix", category: "SSSS")
-            self.keys = [keyId : key]
+            self.keys = [ssk.keyId : ssk.key]
             self.keychain = KeychainSecretStore(userId: session.creds.userId)
             self.state = .uninitialized
             
             logger.debug("Initializing with default key")
             
-            try await registerKey(key: key, keyId: keyId)
+            try await registerKey(key: ssk)
             
             // Make sure that our default key is registered with the server-side secret storage
             if let oldDefaultKeyId = try await getDefaultKeyId() {
                 logger.debug("Found existing default keyId [\(oldDefaultKeyId)]")
-                if oldDefaultKeyId != keyId {
+                if oldDefaultKeyId != ssk.keyId {
                     
                     // Do we have this old key in our device keychain?
                     if let oldDefaultKey = try await keychain.loadKey(keyId: oldDefaultKeyId, reason: "Initializing secret storage") {
                         self.keys[oldDefaultKeyId] = oldDefaultKey
                         self.state = .online(oldDefaultKeyId)
                         // Save our new key under the old key
-                        try await saveKey(key: key, keyId: keyId, under: [oldDefaultKeyId])
+                        try await saveKey(key: ssk.key, keyId: ssk.keyId, under: [oldDefaultKeyId])
                         // Save the old key under our new key, in anticipation of switching sometime in the near future
-                        try await saveKey(key: oldDefaultKey, keyId: oldDefaultKeyId, under: [keyId])
+                        try await saveKey(key: oldDefaultKey, keyId: oldDefaultKeyId, under: [ssk.keyId])
                         return
                     }
                     
@@ -118,9 +118,9 @@ extension Matrix {
                         self.keys[oldDefaultKeyId] = oldDefaultKey
                         self.state = .online(oldDefaultKeyId)
                         // Save our new key under the old key
-                        try await saveKey(key: key, keyId: keyId, under: [oldDefaultKeyId])
+                        try await saveKey(key: ssk.key, keyId: ssk.keyId, under: [oldDefaultKeyId])
                         // Save the old key under our new key, in anticipation of switching sometime in the near future
-                        try await saveKey(key: oldDefaultKey, keyId: oldDefaultKeyId, under: [keyId])
+                        try await saveKey(key: oldDefaultKey, keyId: oldDefaultKeyId, under: [ssk.keyId])
                         return
                     }
                     
@@ -131,10 +131,10 @@ extension Matrix {
                     }
                     
                     // Check to see if our key is actually this one in disguise
-                    let oldAndNewKeysMatch = try validateKeyVsDescription(key: key, keyId: keyId, description: description)
+                    let oldAndNewKeysMatch = try validateKeyVsDescription(key: ssk.key, keyId: ssk.keyId, description: description)
                     if oldAndNewKeysMatch {
                         logger.debug("Old and new keys match despite having different keyId's")
-                        self.keys[oldDefaultKeyId] = key
+                        self.keys[oldDefaultKeyId] = ssk.key
                         self.state = .online(oldDefaultKeyId)
                         return
                     }
@@ -146,14 +146,14 @@ extension Matrix {
                     return
                      
                 } else {
-                    logger.debug("Existing default keyId matches what we have [\(keyId)]")
-                    self.state = .online(keyId)
+                    logger.debug("Existing default keyId matches what we have [\(ssk.keyId)]")
+                    self.state = .online(ssk.keyId)
                 }
             } else {
                 logger.debug("No existing keyId; Setting our new one to be the default")
                 
-                try await setDefaultKeyId(keyId: keyId)
-                self.state = .online(keyId)
+                try await setDefaultKeyId(keyId: ssk.keyId)
+                self.state = .online(ssk.keyId)
             }
             
             self.registerAccountDataHandler()
@@ -643,23 +643,23 @@ extension Matrix {
 
         // MARK: Add new key
         
-        public func addNewDefaultKey(key: Data, keyId: String) async throws {
-            logger.debug("Adding new default key with key id \(keyId)")
-            try await addNewSecretStorageKey(key: key, keyId: keyId, makeDefault: true)
+        public func addNewDefaultKey(_ ssk: SecretStorageKey) async throws {
+            logger.debug("Adding new default key with key id \(ssk.keyId)")
+            try await addNewSecretStorageKey(ssk, makeDefault: true)
         }
         
-        public func addNewSecretStorageKey(key: Data, keyId: String, makeDefault: Bool = false) async throws {
-            logger.debug("Adding new key with key id \(keyId)")
+        public func addNewSecretStorageKey(_ ssk: SecretStorageKey, makeDefault: Bool = false) async throws {
+            logger.debug("Adding new key with key id \(ssk.keyId)")
             // Super basic level: Add the new key to our keys
-            self.keys[keyId] = key
+            self.keys[ssk.keyId] = ssk.key
             
             // Create the key description that allows us (and other clients) to verify that we have the correct bytes for the key
-            try await self.registerKey(key: key, keyId: keyId)
+            try await self.registerKey(key: ssk)
             
             // Now we need to be sure to keep all our bookkeeping stuff in order
             switch state {
             case .online(let oldDefaultKeyId):
-                let base64Key = Base64.unpadded(key)
+                let base64Key = Base64.unpadded(ssk.key)
                 
                 guard let oldDefaultKey = self.keys[oldDefaultKeyId]
                 else {
@@ -669,54 +669,47 @@ extension Matrix {
                 let oldBase64Key = Base64.unpadded(oldDefaultKey)
                 
                 // Save our new key, encrypted under the old key, so other clients can access it
-                try await self.saveSecret(base64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(keyId)")
+                try await self.saveSecret(base64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(ssk.keyId)")
 
                 if makeDefault {
                     // Switch to the new key as our default
-                    self.state = .online(keyId)
+                    self.state = .online(ssk.keyId)
                     // Save the old key, encrypted under our new key, so we can recover old secrets in the future
                     try await self.saveSecret(oldBase64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(oldDefaultKeyId)")
-                    try await self.setDefaultKeyId(keyId: keyId)
+                    try await self.setDefaultKeyId(keyId: ssk.keyId)
                 }
                 
             case .needKey(let neededKeyId, let neededDescription):
-                if keyId == neededKeyId {
+                if ssk.keyId == neededKeyId {
                     // Yay this is what we've been waiting for
                     logger.debug("Got the key that we were waiting for?  Validating...")
-                    guard try validateKeyVsDescription(key: key, keyId: keyId, description: neededDescription)
+                    guard try validateKeyVsDescription(key: ssk.key, keyId: ssk.keyId, description: neededDescription)
                     else {
                         logger.error("Failed to validate new key.  Still waiting.")
                         return
                     }
-                    logger.debug("Successfully validated keyId \(keyId, privacy: .public)")
-                    self.state = .online(keyId)
+                    logger.debug("Successfully validated keyId \(ssk.keyId, privacy: .public)")
+                    self.state = .online(ssk.keyId)
                 }
                 
             default:
                 // If we were in some other state, good news!  Now we can be fully online.
                 if makeDefault {
                     // Switch to the new key as our default
-                    self.state = .online(keyId)
-                    try await self.setDefaultKeyId(keyId: keyId)
+                    self.state = .online(ssk.keyId)
+                    try await self.setDefaultKeyId(keyId: ssk.keyId)
                 }
             }
         }
         
         // MARK: Register key
         
-        public func registerKey(key: Data,
-                                keyId: String,
-                                name: String? = nil,
-                                algorithm: String = M_SECRET_STORAGE_V1_AES_HMAC_SHA2,
-                                passphrase: KeyDescriptionContent.Passphrase? = nil
-        ) async throws {
-            logger.debug("Registering new key with keyId [\(keyId)]")
+        public func registerKey(key: SecretStorageKey) async throws {
+            logger.debug("Registering new key with keyId [\(key.keyId)]")
+                        
+            let type = "\(M_SECRET_STORAGE_KEY_PREFIX).\(key.keyId)"
             
-            let content = try generateKeyDescription(key: key, keyId: keyId, name: name, algorithm: algorithm, passphrase: passphrase)
-            
-            let type = "\(M_SECRET_STORAGE_KEY_PREFIX).\(keyId)"
-            
-            try await session.putAccountData(content, for: type)
+            try await session.putAccountData(key.description, for: type)
         }
         
         // MARK: Validate key
