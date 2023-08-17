@@ -324,19 +324,6 @@ extension Matrix {
             }
         }
         
-        // MARK: Compute key id
-        
-        public static func computeKeyId(key: Data) throws -> String {
-            // First compute the SHA256 hash of the key
-            guard let hash = Digest(algorithm: .sha256).update(data: key)?.final()
-            else {
-                throw Matrix.Error("Failed to compute SHA256 hash on \(key.count) bytes")
-            }
-            // Then take the first 12 bytes (96 bits) of the hash and convert to base64
-            let keyId = Data(hash[0..<12]).base64EncodedString().trimmingCharacters(in: CharacterSet(charactersIn: "="))
-            return keyId
-        }
-        
         // MARK: Encrypt
         
         func encrypt(name: String,
@@ -828,7 +815,7 @@ extension Matrix {
         
         // MARK: Generate key
         
-        public func generateKey(password: String, description: KeyDescriptionContent) throws -> SecretStorageKey? {
+        public func generateKey(keyId: String, password: String, description: KeyDescriptionContent) throws -> SecretStorageKey? {
             guard let algorithm = description.passphrase?.algorithm,
                   let iterations = description.passphrase?.iterations,
                   let salt = description.passphrase?.salt,
@@ -847,8 +834,6 @@ extension Matrix {
                 let keyData = Data(keyBytes)
                 logger.debug("Generated key data = \(Base64.padded(keyData))")
                 
-                let keyId = try Matrix.SecretStore.computeKeyId(key: keyData)
-
                 guard keyData.count == byteLength,
                       try validateKeyVsDescription(key: keyData, keyId: keyId, description: description)
                 else {
