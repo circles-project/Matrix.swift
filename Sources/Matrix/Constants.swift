@@ -77,6 +77,7 @@ public let M_REFERENCE = "m.reference"
 
 // MARK: Secret storage
 public let M_SECRET_STORAGE_V1_AES_HMAC_SHA2 = "m.secret_storage.v1.aes-hmac-sha2"
+public let M_PBKDF2 = "m.pbkdf2"
 public let M_DEFAULT = "m.default"
 public let M_CROSS_SIGNING_MASTER = "m.cross_signing.master"
 public let M_CROSS_SIGNING_USER_SIGNING = "m.cross_signing.user_signing"
