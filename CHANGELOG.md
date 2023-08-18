@@ -1,3 +1,15 @@
+# v0.3.0 - 2023-08-18
+
+* Add support for deactivating the user's account, for GDPR compliance
+* Fix spec compliance of `m.room.encryption` events
+* Better support for UIA sessions that fail, or are canceled
+* More robust parsing of receipts
+* More robust handling of events that we fail to or don't know how to parse
+* E2EE fixes - Generate proper CTR mode "iv"s and use unpadded base64
+* Allow redirect by default for media downloads
+* Use better paths to store things on the local device
+* Improvements to Secret Storage, especially for when another app has already created a default key
+
 # v0.2.0 - 2023-08-04
 
 * Bugfix: Use FileManager to get file storage paths that are allowed on real iOS devices
