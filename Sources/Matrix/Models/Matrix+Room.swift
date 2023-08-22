@@ -963,7 +963,7 @@ extension Matrix {
 
 
         
-        public func sendVideo(url: URL, thumbnail: NativeImage) async throws -> EventId {
+        public func sendVideo(url: URL, thumbnail: NativeImage, caption: String? = nil) async throws -> EventId {
             guard url.isFileURL
             else {
                 logger.error("URL must be a local file URL")
@@ -1043,7 +1043,7 @@ extension Matrix {
                                       mimetype: "video/mp4",
                                       size: UInt(data.count),
                                       thumbnail_info: thumbnailInfo)
-                let content = mVideoContent(msgtype: M_VIDEO, body: filename, info: info, url: mxc)
+                let content = mVideoContent(msgtype: M_VIDEO, body: filename, info: info, url: mxc, caption: caption)
                 
                 return try await session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             } else {
@@ -1055,7 +1055,7 @@ extension Matrix {
                                       size: UInt(data.count),
                                       thumbnail_file: thumbFile,
                                       thumbnail_info: thumbnailInfo)
-                let content = mVideoContent(msgtype: M_VIDEO, body: filename, info: info, file: file)
+                let content = mVideoContent(msgtype: M_VIDEO, body: filename, info: info, file: file, caption: caption)
                 
                 return try await session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             }
