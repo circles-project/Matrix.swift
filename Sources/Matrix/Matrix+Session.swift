@@ -805,6 +805,7 @@ extension Matrix {
                     logger.error("Couldn't process /keys/signatures/upload response")
                     throw Matrix.Error("Couldn't process /keys/signatures/upload response")
                 }
+                logger.debug("Got signature upload response: Status \(response.statusCode) Body = \(responseBodyString)")
                 logger.debug("Marking signature upload request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .signatureUpload,
