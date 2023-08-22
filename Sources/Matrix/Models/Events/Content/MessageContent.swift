@@ -704,13 +704,17 @@ extension Matrix {
         public var size: UInt
         public var thumbnail_url: MXC?
         public var thumbnail_file: mEncryptedFile?
-        public var thumbnail_info: mThumbnailInfo
+        public var thumbnail_info: mThumbnailInfo?
         public var blurhash: String?
         public var thumbhash: String?
         
-        public init(duration: UInt, h: UInt, w: UInt, mimetype: String, size: UInt,
-                    thumbnail_url: MXC? = nil, thumbnail_file: mEncryptedFile? = nil,
-                    thumbnail_info: mThumbnailInfo,
+        public init(duration: UInt,
+                    h: UInt, w: UInt,
+                    mimetype: String,
+                    size: UInt,
+                    thumbnail_url: MXC? = nil,
+                    thumbnail_file: mEncryptedFile? = nil,
+                    thumbnail_info: mThumbnailInfo? = nil,
                     blurhash: String? = nil,
                     thumbhash: String? = nil
         ) {

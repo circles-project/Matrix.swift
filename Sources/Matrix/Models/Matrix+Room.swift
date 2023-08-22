@@ -10,6 +10,8 @@ import Foundation
 import OrderedCollections
 import os
 
+import AVFoundation
+
 #if os(macOS)
 import AppKit
 #else
@@ -961,8 +963,102 @@ extension Matrix {
 
 
         
-        public func sendVideo(fileUrl: URL, thumbnail: NativeImage?) async throws -> EventId {
-            throw Matrix.Error("Not implemented")
+        public func sendVideo(url: URL, thumbnail: NativeImage, caption: String? = nil) async throws -> EventId {
+            guard url.isFileURL
+            else {
+                logger.error("URL must be a local file URL")
+                throw Matrix.Error("URL must be a local file URL")
+            }
+            let video = AVAsset(url: url)
+            
+            // Get the basic info about the video
+            // Duration
+            let cmDuration: CMTime = try await video.load(.duration)
+            let duration = UInt(cmDuration.seconds)
+            // Resolution
+            guard let track = try await video.loadTracks(withMediaType: .video).first
+            else {
+                logger.error("No video tracks in the video")
+                throw Matrix.Error("No video tracks in the video")
+            }
+            let resolution = try await track.load(.naturalSize)
+            let height = UInt(abs(resolution.height))
+            let width = UInt(abs(resolution.width))
+
+            // https://developer.apple.com/documentation/avfoundation/media_reading_and_writing/exporting_video_to_alternative_formats
+            let preset: String = AVAssetExportPresetMediumQuality
+            let fileType: AVFileType = .mp4
+            
+            // Check the compatibility of the preset to export the video to the output file type.
+            guard await AVAssetExportSession.compatibility(ofExportPreset: preset,
+                                                           with: video,
+                                                           outputFileType: fileType)
+            else {
+                logger.error("The preset can't export the video to the output file type.")
+                throw Matrix.Error("The preset can't export the video to the output file type.")
+            }
+            
+            // Generate a random file in the temporary directory
+            let random = UInt64.random(in: 0...UInt64.max)
+            let filename = "video-\(random).\(fileType.rawValue)"
+            let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+            
+            // Create and configure the export session.
+            guard let exportSession = AVAssetExportSession(asset: video,
+                                                           presetName: preset)
+            else {
+                logger.error("Failed to create export session.")
+                throw Matrix.Error("Failed to create export session.")
+            }
+            exportSession.outputFileType = fileType
+            exportSession.outputURL = outputURL
+            
+            // Convert the video to the output file type and export it to the output URL.
+            await exportSession.export()
+            
+            // Load the data from the file and upload it
+            guard let data = try? Data(contentsOf: outputURL)
+            else {
+                logger.error("Failed to load transcoded video data")
+                throw Matrix.Error("Failed to laod transcoded video data")
+            }
+            
+            guard let thumbData = thumbnail.jpegData(compressionQuality: 0.8)
+            else {
+                logger.error("Failed to compress thumbnail")
+                throw Matrix.Error("Failed to compress thumbnail")
+            }
+            let thumbnailInfo = mThumbnailInfo(h: Int(thumbnail.size.height),
+                                               w: Int(thumbnail.size.width),
+                                               mimetype: "image/jpeg",
+                                               size: thumbData.count)
+            
+            if !self.isEncrypted {
+                let mxc = try await session.uploadData(data: data, contentType: "video/mp4")
+                let thumbMXC = try await session.uploadData(data: thumbData, contentType: "image/jpeg")
+
+                let info = mVideoInfo(duration: duration,
+                                      h: height,
+                                      w: width,
+                                      mimetype: "video/mp4",
+                                      size: UInt(data.count),
+                                      thumbnail_info: thumbnailInfo)
+                let content = mVideoContent(msgtype: M_VIDEO, body: filename, info: info, url: mxc, caption: caption)
+                
+                return try await session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
+            } else {
+                let file = try await session.encryptAndUploadData(plaintext: data, contentType: "video/mp4")
+                let thumbFile = try await session.encryptAndUploadData(plaintext: thumbData, contentType: "image/jpeg")
+                let info = mVideoInfo(duration: duration,
+                                      h: height,
+                                      w: width, mimetype: "video/mp4",
+                                      size: UInt(data.count),
+                                      thumbnail_file: thumbFile,
+                                      thumbnail_info: thumbnailInfo)
+                let content = mVideoContent(msgtype: M_VIDEO, body: filename, info: info, file: file, caption: caption)
+                
+                return try await session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
+            }
         }
         
         public func sendReply(to event: ClientEventWithoutRoomId, text: String, threaded: Bool = true) async throws -> EventId {

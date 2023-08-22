@@ -1368,6 +1368,16 @@ extension Matrix {
                                   v: "v2")
         }
         
+        public func encryptAndUploadFile(url: URL, contentType: String) async throws -> mEncryptedFile {
+            guard url.isFileURL
+            else {
+                logger.error("URL must be a local file URL")
+                throw Matrix.Error("URL must be a local file URL")
+            }
+            let data = try Data(contentsOf: url)
+            return try await encryptAndUploadData(plaintext: data, contentType: contentType)
+        }
+        
         public func downloadAndDecryptData(_ info: mEncryptedFile) async throws -> Data {
             logger.debug("Downloading and decrypting encrypted data from \(info.url, privacy: .public)")
             guard let ciphertext = try? await self.downloadData(mxc: info.url)
