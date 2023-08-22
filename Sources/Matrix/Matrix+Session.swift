@@ -181,6 +181,14 @@ extension Matrix {
             // then we can also go ahead and enable cross-signing and key backup.
             if secretStorageOnline {
                 try await cryptoQueue.run {
+                    
+                    self.cryptoLogger.debug("Checking for outgoing requests")
+                    let cryptoRequests = try self.crypto.outgoingRequests()
+                    logger.debug("Session:\tSending initial crypto requests (\(cryptoRequests.count, privacy: .public))")
+                    for request in cryptoRequests {
+                        try await self.sendCryptoRequest(request: request)
+                    }
+                    
                     if useCrossSigning {
                         // Hopefully uia is nil -- Meaning we don't have to re-authenticate so soon.
                         // But it's possible that we might get stuck doing UIA right off the bat.
@@ -805,6 +813,7 @@ extension Matrix {
                     logger.error("Couldn't process /keys/signatures/upload response")
                     throw Matrix.Error("Couldn't process /keys/signatures/upload response")
                 }
+                logger.debug("Got signature upload response: Status \(response.statusCode) Body = \(responseBodyString)")
                 logger.debug("Marking signature upload request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .signatureUpload,
