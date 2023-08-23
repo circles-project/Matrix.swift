@@ -308,10 +308,13 @@ public class Client {
             let displayName: String?
             let avatarUrl: MXC?
             
+            enum CodingKeys: String, CodingKey {
+                case displayName = "displayname"
+                case avatarUrl = "avatar_url"
+            }
         }
         
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let profileInfo: UserProfileInfo = try? decoder.decode(UserProfileInfo.self, from: data)
         else {
             let msg = "Failed to decode user profile"
