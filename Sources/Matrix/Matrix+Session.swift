@@ -161,7 +161,11 @@ extension Matrix {
                 if let newUrl = try? await getAvatarUrl(userId: self.creds.userId) {
                     self.avatarUrl = newUrl
                     if let data = try? await downloadData(mxc: newUrl) {
+                        #if !os(macOS)
                         self.avatar = UIImage(data: data)
+                        #else
+                        self.avatar = NSImage(data: data)
+                        #endif
                     }
                 }
             }
