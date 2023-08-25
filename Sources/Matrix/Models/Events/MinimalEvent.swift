@@ -16,6 +16,13 @@ public struct MinimalEvent: Matrix.Event {
     public let sender: UserId?
     public let content: Codable
     
+    public var description: String {
+        return """
+               MinimalEvent: {type: \(type), sender: \(String(describing: sender)), \
+               content: \(content)}
+               """
+    }
+    
     public enum CodingKeys: String, CodingKey {
         case type
         case content

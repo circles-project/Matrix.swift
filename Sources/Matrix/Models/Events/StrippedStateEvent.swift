@@ -16,6 +16,13 @@ public struct StrippedStateEvent: Matrix.Event {
     public let type: String
     public let content: Codable
 
+    public var description: String {
+        return """
+               StrippedStateEvent: {type: \(type), sender: \(sender), \
+               stateKey: \(stateKey), content: \(content)}
+               """
+    }
+    
     public enum CodingKeys: String, CodingKey {
         case sender
         case stateKey = "state_key"

@@ -22,6 +22,14 @@ public class ClientEventWithoutRoomId: Matrix.Event, Codable {
     public let content: Codable
     public let unsigned: UnsignedData?
     
+    public var description: String {
+        return """
+               ClientEventWithoutRoomId: {eventId: \(eventId), originServerTS:\(originServerTS), \
+               sender: \(sender), stateKey: \(String(describing: stateKey)), type: \(type), \
+               content: \(content), unsigned: \(String(describing: unsigned))}
+               """
+    }
+    
     public enum CodingKeys: String, CodingKey {
         case content
         case eventId = "event_id"
@@ -98,7 +106,7 @@ extension ClientEventWithoutRoomId: Equatable {
 extension ClientEventWithoutRoomId: Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(eventId)
-    }    
+    }
 }
 
 extension ClientEventWithoutRoomId: Comparable {
