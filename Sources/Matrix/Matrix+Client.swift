@@ -514,7 +514,8 @@ public class Client {
                     type: String? = nil,
                     encrypted: Bool = true,
                     invite userIds: [UserId] = [],
-                    direct: Bool = false
+                    direct: Bool = false,
+                    powerLevelContentOverride: RoomPowerLevelsContent? = nil
     ) async throws -> RoomId {
         print("CREATEROOM\tCreating room with name=[\(name)] and type=[\(type ?? "(none)")]")
         
@@ -559,6 +560,7 @@ public class Client {
             var invite_3pid: [String]?
             var is_direct: Bool = false
             var name: String?
+            var power_level_content_override: RoomPowerLevelsContent?
             enum Preset: String, Codable {
                 case private_chat
                 case public_chat
@@ -566,7 +568,7 @@ public class Client {
             }
             var preset: Preset = .private_chat
             var room_alias_name: String?
-            var room_version: String = "7"
+            var room_version: String = "10"
             var topic: String?
             enum Visibility: String, Codable {
                 case pub = "public"
@@ -574,7 +576,8 @@ public class Client {
             }
             var visibility: Visibility = .priv
             
-            init(name: String, type: String? = nil, encrypted: Bool) {
+            init(name: String, type: String? = nil, encrypted: Bool,
+                 powerLevelContentOverride: RoomPowerLevelsContent? = nil) {
                 self.name = name
                 if encrypted {
                     let encryptionEvent = StateEvent(
@@ -587,9 +590,13 @@ public class Client {
                 if let roomType = type {
                     self.creation_content = ["type": roomType]
                 }
+                if let powerLevels = powerLevelContentOverride {
+                    self.power_level_content_override = powerLevels
+                }
             }
         }
-        let requestBody = CreateRoomRequestBody(name: name, type: type, encrypted: encrypted)
+        let requestBody = CreateRoomRequestBody(name: name, type: type, encrypted: encrypted,
+                                                powerLevelContentOverride: powerLevelContentOverride)
         
         print("CREATEROOM\tSending Matrix API request...")
         let (data, response) = try await call(method: "POST",
