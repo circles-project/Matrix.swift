@@ -572,6 +572,11 @@ extension Matrix {
                 logger.debug("Found \(leftRoomsDict.count, privacy: .public) left rooms")
                 for (roomId, info) in leftRoomsDict {
                     logger.debug("Found left room \(roomId)")
+                    
+                    if let store = self.dataStore {
+                        let _ = try await store.deleteStrippedState(for: roomId)
+                    }
+                    
                     // TODO: What should we do here?
                     // For now, just make sure these rooms are taken out of the other lists
                     await MainActor.run {
