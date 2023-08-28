@@ -286,6 +286,13 @@ extension Matrix {
                 }
                 
                 var d = tmpState[event.type] ?? [:]
+                if let currentEvent = d[stateKey],
+                   currentEvent.originServerTS > event.originServerTS
+                {
+                    // Don't override current state dict with an older event
+                    continue
+                }
+
                 d[stateKey] = event
                 tmpState[event.type] = d
             }
