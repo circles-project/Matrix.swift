@@ -11,6 +11,14 @@ import AnyCodable
 public class ClientEvent: ClientEventWithoutRoomId {
     public let roomId: RoomId
 
+    public override var description: String {
+        return """
+               ClientEvent: {eventId: \(eventId), roomId: \(roomId), \
+               originServerTS:\(originServerTS), sender: \(sender), \
+               stateKey: \(String(describing: stateKey)), type: \(type), \
+               content: \(content), unsigned: \(String(describing: unsigned))}
+               """
+    }
     
     public enum CodingKeys: String, CodingKey {
         case roomId = "room_id"

@@ -21,6 +21,14 @@ public struct UnsignedData: Codable {
     public let redactedBecause: FakeClientEvent?
     public let transactionId: String?
     
+    public var description: String {
+        return """
+               UnsignedData: {age: \(age), \
+               redactedBecause: \(String(describing: redactedBecause)), \
+               transactionId: \(String(describing: transactionId))}
+               """
+    }
+    
     public init(age: Int, redactedBecause: FakeClientEvent?, transactionId: String?) {
         self.age = age
         self.redactedBecause = redactedBecause

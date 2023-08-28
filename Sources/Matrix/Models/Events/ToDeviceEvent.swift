@@ -14,6 +14,10 @@ public struct ToDeviceEvent: Matrix.Event {
     public var type: String
     public var sender: UserId
     
+    public var description: String {
+        return "ToDeviceEvent: {type: \(type), sender: \(sender), content: \(content)}"
+    }
+    
     public enum CodingKeys: String, CodingKey {
         case content
         case type

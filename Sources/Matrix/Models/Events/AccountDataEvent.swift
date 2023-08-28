@@ -1,6 +1,6 @@
 //
 //  AccountDataEvent.swift
-//  
+//
 //
 //  Created by Charles Wright on 7/11/23.
 //
@@ -11,6 +11,10 @@ extension Matrix {
     public struct AccountDataEvent: Codable {
         public var type: String
         public var content: Codable
+        
+        public var description: String {
+            return "AccountDataEvent: {type: \(type), content:\(content)}"
+        }
         
         public enum CodingKeys: String, CodingKey {
             case type
