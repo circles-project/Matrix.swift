@@ -34,8 +34,8 @@ public class ClientEvent: ClientEventWithoutRoomId {
     public convenience init(from: ClientEventWithoutRoomId, roomId: RoomId) throws {
         try self.init(content: from.content, eventId: from.eventId,
                       originServerTS: from.originServerTS, roomId: roomId,
-                      sender: from.sender, type: from.type,
-                      unsigned: from.unsigned)
+                      sender: from.sender, stateKey: from.stateKey,
+                      type: from.type, unsigned: from.unsigned)
     }
     
     public required init(from decoder: Decoder) throws {
