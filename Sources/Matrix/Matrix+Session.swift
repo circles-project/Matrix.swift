@@ -574,7 +574,7 @@ extension Matrix {
                     logger.debug("Found left room \(roomId)")
                     
                     if let store = self.dataStore {
-                        let _ = try await store.deleteStrippedState(for: roomId)
+                        let _ = try await store.deleteRoom(roomId)
                     }
                     
                     // TODO: What should we do here?
