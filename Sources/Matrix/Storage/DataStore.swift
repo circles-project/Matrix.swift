@@ -45,6 +45,7 @@ public protocol DataStore {
     func saveRoomTimestamp(roomId: RoomId, state: RoomMemberContent.Membership, timestamp: UInt64) async throws
     
     func deleteStrippedState(for roomId: RoomId) async throws -> Int
+    func deleteRoom(_ roomId: RoomId) async throws
     
     func loadAccountData(of type: String, in roomId: RoomId?) async throws -> Codable?
     

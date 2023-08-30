@@ -462,6 +462,25 @@ public struct GRDBDataStore: DataStore {
         }
     }
     
+    public func deleteRoom(_ roomId: RoomId) async throws {
+        try await database.write { db in
+            try RoomRecord
+                .filter(RoomRecord.Columns.roomId == "\(roomId)")
+                .deleteAll(db)
+            
+            try StateEventRecord
+                .filter(StateEventRecord.Columns.roomId == "\(roomId)")
+                .deleteAll(db)
+            
+            try ClientEventRecord
+                .filter(ClientEventRecord.Columns.roomId == "\(roomId)")
+                .deleteAll(db)
+            
+            try StrippedStateEventRecord
+                .filter(StrippedStateEventRecord.Columns.roomId == "\(roomId)")
+                .deleteAll(db)
+        }
+    }
     
     // MARK: User profiles
     
