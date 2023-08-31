@@ -22,6 +22,13 @@ extension UserProfileRecord: FetchableRecord, TableRecord {
         case key
         case value
     }
+    
+    public var description: String {
+            return """
+                   UserProfileRecord: {userId: \(userId),
+                   key: \(key), value:\(value)}
+                   """
+    }
 }
 
 extension UserProfileRecord: PersistableRecord {

@@ -24,6 +24,12 @@ struct RoomRecord: Codable {
         case timestamp
     }
     
+    public var description: String {
+        return """
+               RoomRecord: {roomId: \(String(describing: roomId)),
+               joinState: \(joinState), timestamp:\(timestamp)}
+               """
+    }
 }
 
 extension RoomRecord: FetchableRecord, TableRecord {

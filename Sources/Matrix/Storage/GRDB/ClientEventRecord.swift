@@ -46,6 +46,17 @@ class ClientEventRecord: ClientEvent, FetchableRecord, TableRecord, PersistableR
         }
     }
     
+    public override var description: String {
+        return """
+               ClientEventRecord: {eventId: \(eventId), roomId: \(roomId), \
+               originServerTS:\(originServerTS), sender: \(sender), \
+               stateKey: \(String(describing: stateKey)), type: \(type), \
+               content: \(content), unsigned: \(String(describing: unsigned)), \
+               relationshipType: \(String(describing: relationshipType)), \
+               relatedEventId: \(String(describing: relatedEventId))}
+               """
+    }
+    
     required init(from decoder: Decoder) throws {
         try super.init(from: decoder)
     }

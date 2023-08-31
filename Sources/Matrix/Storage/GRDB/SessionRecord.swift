@@ -29,6 +29,18 @@ struct SessionRecord: Codable {
     // Encrypted backup / recovery info
     let recoverySecretKey: Data?
     let recoveryTimestamp: Date?
+    
+    public var description: String {
+        return """
+               SessionRecord: {userId: \(userId), deviceId: \(deviceId), accessToken:\(accessToken), \
+               homeserver: \(homeserver), displayname: \(String(describing: displayname)), \
+               avatarUrl: \(String(describing: avatarUrl)), statusMessage: \(String(describing: statusMessage)), \
+               syncToken: \(String(describing: syncToken)), syncing: \(String(describing: syncing)), \
+               syncRequestTimeout: \(syncRequestTimeout), syncDelayNS: \(syncDelayNS), \
+               recoverySecretKey: \(String(describing: recoverySecretKey)), \
+               recoveryTimestamp: \(String(describing: recoveryTimestamp))}
+               """
+    }
 }
 
 extension SessionRecord: FetchableRecord, TableRecord {

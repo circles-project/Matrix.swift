@@ -42,6 +42,15 @@ struct StateEventRecord: Codable {
         case type
         case unsigned
     }
+    
+    public var description: String {
+        return """
+               StateEventRecord: {roomId: \(roomId), eventId: \(eventId), sender: \(sender), \
+               originServerTS: \(originServerTS), stateKey:\(stateKey), type:\(type), \
+               content:\(content), unsigned:\(String(describing: unsigned))}
+               """
+    }
+    
     init(from event: ClientEventWithoutRoomId, in roomId: RoomId) throws {
         self.roomId = roomId
         self.type = event.type
