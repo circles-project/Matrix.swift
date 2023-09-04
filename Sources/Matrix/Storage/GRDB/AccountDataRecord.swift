@@ -20,6 +20,13 @@ struct AccountDataRecord: Codable {
         case content
     }
     
+    public var description: String {
+        return """
+               AccountDataRecord: {roomId: \(String(describing: roomId)),
+               type: \(type), content:\(content)}
+               """
+    }
+    
     init(from event: Matrix.AccountDataEvent, in roomId: RoomId? = nil) {
         self.roomId = roomId
         self.type = event.type

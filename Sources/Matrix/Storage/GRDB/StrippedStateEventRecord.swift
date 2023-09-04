@@ -32,6 +32,13 @@ struct StrippedStateEventRecord: Codable {
         case content
     }
     
+    public var description: String {
+        return """
+               StrippedStateEventRecord: {roomId: \(roomId), sender: \(sender), \
+               stateKey:\(stateKey), type:\(type), content:\(content)}
+               """
+    }
+    
     public init(from event: StrippedStateEvent, in roomId: RoomId) {
         self.roomId = roomId
         self.sender = event.sender
