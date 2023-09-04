@@ -1,6 +1,6 @@
 //
 //  Matrix+Message.swift
-//  
+//
 //
 //  Created by Charles Wright on 3/20/23.
 //
@@ -184,7 +184,7 @@ extension Matrix {
         
         public func addReply(message: Message) async {
             logger.debug("Adding reply message \(message.eventId)")
-            if message.replyToEventId == self.eventId {
+            if message.replyToEventId == self.eventId || message.relatedEventId == self.eventId {
                 if let replies = self.replies,
                    replies.contains(message)
                 {

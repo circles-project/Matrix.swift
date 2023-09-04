@@ -1,6 +1,6 @@
 //
 //  mRelatesTo.swift
-//  
+//
 //
 //  Created by Charles Wright on 4/21/23.
 //
@@ -26,8 +26,10 @@ public struct mRelatesTo: Codable {
     public let eventId: EventId?
     public let key: String?
     public let inReplyTo: mInReplyTo?
+    public let isFallingBack: Bool?
     
-    public init(relType: String?, eventId: EventId?, key: String? = nil, inReplyTo: EventId? = nil) {
+    public init(relType: String?, eventId: EventId?, key: String? = nil,
+                inReplyTo: EventId? = nil, isFallingBack: Bool? = false) {
         self.relType = relType
         self.eventId = eventId
         self.key = key
@@ -36,6 +38,7 @@ public struct mRelatesTo: Codable {
         } else {
             self.inReplyTo = nil
         }
+        self.isFallingBack = isFallingBack
     }
     
     public init(inReplyTo: EventId) {
@@ -43,6 +46,7 @@ public struct mRelatesTo: Codable {
         self.eventId = nil
         self.key = nil
         self.inReplyTo = mInReplyTo(eventId: inReplyTo)
+        self.isFallingBack = nil
     }
     
     public enum CodingKeys: String, CodingKey {
@@ -50,6 +54,7 @@ public struct mRelatesTo: Codable {
         case eventId = "event_id"
         case key
         case inReplyTo = "m.in_reply_to"
+        case isFallingBack = "is_falling_back"
     }
     
     public init(from decoder: Decoder) throws {
@@ -58,6 +63,7 @@ public struct mRelatesTo: Codable {
         self.eventId = try container.decodeIfPresent(EventId.self, forKey: .eventId)
         self.key = try container.decodeIfPresent(String.self, forKey: .key)
         self.inReplyTo = try container.decodeIfPresent(mRelatesTo.mInReplyTo.self, forKey: .inReplyTo)
+        self.isFallingBack = try container.decodeIfPresent(Bool.self, forKey: .isFallingBack)
     }
 }
 
