@@ -1,6 +1,6 @@
 //
 //  Matrix+Room.swift
-//  
+//
 //
 //  Created by Charles Wright on 12/5/22.
 //
@@ -237,7 +237,7 @@ extension Matrix {
                                 logger.debug("Adding event \(event.eventId) as a reaction to message \(relatedEventId)")
                                 await relatedMessage.addReaction(event: event)
                             }
-                            else if relType == M_THREAD && event.type == M_ROOM_MESSAGE {
+                            else if relType == M_THREAD && (event.type == M_ROOM_MESSAGE || event.type == M_ROOM_ENCRYPTED) {
                                 logger.debug("THREAD Adding event \(event.eventId) as a reply to \(relatedEventId)")
                                 await relatedMessage.addReply(message: message)
                             }
@@ -1077,10 +1077,12 @@ extension Matrix {
                    relatedContent.relationType == M_THREAD,
                    let threadId = relatedContent.relatedEventId
                 {
-                    relatesTo = mRelatesTo(relType: M_THREAD, eventId: threadId)
+                    relatesTo = mRelatesTo(relType: M_THREAD, eventId: threadId,
+                                           inReplyTo: event.eventId, isFallingBack: true)
 
                 } else {
-                    relatesTo = mRelatesTo(relType: M_THREAD, eventId: event.eventId)
+                    relatesTo = mRelatesTo(relType: M_THREAD, eventId: event.eventId,
+                                           inReplyTo: event.eventId, isFallingBack: true)
                 }
             
             } else {
