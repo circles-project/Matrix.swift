@@ -8,7 +8,7 @@
 import Foundation
 
 extension Matrix {
-    public class StrippedStateRoom: ObservableObject {
+    public class StrippedStateRoom: ObservableObject, RoomAvatarInfo {
         public var session: Session
         public let roomId: RoomId
         public let state: [String: [String:StrippedStateEvent]]  // From /sync
