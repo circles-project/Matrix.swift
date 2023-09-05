@@ -647,7 +647,7 @@ extension Matrix {
         
         // MARK: Crypto
         
-        private func updateCryptoAfterSync(responseBody: SyncResponseBody) throws -> String {
+        private func updateCryptoAfterSync(responseBody: SyncResponseBody) throws -> SyncChangesResult {
             var logger = self.syncLogger
             var eventsListString = "[]"
             if let toDevice = responseBody.toDevice {
@@ -674,12 +674,13 @@ extension Matrix {
             guard let result = try? self.crypto.receiveSyncChanges(events: eventsString,
                                                                    deviceChanges: deviceLists,
                                                                    keyCounts: responseBody.deviceOneTimeKeysCount ?? [:],
-                                                                   unusedFallbackKeys: responseBody.deviceUnusedFallbackKeyTypes ?? [])
+                                                                   unusedFallbackKeys: responseBody.deviceUnusedFallbackKeyTypes ?? [],
+                                                                   nextBatchToken: responseBody.nextBatch)
             else {
                 logger.error("Crypto update failed")
                 throw Matrix.Error("Crypto update failed")
             }
-            logger.debug("Got response from Rust crypto: \(result)")
+            logger.debug("Got response from Rust crypto: \(result.toDeviceEvents.count) to-device events, \(result.roomKeyInfos.count) room key info's")
             return result
         }
 
@@ -704,7 +705,7 @@ extension Matrix {
                 logger.debug("Marking to-device request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .toDevice,
-                                                  response: responseBodyString)
+                                                  responseBody: responseBodyString)
                 
             case .keysUpload(requestId: let requestId, body: let bodyString):
                 logger.debug("Handling keys upload request")
@@ -719,7 +720,7 @@ extension Matrix {
                 logger.debug("Marking keys upload request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .keysUpload,
-                                                  response: responseBodyString)
+                                                  responseBody: responseBodyString)
             
             case .keysQuery(requestId: let requestId, users: let users):
                 logger.debug("Handling keys query request")
@@ -751,7 +752,7 @@ extension Matrix {
                 logger.debug("Marking /keys/query response as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .keysQuery,
-                                                  response: responseBodyString)
+                                                  responseBody: responseBodyString)
                 
             case .keysClaim(requestId: let requestId, oneTimeKeys: let oneTimeKeys):
                 logger.debug("Handling keys claim request")
@@ -768,7 +769,7 @@ extension Matrix {
                 logger.debug("Marking /keys/claim response as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .keysClaim,
-                                                  response: responseBodyString)
+                                                  responseBody: responseBodyString)
                 
             case .keysBackup(requestId: let requestId, version: let backupVersion, rooms: let rooms):
                 logger.debug("Handling keys backup request")
@@ -790,7 +791,7 @@ extension Matrix {
                 logger.debug("Marking keys backup request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .keysBackup,
-                                                  response: responseBodyString)
+                                                  responseBody: responseBodyString)
                 
             case .roomMessage(requestId: let requestId, roomId: let roomId, eventType: let eventType, content: let content):
                 logger.debug("Sending room message for the crypto SDK: type = \(eventType)")
@@ -810,7 +811,7 @@ extension Matrix {
                 logger.debug("Marking room message request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .roomMessage,
-                                                  response: responseBodyString)
+                                                  responseBody: responseBodyString)
                 
             case .signatureUpload(requestId: let requestId, body: let requestBody):
                 logger.debug("Handling signature upload request")
@@ -826,7 +827,7 @@ extension Matrix {
                 logger.debug("Marking signature upload request as sent")
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .signatureUpload,
-                                                  response: responseBodyString)
+                                                  responseBody: responseBodyString)
             } // end case request
         } // end sendCryptoRequests()
 
@@ -1680,7 +1681,10 @@ extension Matrix {
             //logger.debug("Encoded event string = \(encryptedString)")
             //logger.debug("Encoded event content = \(contentString)")
             //logger.debug("Trying to decrypt...")
-            guard let decryptedStruct = try? crypto.decryptRoomEvent(event: encryptedString, roomId: "\(roomId)", handleVerificatonEvents: true)
+            guard let decryptedStruct = try? crypto.decryptRoomEvent(event: encryptedString,
+                                                                     roomId: "\(roomId)",
+                                                                     handleVerificationEvents: true,
+                                                                     strictShields: false)
             else {
                 logger.error("\(self.creds.userId) Failed to decrypt event \(encryptedEvent.eventId)")
                 throw Matrix.Error("Failed to decrypt")
@@ -1785,7 +1789,7 @@ extension Matrix {
             let result = try self.crypto.bootstrapCrossSigning()
             
             logger.debug("Exporting keys")
-            guard let export = self.crypto.exportCrossSigningKeys(),
+            guard let export = try self.crypto.exportCrossSigningKeys(),
                   let privateMSK = export.masterKey,
                   let privateSSK = export.selfSigningKey,
                   let privateUSK = export.userSigningKey
