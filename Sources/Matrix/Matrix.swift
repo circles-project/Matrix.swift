@@ -161,6 +161,7 @@ public enum Matrix {
         M_SPACE_CHILD : SpaceChildContent.self,
         M_SPACE_PARENT : SpaceParentContent.self,
         M_REACTION : ReactionContent.self,
+        M_ROOM_REDACTION: RedactionContent.self,
         M_ROOM_KEY : RoomKeyContent.self,
         M_ROOM_KEY_REQUEST : RoomKeyRequestContent.self,
         M_FORWARDED_ROOM_KEY : ForwardedRoomKeyContent.self,
