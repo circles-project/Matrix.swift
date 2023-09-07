@@ -31,11 +31,11 @@ public class ClientEvent: ClientEventWithoutRoomId {
         try super.init(content: content, eventId: eventId, originServerTS: originServerTS, sender: sender, stateKey: stateKey, type: type, unsigned: unsigned)
     }
     
-    public convenience init(from: ClientEventWithoutRoomId, roomId: RoomId) throws {
-        try self.init(content: from.content, eventId: from.eventId,
-                      originServerTS: from.originServerTS, roomId: roomId,
-                      sender: from.sender, stateKey: from.stateKey,
-                      type: from.type, unsigned: from.unsigned)
+    public convenience init(from event: ClientEventWithoutRoomId, roomId: RoomId) throws {
+        try self.init(content: event.content, eventId: event.eventId,
+                      originServerTS: event.originServerTS, roomId: roomId,
+                      sender: event.sender, stateKey: event.stateKey,
+                      type: event.type, unsigned: event.unsigned)
     }
     
     public required init(from decoder: Decoder) throws {

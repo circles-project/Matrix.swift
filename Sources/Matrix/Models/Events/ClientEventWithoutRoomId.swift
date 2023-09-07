@@ -8,10 +8,6 @@
 import Foundation
 import AnyCodable
 
-// Used for the /sync API
-// Normally this would be defined in-line in the only place where it's used,
-// but since it's much bigger than most random data-transfer object types,
-// this one gets its own file.
 public class ClientEventWithoutRoomId: Matrix.Event, Codable {
     public let eventId: String
     public let originServerTS: UInt64
@@ -52,15 +48,6 @@ public class ClientEventWithoutRoomId: Matrix.Event, Codable {
         self.type = type
         self.unsigned = unsigned
     }
- 
-    /*
-    public init(from: ClientEvent) throws {
-        try self.init(content: from.content, eventId: from.eventId,
-                      originServerTS: from.originServerTS,
-                      sender: from.sender, type: from.type,
-                      unsigned: from.unsigned)
-    }
-    */
     
     required public init(from decoder: Decoder) throws {
         Matrix.logger.debug("Decoding ClientEventWithoutRoomId")

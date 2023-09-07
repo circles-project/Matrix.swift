@@ -468,6 +468,8 @@ extension Matrix {
                     }
                     let allStateEvents = stateEvents + timelineStateEvents
                     
+                    let redactionEvents = timelineEvents.filter { $0.type == M_ROOM_REDACTION }
+                    
                     let roomTimestamp = timelineEvents.map { $0.originServerTS }.max()
                     
                     if let store = self.dataStore {

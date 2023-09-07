@@ -337,6 +337,31 @@ public struct GRDBDataStore: DataStore {
         }
     }
     
+    public func processRedactions(_ redactions: [ClientEvent]) async throws {
+        let roomIdColumn = ClientEventRecord.Columns.roomId
+        let eventIdColumn = ClientEventRecord.Columns.eventId
+
+        for redaction in redactions {
+            guard redaction.type = M_ROOM_REDACTION,
+                  let content = redaction.content as? RedactionContent,
+                  let redactedEventId = content.redacts
+            else {
+                continue
+            }
+            
+            try await database.write { db in
+                
+                if var event = ClientEventRecord
+                    .filter(roomIdColumn == "\(redaction.roomId)")
+                    .filter(eventIdColumn == content.redacts)
+                    .fetchOne(db)
+                {
+                    let redacted = Matrix.redactEvent(event, because: <#T##ClientEvent#>
+                }
+            }
+        }
+    }
+    
     // MARK: Stripped State
     
     public func saveStrippedState(events: [StrippedStateEvent], roomId: RoomId) async throws {
