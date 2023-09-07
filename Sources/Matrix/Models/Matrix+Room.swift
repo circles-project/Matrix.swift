@@ -1097,7 +1097,9 @@ extension Matrix {
         }
         
         public func redact(eventId: EventId, reason: String?) async throws -> EventId {
-            try await self.session.sendRedactionEvent(to: self.roomId, for: eventId, reason: reason)
+            let redactionEventId = try await self.session.sendRedactionEvent(to: self.roomId, for: eventId, reason: reason)
+            self.timeline.removeValue(forKey: eventId)
+            return redactionEventId
         }
         
         public func report(eventId: EventId, score: Int, reason: String?) async throws {

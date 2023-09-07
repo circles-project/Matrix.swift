@@ -31,9 +31,9 @@ public struct RoomMemberContent: Codable {
     }
     public let thirdPartyInvite: Invite?
     
-    public init(avatarUrl: String?, displayname: String?, isDirect: Bool?,
-                joinAuthorizedUsersViaServer: String?, membership: Membership, reason: String?,
-                thirdPartyInvite: Invite?) {
+    public init(avatarUrl: String? = nil, displayname: String? = nil, isDirect: Bool? = nil,
+                joinAuthorizedUsersViaServer: String? = nil, membership: Membership, reason: String? = nil,
+                thirdPartyInvite: Invite? = nil) {
         self.avatarUrl = avatarUrl
         self.displayname = displayname
         self.isDirect = isDirect
