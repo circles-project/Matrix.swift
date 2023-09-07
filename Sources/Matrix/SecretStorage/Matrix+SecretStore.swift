@@ -508,11 +508,12 @@ extension Matrix {
             return nil
         }
         
+
+        
         // MARK: Get secret
-            
-        public func getSecret<T: Codable>(type: String) async throws -> T? {
-            
-            logger.debug("Attempting to get secret for type [\(type)]")
+        
+        public func getSecretData(type: String) async throws -> Data? {
+            logger.debug("Attempting to get secret data for type [\(type)]")
             
             guard let secret = try await session.getAccountData(for: type, of: Secret.self)
             else {
@@ -530,6 +531,53 @@ extension Matrix {
                 throw Matrix.Error("Decryption failed for secret [\(type)]")
             }
             logger.debug("Decrypted secret \(type)")
+            
+            return data
+        }
+        
+        public func getSecretString(type: String) async throws -> String? {
+            let maybeData = try await getSecretData(type: type)
+            
+            guard let data = maybeData
+            else {
+                logger.error("No stored secret for type \(type)")
+                return nil
+            }
+            
+            // Ok this is messy and a bit complicated
+            // We want to support any kind of String that has been stored in SSSS
+            // * Maybe this is a String that we JSON encoded with double quotes, e.g. in an earlier version of Matrix.swift
+            // * Maybe this is a String that we encoded as raw UTF-8, e.g. in Circles Android
+            
+            let decoder = JSONDecoder()
+            if let jsonString = try? decoder.decode(String.self, from: data) {
+                return jsonString
+            }
+            else {
+                let rawString = String(data: data, encoding: .utf8)
+                return rawString
+            }
+        }
+            
+        public func getSecretObject<T: Codable>(type: String) async throws -> T? {
+            
+            let maybeData = try await getSecretData(type: type)
+
+            guard let data = maybeData
+            else {
+                logger.error("No stored secret for type \(type)")
+                return nil
+            }
+            
+            func hex(_ data: Data) -> String {
+                let bytes = [UInt8](data)
+                let string = bytes.map {
+                    String($0, radix: 16)
+                }.joined(separator: "")
+                return string
+            }
+            
+            logger.debug("Raw data = \(hex(data))")
                 
             let decoder = JSONDecoder()
             guard let object = try? decoder.decode(T.self, from: data)
@@ -544,12 +592,11 @@ extension Matrix {
         
         // MARK: Save secret
         
-        public func saveSecret<T: Codable>(_ content: T,
-                                           type: String,
-                                           under keyIds: [String]? = nil
+        public func saveSecretData(_ data: Data,
+                                   type: String,
+                                   under keyIds: [String]? = nil
+
         ) async throws {
-            logger.debug("Saving secret of type [\(type)]")
-            
             let encryptionKeyIds = keyIds ?? [defaultKeyId].compactMap { $0 }
             guard !encryptionKeyIds.isEmpty
             else {
@@ -566,10 +613,7 @@ extension Matrix {
             // Any old encryptions under this current key will be overwritten.
             let existingSecret = try await session.getAccountData(for: type, of: Secret.self)
             var secret = existingSecret ?? Secret(encrypted: [:])
-            
-            let encoder = JSONEncoder()
-            let data = try encoder.encode(content)
-            
+
             for encryptionKeyId in encryptionKeyIds {
                 guard let key = self.keys[encryptionKeyId]
                 else {
@@ -586,15 +630,45 @@ extension Matrix {
             try await session.putAccountData(secret, for: type)
         }
         
+        public func saveSecretString(_ string: String,
+                                     type: String,
+                                     under keyIds: [String]? = nil
+        ) async throws {
+            logger.debug("Saving secret string of type [\(type)]")
+            
+            guard let data = string.data(using: .utf8)
+            else {
+                logger.error("Failed to convert string to UTF-8 data")
+                throw Matrix.Error("Failed to conver string to UTF-8 data")
+            }
+            
+            try await saveSecretData(data, type: type, under: keyIds)
+        }
+        
+        public func saveSecretObject<T: Codable>(_ content: T,
+                                                 type: String,
+                                                 under keyIds: [String]? = nil
+        ) async throws {
+            logger.debug("Saving secret object of type [\(type)]")
+            
+            let encoder = JSONEncoder()
+            let data = try encoder.encode(content)
+            
+            try await saveSecretData(data, type: type, under: keyIds)
+        }
+        
         // MARK: Save key
         public func saveKey(key: Data,
                             keyId: String,
                             under keyIds: [String]? = nil
         ) async throws {
-            let base64Key = Base64.unpadded(key)
+            guard let base64Key = Base64.unpadded(key)
+            else {
+                logger.error("Failed to convert key to base64")
+                throw Matrix.Error("Failed to convert key to base64")
+            }
             
-            try await saveSecret(base64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(keyId)", under: keyIds)
-
+            try await saveSecretString(base64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(keyId)", under: keyIds)
         }
         
         // MARK: Get key
@@ -607,7 +681,7 @@ extension Matrix {
             }
             
             logger.debug("Looking for encrypted key \(keyId) in secret storage")
-            if let base64Key: String = try await getSecret(type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(keyId)") {
+            if let base64Key: String = try await getSecretString(type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(keyId)") {
                 let key = Base64.data(base64Key)
                 return key
             }
@@ -663,23 +737,32 @@ extension Matrix {
             // Now we need to be sure to keep all our bookkeeping stuff in order
             switch state {
             case .online(let oldDefaultKeyId):
-                let base64Key = Base64.unpadded(ssk.key)
+                guard let base64Key = Base64.unpadded(ssk.key)
+                else {
+                    logger.error("Failed to convert new key to base64")
+                    throw Matrix.Error("Failed to convert new key to base64")
+                }
                 
                 guard let oldDefaultKey = self.keys[oldDefaultKeyId]
                 else {
                     logger.error("Failed to get old default key for key id \(oldDefaultKeyId)")
                     throw Matrix.Error("Failed to get old default key for key id \(oldDefaultKeyId)")
                 }
-                let oldBase64Key = Base64.unpadded(oldDefaultKey)
+                
+                guard let oldBase64Key = Base64.unpadded(oldDefaultKey)
+                else {
+                    logger.error("Failed to convert old key to base64")
+                    throw Matrix.Error("Failed to convert old key to base64")
+                }
                 
                 // Save our new key, encrypted under the old key, so other clients can access it
-                try await self.saveSecret(base64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(ssk.keyId)")
+                try await self.saveSecretString(base64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(ssk.keyId)")
 
                 if makeDefault {
                     // Switch to the new key as our default
                     self.state = .online(ssk.keyId)
                     // Save the old key, encrypted under our new key, so we can recover old secrets in the future
-                    try await self.saveSecret(oldBase64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(oldDefaultKeyId)")
+                    try await self.saveSecretString(oldBase64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(oldDefaultKeyId)")
                     try await self.setDefaultKeyId(keyId: ssk.keyId)
                 }
                 

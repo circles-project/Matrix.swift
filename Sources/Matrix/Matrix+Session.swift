@@ -1781,9 +1781,9 @@ extension Matrix {
             
             logger.debug("Looking for keys on the server")
             // Look in the secret store for our cross-signing keys
-            if let privateMSK: String = try await store.getSecret(type: M_CROSS_SIGNING_MASTER),
-               let privateSSK: String = try await store.getSecret(type: M_CROSS_SIGNING_SELF_SIGNING),
-               let privateUSK: String = try await store.getSecret(type: M_CROSS_SIGNING_USER_SIGNING)
+            if let privateMSK = try await store.getSecretString(type: M_CROSS_SIGNING_MASTER),
+               let privateSSK = try await store.getSecretString(type: M_CROSS_SIGNING_SELF_SIGNING),
+               let privateUSK = try await store.getSecretString(type: M_CROSS_SIGNING_USER_SIGNING)
             {
                 logger.debug("Found keys on the server")
                 let export = CrossSigningKeyExport(masterKey: privateMSK, selfSigningKey: privateSSK, userSigningKey: privateUSK)
@@ -1833,9 +1833,9 @@ extension Matrix {
                 
                 // Upload the new cross-signing keys to secret storage, so we can use them on other devices
                 logger.debug("Saving keys to secret storage")
-                try await store.saveSecret(privateMSK, type: M_CROSS_SIGNING_MASTER)
-                try await store.saveSecret(privateSSK, type: M_CROSS_SIGNING_SELF_SIGNING)
-                try await store.saveSecret(privateUSK, type: M_CROSS_SIGNING_USER_SIGNING)
+                try await store.saveSecretString(privateMSK, type: M_CROSS_SIGNING_MASTER)
+                try await store.saveSecretString(privateSSK, type: M_CROSS_SIGNING_SELF_SIGNING)
+                try await store.saveSecretString(privateUSK, type: M_CROSS_SIGNING_USER_SIGNING)
                 
                 // Also upload the signature request in `result.signatureRequest`
                 logger.debug("Uploading signatures")
@@ -1894,7 +1894,7 @@ extension Matrix {
                 if let store = self.secretStore {
                     logger.debug("Looking for recovery key in the secret store")
                     
-                    if let recoveryPrivateKey: String = try await store.getSecret(type: M_MEGOLM_BACKUP_V1) {
+                    if let recoveryPrivateKey = try await store.getSecretString(type: M_MEGOLM_BACKUP_V1) {
                         // Cool, this is the key that we should use.
                         logger.debug("Found recovery key in secret storage")
                         
@@ -2010,7 +2010,7 @@ extension Matrix {
 
             // Step 3.4 - Save the recovery key to secret storage
             logger.debug("Saving new recovery key to secret storage")
-            try await store.saveSecret(recoveryPrivateKey, type: M_MEGOLM_BACKUP_V1)
+            try await store.saveSecretString(recoveryPrivateKey, type: M_MEGOLM_BACKUP_V1)
         }
         
         func loadKeyBackupEtag(version: String) -> String? {

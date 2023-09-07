@@ -11,10 +11,20 @@ import Foundation
 public struct TagContent: Codable {
     
     public struct Tag: Codable, Comparable {
-        public let order: Float
+        public let order: Float?
         
         public static func < (lhs: TagContent.Tag, rhs: TagContent.Tag) -> Bool {
-            lhs.order < rhs.order
+            guard let right = rhs.order
+            else {
+                return true
+            }
+            
+            guard let left = lhs.order
+            else {
+                return false
+            }
+
+            return left < right
         }
     }
     
