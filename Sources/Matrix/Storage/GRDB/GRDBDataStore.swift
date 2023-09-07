@@ -342,7 +342,7 @@ public struct GRDBDataStore: DataStore {
         let eventIdColumn = ClientEventRecord.Columns.eventId
 
         for redaction in redactions {
-            guard redaction.type = M_ROOM_REDACTION,
+            guard redaction.type == M_ROOM_REDACTION,
                   let content = redaction.content as? RedactionContent,
                   let redactedEventId = content.redacts
             else {
@@ -351,12 +351,14 @@ public struct GRDBDataStore: DataStore {
             
             try await database.write { db in
                 
-                if var event = ClientEventRecord
-                    .filter(roomIdColumn == "\(redaction.roomId)")
-                    .filter(eventIdColumn == content.redacts)
-                    .fetchOne(db)
+                if let badEvent = try ClientEventRecord
+                                        .filter(roomIdColumn == "\(redaction.roomId)")
+                                        .filter(eventIdColumn == redactedEventId)
+                                        .fetchOne(db)
                 {
-                    let redacted = Matrix.redactEvent(event, because: <#T##ClientEvent#>
+                    let redacted = try Matrix.redactEvent(badEvent, because: redaction)
+                    
+                    try ClientEventRecord(event: redacted).save(db)
                 }
             }
         }

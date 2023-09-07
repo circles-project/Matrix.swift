@@ -34,6 +34,8 @@ public protocol DataStore {
     func loadStrippedState(for roomId: RoomId) async throws -> [StrippedStateEvent]
     func loadRelatedEvents(for eventId: EventId, in roomId: RoomId, relType: String, type: String?) async throws -> [ClientEventWithoutRoomId]
     
+    func processRedactions(_ redactions: [ClientEvent]) async throws
+    
     func getRecentRoomIds(limit: Int, offset: Int?) async throws -> [RoomId]
     func getRoomIds(of roomType: String, limit: Int, offset: Int?) async throws -> [RoomId]
     func getJoinedRoomIds(for userId: UserId, limit: Int, offset: Int?) async throws -> [RoomId]

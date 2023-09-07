@@ -486,6 +486,12 @@ extension Matrix {
                             try await store.saveTimeline(events: timelineEvents, in: roomId)
                         }
                         
+                        // Also process any redactions that need to hit the database
+                        let redactionEvents = timelineEvents
+                                                .filter { $0.type == M_ROOM_REDACTION }
+                                                .compactMap { try? ClientEvent(from: $0, roomId: roomId) }
+                        try await store.processRedactions(redactionEvents)
+                        
                         // Save the room summary with the latest timestamp
                         if let timestamp = roomTimestamp {
                             //logger.debug("Saving timestamp for room \(roomId)")
