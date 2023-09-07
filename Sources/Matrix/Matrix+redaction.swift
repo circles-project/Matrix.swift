@@ -9,11 +9,11 @@ import Foundation
 
 extension Matrix {
     
-    private func redactEventContent(_ event: ClientEvent) throws -> Codable {
-        switch event.type {
+    private static func redactEventContent(_ badContent: Codable, type: String) throws -> Codable {
+        switch type {
             
         case M_ROOM_MEMBER:
-            guard let content = event.content as? RoomMemberContent
+            guard let content = badContent as? RoomMemberContent
             else {
                 Matrix.logger.error("Couldn't parse \(M_ROOM_MEMBER) content")
                 throw Matrix.Error("Couldn't parse \(M_ROOM_MEMBER) content")
@@ -22,10 +22,11 @@ extension Matrix {
             return memberContent
             
         case M_ROOM_CREATE:
-            return event.content
+            let content = badContent
+            return content
             
         case M_ROOM_JOIN_RULES:
-            guard let content = event.content as? RoomJoinRuleContent
+            guard let content = badContent as? RoomJoinRuleContent
             else {
                 Matrix.logger.error("Couldn't parse \(M_ROOM_JOIN_RULES) content")
                 throw Matrix.Error("Couldn't parse \(M_ROOM_JOIN_RULES) content")
@@ -34,7 +35,7 @@ extension Matrix {
             return joinRulesContent
             
         case M_ROOM_POWER_LEVELS:
-            guard let content = event.content as? RoomPowerLevelsContent
+            guard let content = badContent as? RoomPowerLevelsContent
             else {
                 Matrix.logger.error("Couldn't parse \(M_ROOM_POWER_LEVELS) content")
                 throw Matrix.Error("Couldn't parse \(M_ROOM_POWER_LEVELS) content")
@@ -52,7 +53,7 @@ extension Matrix {
             return powerLevelsContent
                     
         case M_ROOM_HISTORY_VISIBILITY:
-            guard let content = event.content as? RoomHistoryVisibilityContent
+            guard let content = badContent as? RoomHistoryVisibilityContent
             else {
                 Matrix.logger.error("Couldn't parse \(M_ROOM_HISTORY_VISIBILITY) content")
                 throw Matrix.Error("Couldn't parse \(M_ROOM_HISTORY_VISIBILITY) content")
@@ -61,7 +62,7 @@ extension Matrix {
             return historyVisibilityContent
             
         case M_ROOM_REDACTION:
-            guard let content = event.content as? RedactionContent
+            guard let content = badContent as? RedactionContent
             else {
                 Matrix.logger.error("Couldn't parse \(M_ROOM_REDACTION) content")
                 throw Matrix.Error("Couldn't parse \(M_ROOM_REDACTION) content")
@@ -75,7 +76,7 @@ extension Matrix {
     }
     
     // https://spec.matrix.org/v1.8/rooms/v11/#redactions
-    public func redactEvent(_ event: ClientEvent, because redaction: ClientEvent) throws -> ClientEvent {
+    public static func redactEvent(_ event: ClientEvent, because redaction: ClientEvent) throws -> ClientEvent {
         
         guard event.roomId == redaction.roomId
         else {
@@ -96,7 +97,7 @@ extension Matrix {
             throw Matrix.Error("Invalid redaction content")
         }
 
-        let redactedContent = try redactEventContent(event)
+        let redactedContent = try redactEventContent(event.content, type: event.type)
         let unsigned = UnsignedData(redactedBecause: redaction)
         
         return try ClientEvent(content: redactedContent,
