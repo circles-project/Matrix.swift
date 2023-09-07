@@ -15,4 +15,14 @@ public struct RedactionContent: Codable {
         self.reason = reason
         self.redacts = redacts
     }
+    
+    public init(from decoder: Decoder) throws {
+        Matrix.logger.debug("Decoding m.room.redaction")
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let _reason = try container.decodeIfPresent(String.self, forKey: .reason)
+        let _redacts = try container.decodeIfPresent(EventId.self, forKey: .redacts)
+        Matrix.logger.debug("m.room.redaction { \"reason\" = \"\(_reason ?? "(none)")\", \"redacts\" = \"\(_redacts ?? "???")\"}")
+        self.reason = _reason
+        self.redacts = _redacts
+    }
 }
