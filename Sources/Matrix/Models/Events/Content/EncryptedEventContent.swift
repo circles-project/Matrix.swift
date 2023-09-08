@@ -171,4 +171,13 @@ public struct EncryptedEventContent: RelatedEventContent {
     public var replyToEventId: EventId? {
         self.relatesTo?.inReplyTo?.eventId
     }
+    
+    public var replacesEventId: EventId? {
+        guard let relation = self.relatesTo,
+              relation.relType == M_REPLACE
+        else {
+            return nil
+        }
+        return relation.eventId
+    }
 }

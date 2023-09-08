@@ -241,6 +241,10 @@ extension Matrix {
                                 logger.debug("THREAD Adding event \(event.eventId) as a reply to \(relatedEventId)")
                                 await relatedMessage.addReply(message: message)
                             }
+                            else if relType == M_REPLACE {
+                                logger.debug("Adding event \(event.eventId) as a replacement for message \(relatedEventId)")
+                                try? await relatedMessage.addReplacement(message: message)
+                            }
                             else {
                                 logger.debug("Event \(event.eventId) doesn't look like a relation that we understand")
                             }
@@ -267,6 +271,7 @@ extension Matrix {
             }
         }
         
+        // MARK: Reactions
         public func loadReactions(for eventId: EventId) async throws -> [ClientEventWithoutRoomId] {
             let reactionEvents = try await self.session.loadRelatedEvents(for: eventId, in: self.roomId, relType: M_ANNOTATION, type: M_REACTION)
             try await self.updateTimeline(from: reactionEvents)
