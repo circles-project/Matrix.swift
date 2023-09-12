@@ -39,4 +39,8 @@ public struct ReactionContent: RelatedEventContent {
     public var replacesEventId: EventId? {
         nil
     }
+    
+    public func mentions(userId: UserId) -> Bool {
+        false
+    }
 }

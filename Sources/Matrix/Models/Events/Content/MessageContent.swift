@@ -82,6 +82,10 @@ extension Matrix {
             return relation.eventId
         }
         
+        public func mentions(userId: UserId) -> Bool {
+            self.body.contains(userId.username)
+        }
+        
         public var debugString: String {
             """
             msg_type: \(msgtype)
@@ -183,6 +187,14 @@ extension Matrix {
                 return nil
             }
             return relation.eventId
+        }
+        
+        public func mentions(userId: UserId) -> Bool {
+            if let caption = self.caption {
+                return caption.contains(userId.username)
+            } else {
+                return self.body.contains(userId.username)
+            }
         }
         
         public var debugString: String {
@@ -312,6 +324,10 @@ extension Matrix {
                 return nil
             }
             return relation.eventId
+        }
+        
+        public func mentions(userId: UserId) -> Bool {
+            self.body.contains(userId.username)
         }
     }
 
@@ -561,6 +577,10 @@ extension Matrix {
             }
             return relation.eventId
         }
+        
+        public func mentions(userId: UserId) -> Bool {
+            self.body.contains(userId.username)
+        }
     }
 
     public struct mAudioInfo: Codable {
@@ -639,6 +659,10 @@ extension Matrix {
                 return nil
             }
             return relation.eventId
+        }
+        
+        public func mentions(userId: UserId) -> Bool {
+            self.body.contains(userId.username)
         }
     }
 
@@ -747,6 +771,14 @@ extension Matrix {
                 return nil
             }
             return relation.eventId
+        }
+        
+        public func mentions(userId: UserId) -> Bool {
+            if let caption = self.caption {
+                return caption.contains(userId.username)
+            } else {
+                return self.body.contains(userId.username)
+            }
         }
     }
 

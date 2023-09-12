@@ -315,6 +315,8 @@ extension Matrix {
             }
         }
         
+        // MARK: fetch thumbnail
+        
         public func fetchThumbnail() async throws {
             logger.debug("Fetching thumbnail for message \(self.eventId)")
             guard event.type == M_ROOM_MESSAGE,
@@ -434,6 +436,14 @@ extension Matrix {
         
         public func sendReaction(_ reaction: String) async throws -> EventId {
             try await self.room.addReaction(reaction, to: eventId)
+        }
+        
+        public var mentionsMe: Bool {
+            if let content = self.content as? Matrix.MessageContent {
+                return content.mentions(userId: self.room.session.creds.userId)
+            } else {
+                return false
+            }
         }
     }
 }

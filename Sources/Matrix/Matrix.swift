@@ -230,6 +230,8 @@ public protocol _MatrixMessageContent: Codable, RelatedEventContent {
     var blurhash: String? {get}
     var thumbhash: String? {get}
     
+    func mentions(userId: UserId) -> Bool
+    
     var debugString: String {get}
 }
 
