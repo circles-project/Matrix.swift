@@ -1118,7 +1118,8 @@ extension Matrix {
                                       w: width,
                                       mimetype: "video/mp4",
                                       size: UInt(data.count),
-                                      thumbnail_info: thumbnailInfo)
+                                      thumbnail_info: thumbnailInfo,
+                                      thumbnail_url: thumbMXC)
                 let content = mVideoContent(msgtype: M_VIDEO,
                                             body: filename,
                                             info: info,
