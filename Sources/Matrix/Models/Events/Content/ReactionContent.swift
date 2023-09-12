@@ -35,4 +35,8 @@ public struct ReactionContent: RelatedEventContent {
     public var replyToEventId: EventId? {
         nil
     }
+    
+    public var replacesEventId: EventId? {
+        nil
+    }
 }

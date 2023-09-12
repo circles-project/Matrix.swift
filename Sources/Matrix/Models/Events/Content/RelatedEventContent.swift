@@ -11,4 +11,5 @@ public protocol RelatedEventContent: Codable {
     var relationType: String? {get}
     var relatedEventId: EventId? {get}
     var replyToEventId: EventId? {get}
+    var replacesEventId: EventId? {get}
 }

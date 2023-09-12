@@ -18,6 +18,7 @@ extension Matrix {
         @Published public var thumbnail: NativeImage?
         @Published private(set) public var reactions: [String:Set<UserId>]?
         @Published private(set) public var replies: [Message]?
+        @Published private(set) public var replacement: Message?
         
         public var isEncrypted: Bool
         
@@ -199,6 +200,42 @@ extension Matrix {
                 }
             }
             logger.debug("Now we have \(self.replies?.count ?? 0) replies")
+        }
+        
+        // https://spec.matrix.org/v1.8/client-server-api/#event-replacements
+        public func addReplacement(message: Message) async throws {
+            logger.debug("Adding replacement message \(message.eventId)")
+            guard message.roomId == self.roomId,
+                  message.type == self.type,
+                  message.sender == self.sender,
+                  message.stateKey == nil,
+                  self.stateKey == nil,
+                  self.relationType != M_REPLACE
+            else {
+                logger.error("Message \(message.eventId) is not a valid replacement")
+                throw Matrix.Error("Message \(message.eventId) is not a valid replacement for \(self.eventId)")
+            }
+            
+            // Do we already have a replacement for this event?
+            // And if so, should we keep it in favor of the new one?
+            if let oldReplacement = self.replacement {
+                if oldReplacement.timestamp > message.timestamp
+                {
+                    logger.debug("Not replacing with \(message.eventId) -- Current replacement \(oldReplacement.eventId) is more recent")
+                    return
+                }
+                
+                if oldReplacement.timestamp == message.timestamp,
+                   oldReplacement.eventId > message.eventId
+                {
+                    logger.debug("Not replacing with \(message.eventId) -- Current replacement \(oldReplacement.eventId) has higher eventId")
+                    return
+                }
+            }
+            
+            await MainActor.run {
+                self.replacement = message
+            }
         }
         
         public func loadReactions() {

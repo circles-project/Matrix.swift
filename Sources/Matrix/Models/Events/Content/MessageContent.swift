@@ -73,6 +73,15 @@ extension Matrix {
             self.relatesTo?.inReplyTo?.eventId
         }
         
+        public var replacesEventId: EventId? {
+            guard let relation = self.relatesTo,
+                  relation.relType == M_REPLACE
+            else {
+                return nil
+            }
+            return relation.eventId
+        }
+        
         public var debugString: String {
             """
             msg_type: \(msgtype)
@@ -165,6 +174,15 @@ extension Matrix {
         
         public var replyToEventId: EventId? {
             self.relatesTo?.inReplyTo?.eventId
+        }
+        
+        public var replacesEventId: EventId? {
+            guard let relation = self.relatesTo,
+                  relation.relType == M_REPLACE
+            else {
+                return nil
+            }
+            return relation.eventId
         }
         
         public var debugString: String {
@@ -285,6 +303,15 @@ extension Matrix {
         
         public var replyToEventId: EventId? {
             self.relatesTo?.inReplyTo?.eventId
+        }
+        
+        public var replacesEventId: EventId? {
+            guard let relation = self.relatesTo,
+                  relation.relType == M_REPLACE
+            else {
+                return nil
+            }
+            return relation.eventId
         }
     }
 
@@ -525,6 +552,15 @@ extension Matrix {
         public var replyToEventId: EventId? {
             self.relatesTo?.inReplyTo?.eventId
         }
+        
+        public var replacesEventId: EventId? {
+            guard let relation = self.relatesTo,
+                  relation.relType == M_REPLACE
+            else {
+                return nil
+            }
+            return relation.eventId
+        }
     }
 
     public struct mAudioInfo: Codable {
@@ -594,6 +630,15 @@ extension Matrix {
         
         public var replyToEventId: EventId? {
             self.relatesTo?.inReplyTo?.eventId
+        }
+        
+        public var replacesEventId: EventId? {
+            guard let relation = self.relatesTo,
+                  relation.relType == M_REPLACE
+            else {
+                return nil
+            }
+            return relation.eventId
         }
     }
 
@@ -693,6 +738,15 @@ extension Matrix {
         
         public var replyToEventId: EventId? {
             self.relatesTo?.inReplyTo?.eventId
+        }
+        
+        public var replacesEventId: EventId? {
+            guard let relation = self.relatesTo,
+                  relation.relType == M_REPLACE
+            else {
+                return nil
+            }
+            return relation.eventId
         }
     }
 
