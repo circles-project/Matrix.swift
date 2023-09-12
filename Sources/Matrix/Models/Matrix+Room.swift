@@ -823,9 +823,32 @@ extension Matrix {
         
         // MARK: Sending messages
         
-        public func sendText(text: String) async throws -> EventId {
-            let content = mTextContent(msgtype: M_TEXT, body: text)
-            let eventId = try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
+        public func sendText(text: String,
+                             replacing oldMessage: Message? = nil
+        ) async throws -> EventId {
+            
+            var relatesTo: mRelatesTo?
+            if let oldMsg = oldMessage {
+                // Check - Is this a valid way to replace the old message?
+                guard oldMsg.roomId == self.roomId,
+                      oldMsg.sender.userId == self.session.creds.userId,
+                      oldMsg.type == M_ROOM_MESSAGE,
+                      let oldContent = oldMsg.content as? Matrix.MessageContent,
+                      oldContent.msgtype == M_TEXT,
+                      oldContent.replacesEventId == nil
+                else {
+                    logger.error("Can't replace message \(oldMsg.eventId) with a new m.text message")
+                    throw Matrix.Error("Attempted an invalid message replacment (type m.text)")
+                }
+                relatesTo = mRelatesTo(relType: M_REPLACE, eventId: oldMsg.eventId)
+            }
+            
+            let content = mTextContent(msgtype: M_TEXT,
+                                       body: text,
+                                       relatesTo: relatesTo)
+            let eventId = try await self.session.sendMessageEvent(to: self.roomId,
+                                                                  type: M_ROOM_MESSAGE,
+                                                                  content: content)
             let localEchoEvent = try ClientEventWithoutRoomId(content: content,
                                                               eventId: eventId,
                                                               originServerTS: UInt64(1000*Date().timeIntervalSince1970),
@@ -841,8 +864,26 @@ extension Matrix {
                               thumbnailSize: (Int,Int)?=(800,600),
                               caption: String?=nil,
                               withBlurhash: Bool=true,
-                              withThumbhash: Bool=true
+                              withThumbhash: Bool=true,
+                              replacing oldMessage: Message? = nil
         ) async throws -> EventId {
+            
+            var relatesTo: mRelatesTo?
+            if let oldMsg = oldMessage {
+                // Check - Is this a valid way to replace the old message?
+                guard oldMsg.roomId == self.roomId,
+                      oldMsg.sender.userId == self.session.creds.userId,
+                      oldMsg.type == M_ROOM_MESSAGE,
+                      let oldContent = oldMsg.content as? Matrix.MessageContent,
+                      oldContent.msgtype == M_IMAGE,
+                      oldContent.replacesEventId == nil
+                else {
+                    logger.error("Can't replace message \(oldMsg.eventId) with a new image message")
+                    throw Matrix.Error("Attempted an invalid message replacment (type m.image)")
+                }
+                relatesTo = mRelatesTo(relType: M_REPLACE, eventId: oldMsg.eventId)
+            }
+            
             let jpegStart = Date()
             guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
                 throw Matrix.Error("Couldn't create JPEG for image")
@@ -929,7 +970,8 @@ extension Matrix {
                                             body: "\(mxc.mediaId).jpeg",
                                             url: mxc,
                                             info: info,
-                                            caption: caption)
+                                            caption: caption,
+                                            relatesTo: relatesTo)
                 let eventId =  try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
                 let localEchoEvent = try ClientEventWithoutRoomId(content: content,
                                                                   eventId: eventId,
@@ -959,7 +1001,8 @@ extension Matrix {
                                             body: "\(encryptedFile.url.mediaId).jpeg",
                                             file: encryptedFile,
                                             info: info,
-                                            caption: caption)
+                                            caption: caption,
+                                            relatesTo: relatesTo)
                 let eventId = try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
                 let localEchoEvent = try ClientEventWithoutRoomId(content: content,
                                                                   eventId: eventId,
@@ -975,7 +1018,28 @@ extension Matrix {
 
 
         
-        public func sendVideo(url: URL, thumbnail: NativeImage, caption: String? = nil) async throws -> EventId {
+        public func sendVideo(url: URL,
+                              thumbnail: NativeImage,
+                              caption: String? = nil,
+                              replacing oldMessage: Message? = nil
+        ) async throws -> EventId {
+            
+            var relatesTo: mRelatesTo?
+            if let oldMsg = oldMessage {
+                // Check - Is this a valid way to replace the old message?
+                guard oldMsg.roomId == self.roomId,
+                      oldMsg.sender.userId == self.session.creds.userId,
+                      oldMsg.type == M_ROOM_MESSAGE,
+                      let oldContent = oldMsg.content as? Matrix.MessageContent,
+                      oldContent.msgtype == M_VIDEO,
+                      oldContent.replacesEventId == nil
+                else {
+                    logger.error("Can't replace message \(oldMsg.eventId) with a new video message")
+                    throw Matrix.Error("Attempted an invalid message replacment (type m.video)")
+                }
+                relatesTo = mRelatesTo(relType: M_REPLACE, eventId: oldMsg.eventId)
+            }
+            
             guard url.isFileURL
             else {
                 logger.error("URL must be a local file URL")
@@ -1055,7 +1119,12 @@ extension Matrix {
                                       mimetype: "video/mp4",
                                       size: UInt(data.count),
                                       thumbnail_info: thumbnailInfo)
-                let content = mVideoContent(msgtype: M_VIDEO, body: filename, info: info, url: mxc, caption: caption)
+                let content = mVideoContent(msgtype: M_VIDEO,
+                                            body: filename,
+                                            info: info,
+                                            url: mxc,
+                                            caption: caption,
+                                            relatesTo: relatesTo)
                 
                 return try await session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             } else {
@@ -1067,7 +1136,12 @@ extension Matrix {
                                       size: UInt(data.count),
                                       thumbnail_file: thumbFile,
                                       thumbnail_info: thumbnailInfo)
-                let content = mVideoContent(msgtype: M_VIDEO, body: filename, info: info, file: file, caption: caption)
+                let content = mVideoContent(msgtype: M_VIDEO,
+                                            body: filename,
+                                            info: info,
+                                            file: file,
+                                            caption: caption,
+                                            relatesTo: relatesTo)
                 
                 return try await session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
             }
