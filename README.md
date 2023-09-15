@@ -12,10 +12,13 @@ Main repo: https://gitlab.futo.org/circles/Matrix.swift
 Github mirror: https://github.com/futo-org/Matrix.swift
 
 ## Status
-This project is **alpha** (ie, pre-beta) quality software.
-It is **NOT READY** for production use by 3rd parties.
+This project is **beta** quality software.
+It is probably not ready for production use by 3rd parties.
+However, if you're looking to start a new open source or hobby
+project with Matrix on iOS/MacOS, then Matrix.swift is definitely
+worth a look.
 
-Moreover, it has not yet undergone any kind of security audit.
+Beware that this code has not yet undergone any kind of security audit.
 
 Use it at your own risk.
 
@@ -57,13 +60,10 @@ Current features include:
 * Encrypted key backup and recovery
 
 ## To-Do List
-* ~~Secret storage~~
-* ~~Cross-signing~~
-* ~~Encrypted key backup~~
-* ~~[Store account data locally in the database](https://gitlab.futo.org/circles/matrix.swift/-/issues/23)~~
-* [Support for Matrix threads](https://gitlab.futo.org/circles/matrix.swift/-/issues/25)
+* ~~Support for Matrix threads~~
+* ~~Update to the latest Rust Crypto SDK~~
+* ~~Support for redaction and replacement~~
 * [Use the Keychain to hold secret storage keys on the device](https://gitlab.futo.org/circles/matrix.swift/-/issues/22)
-* [Update to the latest Rust Crypto SDK](https://gitlab.futo.org/circles/matrix.swift/-/issues/14)
 
 
 ## Using Matrix.swift in your app
