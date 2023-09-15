@@ -1,3 +1,16 @@
+# v0.4.0 - 2023-09-15
+
+* Add support for encrypting and uploading files directly from the filesystem
+* Add support for sending `m.video` messages
+* Updated default room version 
+* Add support for power levels override
+* Add fallback support for threads
+* Update MatrixSDKCrypto to v0.3.12
+* Add support for event redaction
+* Add support for event replacement
+* Add support for detecting `@` mentions in message events
+* Bug fixes in secret storage, room state management, avatars, and more
+
 # v0.3.0 - 2023-08-18
 
 * Add support for deactivating the user's account, for GDPR compliance
