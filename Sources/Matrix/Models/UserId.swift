@@ -13,12 +13,18 @@ public struct UserId: LosslessStringConvertible, Codable, Identifiable, Equatabl
     public let domain: String
     public let port: UInt16?
     
+    // https://spec.matrix.org/v1.8/appendices/#user-identifiers
+    static let usernameRegex = try! Regex("^@[a-zA-Z0-9\\._=\\-/\\+]+$")  // Note the leading "@"
+    // https://spec.matrix.org/v1.8/appendices/#server-name
+    // FIXME: This is only a crude approxmation that doesn't actually check for valid IPv4 / IPv6 addresses
+    static let domainRegex = try! Regex("^[a-zA-Z0-9\\-\\.]+$")
+    
     public static func validate(_ userId: String) -> Bool {
         let toks = userId.split(separator: ":")
         // First we validate the user part
-        guard userId.starts(with: "@"),
-              let first = toks.first,
-              first.count > 1
+        guard let userPart = toks.first,
+              let _ = try? usernameRegex.wholeMatch(in: userPart),
+              userPart.count < 256
         else {
             return false
         }
@@ -41,10 +47,9 @@ public struct UserId: LosslessStringConvertible, Codable, Identifiable, Equatabl
             }
         }
         // Does it look like we have a valid hostname?
-        // There's really not a lot that we can do here, given that hostnames may not be FQDN's
-        //     e.g. for testing, the hostname is often 'localhost'
-        let host = toks[1]
-        guard !host.isEmpty
+        let hostPart = toks[1]
+        guard let _ = try? domainRegex.wholeMatch(in: hostPart),
+              hostPart.count < 256
         else {
             return false
         }
@@ -52,14 +57,25 @@ public struct UserId: LosslessStringConvertible, Codable, Identifiable, Equatabl
     }
     
     public init?(username: String, domain: String, port: UInt16? = nil) {
-        guard !username.contains(":"),
-              !domain.contains(":")
+        
+        guard let _ = try? UserId.usernameRegex.wholeMatch(in: username)
         else {
+            Matrix.logger.error("Bad username for UserId: \(username)")
+            return nil
+        }
+
+        guard let _ = try? UserId.domainRegex.wholeMatch(in: domain)
+        else {
+            Matrix.logger.error("Bad domain for UserId: \(domain)")
             return nil
         }
         
-        self.username = username
-        self.domain = domain
+        if username.starts(with: "@") {
+            self.username = username.lowercased()
+        } else {
+            self.username = "@" + username.lowercased()
+        }
+        self.domain = domain.lowercased()
         self.port = port
     }
     
@@ -77,8 +93,8 @@ public struct UserId: LosslessStringConvertible, Codable, Identifiable, Equatabl
         }
         let toks = stringValue.split(separator: ":")
 
-        self.username = String(toks[0])
-        self.domain = String(toks[1])
+        self.username = String(toks[0]).lowercased()
+        self.domain = String(toks[1]).lowercased()
         if toks.count > 2 {
             self.port = UInt16(toks[2])
         } else {
