@@ -48,6 +48,7 @@ public protocol DataStore {
     
     func deleteStrippedState(for roomId: RoomId) async throws -> Int
     func deleteRoom(_ roomId: RoomId) async throws
+    func deleteEvent(_ eventId: EventId, in roomId: RoomId) async throws
     
     func loadAccountData(of type: String, in roomId: RoomId?) async throws -> Codable?
     

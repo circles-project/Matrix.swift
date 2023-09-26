@@ -257,6 +257,18 @@ public struct GRDBDataStore: DataStore {
         let events = records.map { $0 as ClientEventWithoutRoomId }
         return events
     }
+    
+    public func deleteEvent(_ eventId: EventId, in roomId: RoomId) async throws {
+        let eventIdColumn = ClientEventRecord.Columns.eventId
+        let roomIdColumn = ClientEventRecord.Columns.roomId
+        
+        try await database.write { db in
+            try ClientEventRecord
+                    .filter(eventIdColumn == eventId)
+                    .filter(roomIdColumn == roomId)
+                    .deleteAll(db)
+        }
+    }
 
     
     public func loadState(for roomId: RoomId,

@@ -1179,6 +1179,7 @@ extension Matrix {
         public func redact(eventId: EventId, reason: String?) async throws -> EventId {
             let redactionEventId = try await self.session.sendRedactionEvent(to: self.roomId, for: eventId, reason: reason)
             self.timeline.removeValue(forKey: eventId)
+            try await self.session.deleteEvent(eventId, in: self.roomId)
             return redactionEventId
         }
         
