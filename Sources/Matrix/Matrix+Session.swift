@@ -1715,6 +1715,14 @@ extension Matrix {
                                                 unsigned: encryptedEvent.unsigned)
         }
         
+        // MARK: Deleting events
+        
+        public func deleteEvent(_ eventId: EventId, in roomId: RoomId) async throws {
+            if let store = self.dataStore {
+                try await store.deleteEvent(eventId, in: roomId)
+            }
+        }
+        
         // MARK: Devices
         
         public func getCryptoDevices(userId: UserId) -> [CryptoDevice] {
