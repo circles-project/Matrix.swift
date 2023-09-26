@@ -156,6 +156,10 @@ extension Matrix {
             self.room.threads[self.eventId]
         }
         
+        public var iCanRedact: Bool {
+            self.sender.userId == self.room.session.creds.userId || self.room.iCanRedact
+        }
+        
         // https://github.com/uhoreg/matrix-doc/blob/aggregations-reactions/proposals/2677-reactions.md
         public func addReaction(event: ClientEventWithoutRoomId) async {
             logger.debug("Adding reaction message \(event.eventId)")
