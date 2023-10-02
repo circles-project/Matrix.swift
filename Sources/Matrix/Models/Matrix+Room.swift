@@ -823,6 +823,26 @@ extension Matrix {
         
         // MARK: Sending messages
         
+        // Base function, called by the more convenient msgtype-specific functions below
+        public func sendMessage(content: Codable) async throws -> EventId {
+            let eventId = try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
+            
+            // Set the local echo event, but only if this is a new, top-level message
+            if let messageContent = content as? Matrix.MessageContent,
+               messageContent.relatedEventId == nil
+            {
+                let localEchoEvent = try ClientEventWithoutRoomId(content: content,
+                                                                  eventId: eventId,
+                                                                  originServerTS: UInt64(1000*Date().timeIntervalSince1970),
+                                                                  sender: session.creds.userId,
+                                                                  type: M_ROOM_MESSAGE)
+                await MainActor.run {
+                    self.localEchoMessage = Matrix.Message(event: localEchoEvent, room: self)
+                }
+            }
+            return eventId
+        }
+        
         public func sendText(text: String,
                              replacing oldMessage: Message? = nil
         ) async throws -> EventId {
@@ -846,17 +866,9 @@ extension Matrix {
             let content = mTextContent(msgtype: M_TEXT,
                                        body: text,
                                        relatesTo: relatesTo)
-            let eventId = try await self.session.sendMessageEvent(to: self.roomId,
-                                                                  type: M_ROOM_MESSAGE,
-                                                                  content: content)
-            let localEchoEvent = try ClientEventWithoutRoomId(content: content,
-                                                              eventId: eventId,
-                                                              originServerTS: UInt64(1000*Date().timeIntervalSince1970),
-                                                              sender: session.creds.userId,
-                                                              type: M_ROOM_MESSAGE)
-            await MainActor.run {
-                self.localEchoMessage = Matrix.Message(event: localEchoEvent, room: self)
-            }
+            
+            let eventId = try await self.sendMessage(content: content)
+
             return eventId
         }
         
@@ -972,15 +984,7 @@ extension Matrix {
                                             info: info,
                                             caption: caption,
                                             relatesTo: relatesTo)
-                let eventId =  try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
-                let localEchoEvent = try ClientEventWithoutRoomId(content: content,
-                                                                  eventId: eventId,
-                                                                  originServerTS: UInt64(1000*Date().timeIntervalSince1970),
-                                                                  sender: session.creds.userId,
-                                                                  type: M_ROOM_MESSAGE)
-                await MainActor.run {
-                    self.localEchoMessage = Matrix.Message(event: localEchoEvent, room: self)
-                }
+                let eventId = try await self.sendMessage(content: content)
                 return eventId
             }
             else {
@@ -1003,15 +1007,7 @@ extension Matrix {
                                             info: info,
                                             caption: caption,
                                             relatesTo: relatesTo)
-                let eventId = try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
-                let localEchoEvent = try ClientEventWithoutRoomId(content: content,
-                                                                  eventId: eventId,
-                                                                  originServerTS: UInt64(1000*Date().timeIntervalSince1970),
-                                                                  sender: session.creds.userId,
-                                                                  type: M_ROOM_MESSAGE)
-                await MainActor.run {
-                    self.localEchoMessage = Matrix.Message(event: localEchoEvent, room: self)
-                }
+                let eventId = try await self.sendMessage(content: content)
                 return eventId
             }
         }
@@ -1126,8 +1122,8 @@ extension Matrix {
                                             url: mxc,
                                             caption: caption,
                                             relatesTo: relatesTo)
-                
-                return try await session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
+                let eventId = try await self.sendMessage(content: content)
+                return eventId
             } else {
                 let file = try await session.encryptAndUploadData(plaintext: data, contentType: "video/mp4")
                 let thumbFile = try await session.encryptAndUploadData(plaintext: thumbData, contentType: "image/jpeg")
@@ -1143,8 +1139,8 @@ extension Matrix {
                                             file: file,
                                             caption: caption,
                                             relatesTo: relatesTo)
-                
-                return try await session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
+                let eventId = try await self.sendMessage(content: content)
+                return eventId
             }
         }
         
