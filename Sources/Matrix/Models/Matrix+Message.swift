@@ -62,6 +62,10 @@ extension Matrix {
                 // Now try to decrypt
                 let _ = Task {
                     try await decrypt()
+                    
+                    // Once we're decrypted, we may need to try again to update our relations to other events
+                    // For example, event replacements are only allowed for messages of the same type, so we can't process those until we've decrypted
+                    await self.room.updateRelations(events: [self.event])
                 }
             } else {
                 self.isEncrypted = false
