@@ -18,50 +18,70 @@ extension Matrix {
         
         public enum Source {
             case local
-            case mxc(MXC)
-            case encryptedFile(mEncryptedFile)
+            case remote(mImageContent)
         }
         
         public enum Status {
-            case loading
+            case notLoaded
+            case loading(Task<Void,Swift.Error>)
             case loaded(Data)
-            case failed
+            case failed(String)
         }
         
-        //public let source: Source
-        public let info: mImageInfo?
-        //@Published private(set) public var data: Data?
         @Published private(set) public var state: (Source,Status)
+        private var session: Session
         
-        public init(data: Data, source: Source, info: mImageInfo? = nil) {
-            self.info = info
+        public init(data: Data, source: Source, session: Session) {
             self.state = (source, .loaded(data))
+            self.session = session
         }
         
-        public init(mxc: MXC, info: mImageInfo? = nil, session: Session) {
-            let source: Source = .mxc(mxc)
-            self.info = info
-            self.state = (source, .loading)
-            
-            Task {
-                let data = try await session.downloadData(mxc: mxc)
-                await MainActor.run {
-                    self.state = (source, .loaded(data))
-                }
-            }
+        public init(content: mImageContent, session: Session) {
+            let source: Source = .remote(content)
+            self.state = (source, .notLoaded)
+            self.session = session
         }
         
-        public init(file: mEncryptedFile, info: mImageInfo? = nil, session: Session) {
-            let source: Source = .encryptedFile(file)
-            self.info = info
-            self.state = (source, .loading)
+        public func download() async throws {
+            let (source, status) = self.state
             
-            Task {
-                let data = try await session.downloadAndDecryptData(file)
-                await MainActor.run {
-                    self.state = (source, .loaded(data))
+            switch self.state {
+            
+            case (.local, _):
+                Matrix.logger.warning("Can't download a local image")
+                
+            case (.remote(let content), .notLoaded),
+                 (.remote(let content), .failed):
+                let task: Task<Void, Swift.Error> = Task {
+                    if let file = content.file {
+                        let data = try await session.downloadAndDecryptData(file)
+                        await MainActor.run {
+                            self.state = (source, .loaded(data))
+                        }
+                    } else if let mxc = content.url {
+                        let data = try await session.downloadData(mxc: mxc)
+                        await MainActor.run {
+                            self.state = (source, .loaded(data))
+                        }
+                    } else {
+                        Matrix.logger.error("Can't download an image with no encrypted file and no URL")
+                        await MainActor.run {
+                            self.state = (source, .failed("Invalid image content: No encrypted file and no URL"))
+                        }
+                    }
                 }
+                await MainActor.run {
+                    self.state = (source, .loading(task))
+                }
+                
+            case (.remote, .loading(let task)):
+                Matrix.logger.debug("Already downloading this image...")
+                await task.result
+                
+            case (.remote, .loaded):
+                Matrix.logger.warning("Already downloaded this image")
             }
+
         }
         
         public var data: Data? {
@@ -85,7 +105,7 @@ extension Matrix {
                 return nil
             }
         }
-        public lazy var image: SwiftUI.Image = SwiftUI.Image(uiImage: self.uiImage ?? UIImage())
+        //public lazy var image: SwiftUI.Image = SwiftUI.Image(uiImage: self.uiImage ?? UIImage())
         #elseif canImport(AppKit)
         public var nsImage: NSImage? {
             if let data = self.data {
@@ -94,7 +114,7 @@ extension Matrix {
                 return nil
             }
         }
-        public lazy var image: SwiftUI.Image = SwiftUI.Image(nsImage: self.nsImage ?? NSImage())
+        //public lazy var image: SwiftUI.Image = SwiftUI.Image(nsImage: self.nsImage ?? NSImage())
         #endif
     }
 }

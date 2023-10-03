@@ -27,7 +27,7 @@ final class GRDBDataStoreTests: XCTestCase {
         let roomId = RoomId.random()
         let range = 0 ..< 10
         let originalEvents: [ClientEventWithoutRoomId] = range.compactMap { i -> ClientEventWithoutRoomId? in
-            try? ClientEventWithoutRoomId(content: Matrix.mTextContent(msgtype: M_TEXT, body: "This is message \(i)."),
+            try? ClientEventWithoutRoomId(content: Matrix.mTextContent(body: "This is message \(i)."),
                                           eventId: EventId.random(),
                                           originServerTS: UInt64(Date().timeIntervalSince1970 * 1000),
                                           sender: UserId.random(),
