@@ -863,8 +863,7 @@ extension Matrix {
                 relatesTo = mRelatesTo(relType: M_REPLACE, eventId: oldMsg.eventId)
             }
             
-            let content = mTextContent(msgtype: M_TEXT,
-                                       body: text,
+            let content = mTextContent(body: text,
                                        relatesTo: relatesTo)
             
             let eventId = try await self.sendMessage(content: content)
@@ -978,8 +977,7 @@ extension Matrix {
                                                          size: thumbnailData.count)
                     info.thumbnail_url = thumbnailMXC
                 }
-                let content = mImageContent(msgtype: M_IMAGE,
-                                            body: "\(mxc.mediaId).jpeg",
+                let content = mImageContent(body: "\(mxc.mediaId).jpeg",
                                             url: mxc,
                                             info: info,
                                             caption: caption,
@@ -1001,8 +999,7 @@ extension Matrix {
                     info.thumbnail_file = thumbnailFile
                 }
                 
-                let content = mImageContent(msgtype: M_IMAGE,
-                                            body: "\(encryptedFile.url.mediaId).jpeg",
+                let content = mImageContent(body: "\(encryptedFile.url.mediaId).jpeg",
                                             file: encryptedFile,
                                             info: info,
                                             caption: caption,
@@ -1116,8 +1113,7 @@ extension Matrix {
                                       size: UInt(data.count),
                                       thumbnail_info: thumbnailInfo,
                                       thumbnail_url: thumbMXC)
-                let content = mVideoContent(msgtype: M_VIDEO,
-                                            body: filename,
+                let content = mVideoContent(body: filename,
                                             info: info,
                                             url: mxc,
                                             caption: caption,
@@ -1133,8 +1129,7 @@ extension Matrix {
                                       size: UInt(data.count),
                                       thumbnail_file: thumbFile,
                                       thumbnail_info: thumbnailInfo)
-                let content = mVideoContent(msgtype: M_VIDEO,
-                                            body: filename,
+                let content = mVideoContent(body: filename,
                                             info: info,
                                             file: file,
                                             caption: caption,
@@ -1165,8 +1160,7 @@ extension Matrix {
                 relatesTo = mRelatesTo(inReplyTo: event.eventId)
             }
             
-            let content = mTextContent(msgtype: M_TEXT,
-                                       body: text,
+            let content = mTextContent(body: text,
                                        relatesTo: relatesTo)
             
             return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)

@@ -62,6 +62,10 @@ extension Matrix {
                 // Now try to decrypt
                 let _ = Task {
                     try await decrypt()
+                    
+                    // Once we're decrypted, we may need to try again to update our relations to other events
+                    // For example, event replacements are only allowed for messages of the same type, so we can't process those until we've decrypted
+                    await self.room.updateRelations(events: [self.event])
                 }
             } else {
                 self.isEncrypted = false
@@ -209,15 +213,32 @@ extension Matrix {
         // https://spec.matrix.org/v1.8/client-server-api/#event-replacements
         public func addReplacement(message: Message) async throws {
             logger.debug("Adding replacement message \(message.eventId)")
-            guard message.roomId == self.roomId,
-                  message.type == self.type,
-                  message.sender == self.sender,
-                  message.stateKey == nil,
-                  self.stateKey == nil,
-                  self.relationType != M_REPLACE
+            guard message.roomId == self.roomId
             else {
-                logger.error("Message \(message.eventId) is not a valid replacement")
-                throw Matrix.Error("Message \(message.eventId) is not a valid replacement for \(self.eventId)")
+                logger.error("Message \(message.eventId) cannot replace \(self.eventId) -- roomId doesn't match")
+                throw Matrix.Error("Invalid replacement: RoomId mismatch")
+            }
+            guard message.type == self.type
+            else {
+                logger.error("Message \(message.eventId) cannot replace \(self.eventId) -- message type doesn't match (\(message.type) vs \(self.type)")
+                throw Matrix.Error("Invalid replacement: Type mismatch")
+            }
+            guard message.sender == self.sender
+            else {
+                logger.error("Message \(message.eventId) cannot replace \(self.eventId) -- message sender doesn't match (\(message.sender.userId) vs \(self.sender.userId)")
+                throw Matrix.Error("Invalid replacement: Sender mismatch")
+
+            }
+            guard message.stateKey == nil,
+                  self.stateKey == nil
+            else {
+                logger.error("Message \(message.eventId) cannot replace \(self.eventId) -- Can't replace state events")
+                throw Matrix.Error("Invalid replacement: State event(s)")
+            }
+            guard self.relationType != M_REPLACE
+            else {
+                logger.error("Message \(message.eventId) cannot replace \(self.eventId) -- Can't replace a replacement")
+                throw Matrix.Error("Invalid replacement: Existing message is itself a replacement")
             }
             
             // Do we already have a replacement for this event?

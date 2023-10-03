@@ -20,9 +20,12 @@ extension Matrix {
         // Maybe should have made the "Rich replies" functionality a protocol...
         public var relatesTo: mRelatesTo?
 
-        public init(msgtype: String, body: String, format: String? = nil,
-                    formatted_body: String? = nil, relatesTo: mRelatesTo? = nil) {
-            self.msgtype = msgtype
+        public init(body: String,
+                    format: String? = nil,
+                    formatted_body: String? = nil,
+                    relatesTo: mRelatesTo? = nil
+        ) {
+            self.msgtype = M_TEXT
             self.body = body
             self.format = format
             self.formatted_body = formatted_body
@@ -112,14 +115,13 @@ extension Matrix {
         public var caption: String?
         public var relatesTo: mRelatesTo?
         
-        public init(msgtype: String,
-                    body: String,
+        public init(body: String,
                     url: MXC? = nil,
                     info: mImageInfo,
                     caption: String? = nil,
                     relatesTo: mRelatesTo? = nil
         ) {
-            self.msgtype = msgtype
+            self.msgtype = M_IMAGE
             self.body = body
             self.file = nil
             self.url = url
@@ -128,20 +130,38 @@ extension Matrix {
             self.relatesTo = relatesTo
         }
 
-        public init(msgtype: String,
-                    body: String,
+        public init(body: String,
                     file: mEncryptedFile? = nil,
                     info: mImageInfo,
                     caption: String? = nil,
                     relatesTo: mRelatesTo? = nil
         ) {
-            self.msgtype = msgtype
+            self.msgtype = M_IMAGE
             self.body = body
             self.file = file
             self.url = nil
             self.info = info
             self.caption = caption
             self.relatesTo = relatesTo
+        }
+        
+        // Copy constructor, with the option to update any/all of the fields
+        // This is sort of like how Elm lets you update just one piece of a structure
+        public init(_ copy: mImageContent,
+                    body: String? = nil,
+                    caption: String? = nil,
+                    file: mEncryptedFile? = nil,
+                    info: mImageInfo? = nil,
+                    relatesTo: mRelatesTo? = nil,
+                    url: MXC? = nil
+        ) {
+            self.msgtype = M_IMAGE
+            self.body = body ?? copy.body
+            self.caption = caption ?? copy.caption
+            self.file = file ?? copy.file
+            self.info = info ?? copy.info
+            self.relatesTo = relatesTo ?? copy.relatesTo
+            self.url = url ?? copy.url
         }
         
         public var mimetype: String? {
@@ -266,14 +286,13 @@ extension Matrix {
         public var file: mEncryptedFile
         public var relatesTo: mRelatesTo?
         
-        public init(msgtype: String,
-                    body: String,
+        public init(body: String,
                     filename: String,
                     info: mFileInfo,
                     file: mEncryptedFile,
                     relatesTo: mRelatesTo? = nil
         ) {
-            self.msgtype = msgtype
+            self.msgtype = M_FILE
             self.body = body
             self.filename = filename
             self.info = info
@@ -505,13 +524,12 @@ extension Matrix {
         public var url: MXC?
         public var relatesTo: mRelatesTo?
         
-        public init(msgtype: String,
-                    body: String,
+        public init(body: String,
                     info: mAudioInfo,
                     file: mEncryptedFile,
                     relatesTo: mRelatesTo? = nil
         ) {
-            self.msgtype = msgtype
+            self.msgtype = M_AUDIO
             self.body = body
             self.info = info
             self.file = file
@@ -519,13 +537,12 @@ extension Matrix {
             self.relatesTo = relatesTo
         }
         
-        public init(msgtype: String,
-                    body: String,
+        public init(body: String,
                     info: mAudioInfo,
                     url: MXC,
                     relatesTo: mRelatesTo? = nil
         ) {
-            self.msgtype = msgtype
+            self.msgtype = M_AUDIO
             self.body = body
             self.info = info
             self.file = nil
@@ -603,13 +620,12 @@ extension Matrix {
         public var info: mLocationInfo
         public var relatesTo: mRelatesTo?
         
-        public init(msgtype: String,
-                    body: String,
+        public init(body: String,
                     geo_uri: String,
                     info: mLocationInfo,
                     relatesTo: mRelatesTo? = nil
         ) {
-            self.msgtype = msgtype
+            self.msgtype = M_LOCATION
             self.body = body
             self.geo_uri = geo_uri
             self.info = info
@@ -696,14 +712,13 @@ extension Matrix {
         public var caption: String?
         public var relatesTo: mRelatesTo?
         
-        public init(msgtype: String,
-                    body: String,
+        public init(body: String,
                     info: mVideoInfo,
                     file: mEncryptedFile,
                     caption: String? = nil,
                     relatesTo: mRelatesTo? = nil
         ) {
-            self.msgtype = msgtype
+            self.msgtype = M_VIDEO
             self.body = body
             self.info = info
             self.file = file
@@ -712,20 +727,38 @@ extension Matrix {
             self.relatesTo = relatesTo
         }
         
-        public init(msgtype: String,
-                    body: String,
+        public init(body: String,
                     info: mVideoInfo,
                     url: MXC,
                     caption: String? = nil,
                     relatesTo: mRelatesTo? = nil
         ) {
-            self.msgtype = msgtype
+            self.msgtype = M_VIDEO
             self.body = body
             self.info = info
             self.file = nil
             self.url = url
             self.caption = caption
             self.relatesTo = relatesTo
+        }
+        
+        // Copy constructor, with the option to update any/all of the fields
+        // This is sort of like how Elm lets you update just one piece of a structure
+        public init(_ copy: mVideoContent,
+                    body: String? = nil,
+                    caption: String? = nil,
+                    file: mEncryptedFile? = nil,
+                    info: mVideoInfo? = nil,
+                    relatesTo: mRelatesTo? = nil,
+                    url: MXC? = nil
+        ) {
+            self.msgtype = M_VIDEO
+            self.body = body ?? copy.body
+            self.caption = caption ?? copy.caption
+            self.file = file ?? copy.file
+            self.info = info ?? copy.info
+            self.relatesTo = relatesTo ?? copy.relatesTo
+            self.url = url ?? copy.url
         }
         
         public var mimetype: String? {
