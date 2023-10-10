@@ -1086,9 +1086,11 @@ public class Client {
     
     // MARK: Spaces
     
-    public func createSpace(name: String) async throws -> RoomId {
+    public func createSpace(name: String,
+                            joinRule: RoomJoinRuleContent.JoinRule? = nil
+    ) async throws -> RoomId {
         print("CREATESPACE\tCreating space with name [\(name)]")
-        let roomId = try await createRoom(name: name, type: "m.space", encrypted: false)
+        let roomId = try await createRoom(name: name, type: "m.space", encrypted: false, joinRule: joinRule)
         return roomId
     }
     
