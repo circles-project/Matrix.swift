@@ -567,6 +567,16 @@ extension Matrix {
             return img
         }
         
+        public var timestamp: Date {
+            if let message: Matrix.Message = self.latestMessage ?? self.timeline.values.last {
+                return message.timestamp
+            } else if let creation = self.state[M_ROOM_CREATE]?[""] { // This one should always succeed, at least
+                return creation.timestamp
+            } else {                                                  // Should never need this in reality, but you never know...
+                return Date(timeIntervalSince1970: 0.0)
+            }
+        }
+        
         // MARK: Room "profile"
         
         public func setName(newName: String) async throws {
