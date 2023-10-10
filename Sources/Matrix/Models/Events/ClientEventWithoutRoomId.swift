@@ -82,6 +82,11 @@ public class ClientEventWithoutRoomId: Matrix.Event, Codable {
         try container.encodeIfPresent(unsigned, forKey: .unsigned)
         try container.encode(AnyCodable(content), forKey: .content)
     }
+    
+    public lazy var timestamp: Date = {
+        let seconds: TimeInterval = Double(self.originServerTS) / 1000.0
+        return Date(timeIntervalSince1970: seconds)
+    }()
 }
 
 extension ClientEventWithoutRoomId: Equatable {

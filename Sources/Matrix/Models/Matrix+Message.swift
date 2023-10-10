@@ -126,7 +126,9 @@ extension Matrix {
             }
         }
         
-        public lazy var timestamp: Date = Date(timeIntervalSince1970: TimeInterval(event.originServerTS)/1000.0)
+        public var timestamp: Date {
+            event.timestamp
+        }
         
         public var relatedEventId: EventId? {
             if let content = event.content as? RelatedEventContent {
