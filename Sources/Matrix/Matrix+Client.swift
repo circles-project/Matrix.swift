@@ -515,6 +515,7 @@ public class Client {
                     encrypted: Bool = true,
                     invite userIds: [UserId] = [],
                     direct: Bool = false,
+                    joinRule: RoomJoinRuleContent.JoinRule? = nil,
                     powerLevelContentOverride: RoomPowerLevelsContent? = nil
     ) async throws -> RoomId {
         print("CREATEROOM\tCreating room with name=[\(name)] and type=[\(type ?? "(none)")]")
@@ -552,7 +553,7 @@ public class Client {
                     var container = encoder.container(keyedBy: CodingKeys.self)
                     try container.encode(stateKey, forKey: .stateKey)
                     try container.encode(type, forKey: .type)
-                    try container.encode(AnyCodable(content), forKey:.content)
+                    try container.encode(content, forKey:.content)
                 }
             }
             var initial_state: [StateEvent]?
@@ -577,25 +578,42 @@ public class Client {
             var visibility: Visibility = .priv
             
             init(name: String, type: String? = nil, encrypted: Bool,
-                 powerLevelContentOverride: RoomPowerLevelsContent? = nil) {
+                 joinRule: RoomJoinRuleContent.JoinRule? = nil,
+                 powerLevelContentOverride: RoomPowerLevelsContent? = nil
+            ) {
                 self.name = name
+                
+                // Set up the initial state
+                var stateEvents = [StateEvent]()
+                if let rule = joinRule {
+                    let joinRuleEvent = StateEvent(type: M_ROOM_JOIN_RULES,
+                                                   stateKey: "",
+                                                   content: RoomJoinRuleContent(joinRule: rule))
+                    stateEvents.append(joinRuleEvent)
+                }
                 if encrypted {
                     let encryptionEvent = StateEvent(
                         type: M_ROOM_ENCRYPTION,
                         stateKey: "",
                         content: RoomEncryptionContent()
                     )
-                    self.initial_state = [encryptionEvent]
+                    stateEvents.append(encryptionEvent)
                 }
+                if !stateEvents.isEmpty {
+                    self.initial_state = stateEvents
+                }
+                
                 if let roomType = type {
                     self.creation_content = ["type": roomType]
                 }
+                
                 if let powerLevels = powerLevelContentOverride {
                     self.power_level_content_override = powerLevels
                 }
             }
         }
         let requestBody = CreateRoomRequestBody(name: name, type: type, encrypted: encrypted,
+                                                joinRule: joinRule,
                                                 powerLevelContentOverride: powerLevelContentOverride)
         
         print("CREATEROOM\tSending Matrix API request...")

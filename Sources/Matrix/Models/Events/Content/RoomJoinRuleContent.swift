@@ -27,7 +27,7 @@ public struct RoomJoinRuleContent: Codable {
     public let allow: [AllowCondition]?
     public let joinRule: JoinRule
     
-    public init(allow: [AllowCondition]?, joinRule: JoinRule) {
+    public init(allow: [AllowCondition]? = nil, joinRule: JoinRule) {
         self.allow = allow
         self.joinRule = joinRule
     }
