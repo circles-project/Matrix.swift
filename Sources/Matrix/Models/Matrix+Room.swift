@@ -90,6 +90,21 @@ extension Matrix {
                 else {
                     continue
                 }
+                
+                if event.type == M_ROOM_MEMBER {
+                    guard let userId = UserId(stateKey)
+                    else {
+                        logger.error("Invalid userId for m.room.member: \(stateKey)")
+                        continue
+                    }
+                    guard let memberContent = event.content as? RoomMemberContent
+                    else {
+                        logger.error("Invalid m.room.member event for \(userId.stringValue)")
+                        continue
+                    }
+                    logger.debug("Initial m.room.member: \(userId.stringValue) is \(memberContent.membership.rawValue)")
+                }
+                
                 var d = self.state[event.type] ?? [:]
                 d[stateKey] = event
                 self.state[event.type] = d
