@@ -223,10 +223,14 @@ extension Matrix {
                         logger.debug("relType = \(relType) relatedEventId = \(relatedEventId)")
                         // Update our state here in the Room
                         if let set = self.relations[relType]?[relatedEventId] {
-                            self.relations[relType]![relatedEventId] = set.union([message])
+                            await MainActor.run {
+                                self.relations[relType]![relatedEventId] = set.union([message])
+                            }
                         } else {
-                            self.relations[relType] = self.relations[relType] ?? [:]
-                            self.relations[relType]![relatedEventId] = [message]
+                            await MainActor.run {
+                                self.relations[relType] = self.relations[relType] ?? [:]
+                                self.relations[relType]![relatedEventId] = [message]
+                            }
                         }
                         
                         // Also update the Message if we have it in memory
@@ -260,8 +264,10 @@ extension Matrix {
                     
                     // Check for inReplyTo, which is distinct from relType
                     if let parentEventId = content.replyToEventId {
-                        self.replies[parentEventId] = self.replies[parentEventId] ?? []
-                        self.replies[parentEventId]?.insert(message)
+                        await MainActor.run {
+                            self.replies[parentEventId] = self.replies[parentEventId] ?? []
+                            self.replies[parentEventId]?.insert(message)
+                        }
                         if let parentMessage = self.timeline[parentEventId] {
                             logger.debug("Adding reply to message \(parentEventId)")
                             await parentMessage.addReply(message: message)
