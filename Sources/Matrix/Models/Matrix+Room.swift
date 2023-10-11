@@ -91,6 +91,8 @@ extension Matrix {
                     continue
                 }
                 
+                logger.debug("InitialState: type = \(event.type)  ts = \(event.originServerTS)")
+                
                 if event.type == M_ROOM_MEMBER {
                     guard let userId = UserId(stateKey)
                     else {
@@ -102,7 +104,7 @@ extension Matrix {
                         logger.error("Invalid m.room.member event for \(userId.stringValue)")
                         continue
                     }
-                    logger.debug("Initial m.room.member: \(userId.stringValue) is \(memberContent.membership.rawValue)")
+                    logger.debug("Initial m.room.member: \(userId.stringValue) is \(memberContent.membership.rawValue)  (\(event.originServerTS))")
                 }
                 
                 var d = self.state[event.type] ?? [:]
