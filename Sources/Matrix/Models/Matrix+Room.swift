@@ -298,6 +298,20 @@ extension Matrix {
                     continue
                 }
                 
+                if event.type == M_ROOM_MEMBER {
+                    guard let userId = UserId(stateKey)
+                    else {
+                        logger.error("Invalid userId for m.room.member: \(stateKey)")
+                        continue
+                    }
+                    guard let memberContent = event.content as? RoomMemberContent
+                    else {
+                        logger.error("Invalid content for m.room.member \(userId.stringValue)")
+                        continue
+                    }
+                    logger.debug("m.room.member: userId = \(userId.stringValue)  membership = \(memberContent.membership.rawValue)")
+                }
+                
                 var d = tmpState[event.type] ?? [:]
                 if let currentEvent = d[stateKey],
                    currentEvent.originServerTS > event.originServerTS
