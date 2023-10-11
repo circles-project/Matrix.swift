@@ -83,7 +83,7 @@ extension Matrix {
             // > In the case of an initial (since-less) sync, the state list represents the complete state
             // > of the room at the start of the returned timeline (so in the case of a recently-created
             // > room whose state fits entirely in the timeline, the state list will be empty).
-            let allInitialStateEvents = initialState + initialTimeline.filter { $0.stateKey != nil }
+            let allInitialStateEvents = (initialState + initialTimeline.filter { $0.stateKey != nil }).sorted()
             
             for event in allInitialStateEvents {
                 guard let stateKey = event.stateKey
