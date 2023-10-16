@@ -21,7 +21,7 @@ import UIKit
 #endif
 
 extension Matrix {
-    open class Room: ObservableObject, RoomAvatarInfo {
+    open class Room: ObservableObject, BasicRoomProtocol {
         public typealias HistoryVisibility = RoomHistoryVisibilityContent.HistoryVisibility
         public typealias Membership = RoomMemberContent.Membership
         public typealias PowerLevels = RoomPowerLevelsContent
@@ -42,8 +42,8 @@ extension Matrix {
 
         @Published private(set) public var state: [String: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
                 
-        @Published public var highlightCount: Int = 0
-        @Published public var notificationCount: Int = 0
+        @Published private(set) open var highlightCount: Int = 0
+        @Published private(set) open var notificationCount: Int = 0
         
         @Published private(set) public var accountData: [String: Codable]
         
