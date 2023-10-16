@@ -42,8 +42,8 @@ extension Matrix {
 
         @Published private(set) public var state: [String: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
                 
-        @Published private(set) open var highlightCount: Int = 0
-        @Published private(set) open var notificationCount: Int = 0
+        @Published private(set) public var highlightCount: Int = 0
+        @Published private(set) public var notificationCount: Int = 0
         
         @Published private(set) public var accountData: [String: Codable]
         
@@ -522,6 +522,10 @@ extension Matrix {
         
         public var threads: [EventId: Set<Message>] {
             relations[M_THREAD] ?? [:]
+        }
+        
+        open var unread: Int {
+            notificationCount
         }
         
         public var tags: [String] {
