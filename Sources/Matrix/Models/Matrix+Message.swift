@@ -16,7 +16,7 @@ extension Matrix {
         public var sender: User
         
         @Published public var thumbnail: NativeImage?
-        @Published private(set) public var reactions: [String:Set<UserId>]?
+        @Published private(set) public var reactions: [String:Set<UserId>]
         @Published private(set) public var replies: [Message]?
         @Published private(set) public var replacement: Message?
         
@@ -31,7 +31,7 @@ extension Matrix {
             self.event = event
             self.room = room
             self.sender = room.session.getUser(userId: event.sender)
-            self.reactions = nil
+            self.reactions = [:]
             self.replies = nil
             
             self.logger = os.Logger(subsystem: "matrix", category: "message \(event.eventId)")
@@ -76,7 +76,6 @@ extension Matrix {
             
             // Initialize reactions
             if let allReactions = room.relations[M_REACTION]?[event.eventId] {
-                self.reactions = [:]
                 for reaction in allReactions {
                     if let content = reaction.content as? ReactionContent,
                        content.relationType == M_REACTION,
@@ -84,10 +83,10 @@ extension Matrix {
                        let key = content.relatesTo.key
                     {
                         // Ok, this is one we can use
-                        if self.reactions?[key] == nil {
-                            self.reactions?[key] = [reaction.sender.userId]
+                        if self.reactions[key] == nil {
+                            self.reactions[key] = [reaction.sender.userId]
                         } else {
-                            self.reactions?[key]!.insert(reaction.sender.userId)
+                            self.reactions[key]!.insert(reaction.sender.userId)
                         }
                     }
                 }
@@ -189,16 +188,13 @@ extension Matrix {
                 return
             }
             await MainActor.run {
-                if self.reactions == nil {
-                    self.reactions = [:]
-                }
-                if reactions![key] == nil {
-                    reactions![key] = [event.sender]
+                if reactions[key] == nil {
+                    reactions[key] = [event.sender]
                 } else {
-                    reactions![key]!.insert(event.sender)
+                    reactions[key]!.insert(event.sender)
                 }
             }
-            logger.debug("Now we have \(self.reactions?.keys.count ?? 0) distinct reactions")
+            logger.debug("Now we have \(self.reactions.keys.count) distinct reactions")
         }
         
         public func addReaction(message: Message) async {
@@ -207,11 +203,6 @@ extension Matrix {
         
         public func loadReactions() {
             logger.debug("Loading reactions")
-            
-            if self.reactions != nil {
-                logger.debug("We already have reactions; Not loading after all.")
-                return
-            }
             
             if let task = self.loadReactionsTask {
                 logger.debug("Load reactions task is already running.  Not starting a new one.")
@@ -223,13 +214,8 @@ extension Matrix {
                 let reactionEvents = try await self.room.loadReactions(for: self.eventId)
                 logger.debug("Loaded \(reactionEvents.count) reactions")
                 
-                // If we didn't find anything, and we didn't have anything before,
-                // set our local var to non-nil in order to signal that we've already tried loading
-                if reactionEvents.isEmpty && self.reactions == nil {
-                    logger.debug("Setting our local stored reactions to non-nil")
-                    await MainActor.run {
-                        self.reactions = [:]
-                    }
+                for event in reactionEvents {
+                    await addReaction(event: event)
                 }
                 
                 logger.debug("Load reactions task is done")
