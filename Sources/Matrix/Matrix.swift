@@ -181,7 +181,7 @@ public enum Matrix {
     ]
     static var accountDataTypes: [String: Codable.Type] = [
         //M_IDENTITY_SERVER : IdentityServerContent.self,
-        //M_FULLY_READ : FullyReadContent.self,
+        M_FULLY_READ : FullyReadContent.self,
         M_DIRECT : DirectContent.self,
         M_IGNORED_USER_LIST : IgnoredUserListContent.self,
         M_PUSH_RULES : PushRulesContent.self,

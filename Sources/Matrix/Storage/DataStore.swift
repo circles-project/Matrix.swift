@@ -26,6 +26,8 @@ public protocol DataStore {
     func saveState(events: [ClientEvent]) async throws
     func saveState(events: [ClientEventWithoutRoomId], in roomId: RoomId) async throws
     func saveStrippedState(events: [StrippedStateEvent], roomId: RoomId) async throws
+    
+    func saveReadReceipt(roomId: RoomId, threadId: EventId, eventId: EventId) async throws
 
     func loadTimeline(for roomId: RoomId, limit: Int, offset: Int?) async throws -> [ClientEventWithoutRoomId]
     
@@ -33,6 +35,10 @@ public protocol DataStore {
     func loadEssentialState(for roomId: RoomId) async throws -> [ClientEventWithoutRoomId]
     func loadStrippedState(for roomId: RoomId) async throws -> [StrippedStateEvent]
     func loadRelatedEvents(for eventId: EventId, in roomId: RoomId, relType: String, type: String?) async throws -> [ClientEventWithoutRoomId]
+    
+    func loadReadReceipt(roomId: RoomId, threadId: EventId) async throws -> EventId?
+    
+    func loadAllReadReceipts(roomId: RoomId) async throws -> [EventId: EventId]
     
     func processRedactions(_ redactions: [ClientEvent]) async throws
     

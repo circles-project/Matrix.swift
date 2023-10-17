@@ -7,9 +7,9 @@
 
 import Foundation
 
-public protocol RoomAvatarInfo: ObservableObject {
+public protocol BasicRoomProtocol: ObservableObject {
     var roomId: RoomId { get }
     var name: String? { get }
-    var avatar: Matrix.NativeImage? { get set }
+    var avatar: Matrix.NativeImage? { get }
     func updateAvatarImage()
 }

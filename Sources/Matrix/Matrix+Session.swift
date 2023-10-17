@@ -561,6 +561,10 @@ extension Matrix {
                         if let roomAccountDataEvents = info.accountData?.events {
                             await room.updateAccountData(events: roomAccountDataEvents)
                         }
+                        
+                        if let ephemeralEvents = info.ephemeral?.events {
+                            await room.updateEphemeral(events: ephemeralEvents)
+                        }
 
                     } else {
                         // Clearly the room is no longer in the 'invited' state
@@ -1074,15 +1078,25 @@ extension Matrix {
                 let stateEvents = try await store.loadEssentialState(for: roomId)
                 logger.debug("getRoom \(roomId) Loaded \(stateEvents.count, privacy: .public) state events")
                 
-                let timelineEvents = try await store.loadTimeline(for: roomId, limit: 25, offset: 0)
-                logger.debug("getRoom \(roomId) Loaded \(stateEvents.count, privacy: .public) timeline events")
-                //let timelineEvents = [ClientEventWithoutRoomId]()
-                
-                let accountDataEvents = try await store.loadAccountDataEvents(roomId: roomId, limit: 1000, offset: nil)
-                 
                 if stateEvents.count > 0 {
+                
+                    let timelineEvents = try await store.loadTimeline(for: roomId, limit: 25, offset: 0)
+                    logger.debug("getRoom \(roomId) Loaded \(stateEvents.count, privacy: .public) timeline events")
+                    //let timelineEvents = [ClientEventWithoutRoomId]()
+                    
+                    let accountDataEvents = try await store.loadAccountDataEvents(roomId: roomId, limit: 1000, offset: nil)
+                    
+                    let readReceipt = try await store.loadReadReceipt(roomId: roomId, threadId: "main")
+                 
+                
                     logger.debug("getRoom \(roomId) Constructing the room")
-                    if let room = try? T(roomId: roomId, session: self, initialState: stateEvents, initialTimeline: timelineEvents, initialAccountData: accountDataEvents) {
+                    if let room = try? T(roomId: roomId,
+                                         session: self,
+                                         initialState: stateEvents,
+                                         initialTimeline: timelineEvents,
+                                         initialAccountData: accountDataEvents,
+                                         initialReadReceipt: readReceipt
+                    ) {
                         logger.debug("getRoom \(roomId) Adding new room to the cache")
                         await MainActor.run {
                             self.rooms[roomId] = room
@@ -1360,6 +1374,21 @@ extension Matrix {
                                                     content: encryptedContent)
         }
         
+        // MARK: Read Receipts
+        override public func sendReadReceipt(roomId: RoomId,
+                                             threadId: EventId? = nil,
+                                             eventId: EventId
+        ) async throws {
+            if let store = self.dataStore {
+                try await store.saveReadReceipt(roomId: roomId,
+                                                threadId: threadId ?? "main",
+                                                eventId: eventId)
+            }
+            
+            try await super.sendReadReceipt(roomId: roomId,
+                                            threadId: threadId,
+                                            eventId: eventId)
+        }
 
         // MARK: Encrypted Media
         

@@ -123,6 +123,15 @@ public struct GRDBDataStore: DataStore {
             */
         }
         
+        migrator.registerMigration("Create read receipts") { db in
+            try db.create(table: "read_receipts") { t in
+                t.column("room_id", .text).notNull()
+                t.column("thread_id", .text).notNull()
+                t.column("event_id", .text).notNull()
+                t.primaryKey(["room_id"])
+            }
+        }
+        
         try migrator.migrate(database)
     }
     
@@ -167,7 +176,7 @@ public struct GRDBDataStore: DataStore {
         try database.close()
     }
     
-    // MARK: Events
+    // MARK: Timeline
     
     public func saveTimeline(events: [ClientEvent]) async throws {
         let records = events.compactMap { try? ClientEventRecord(event: $0) }
@@ -208,6 +217,8 @@ public struct GRDBDataStore: DataStore {
         let events = records.map { $0 as ClientEventWithoutRoomId }
         return events
     }
+    
+    // MARK: Events
     
     public func loadEvents(for roomId: RoomId, of types: [String],
                            limit: Int = 25, offset: Int? = nil
@@ -270,6 +281,7 @@ public struct GRDBDataStore: DataStore {
         }
     }
 
+    // MARK: State
     
     public func loadState(for roomId: RoomId,
                           limit: Int = 0,
@@ -348,6 +360,50 @@ public struct GRDBDataStore: DataStore {
             }
         }
     }
+    
+    // MARK: Read Receipts
+    public func loadReadReceipt(roomId: RoomId,
+                                threadId: EventId = "main"
+    ) async throws -> EventId? {
+        let roomIdColumn = ReadReceiptRecord.Columns.roomId
+        let threadIdColumn = ReadReceiptRecord.Columns.threadId
+        
+        let request = ReadReceiptRecord
+                        .filter(roomIdColumn == roomId)
+                        .filter(threadIdColumn == threadId)
+        let record = try await database.read { db in
+            try request.fetchOne(db)
+        }
+        return record?.eventId
+    }
+    
+    public func loadAllReadReceipts(roomId: RoomId) async throws -> [EventId : EventId] {
+        let roomIdColumn = ReadReceiptRecord.Columns.roomId
+
+        let request = ReadReceiptRecord
+                        .filter(roomIdColumn == roomId)
+        let records = try await database.read { db in
+            try request.fetchAll(db)
+        }
+        let tuples = records.compactMap {
+            ($0.threadId ?? "main", $0.eventId)
+        }
+        let receipts: [EventId: EventId] = .init(uniqueKeysWithValues: tuples)
+        return receipts
+    }
+    
+    public func saveReadReceipt(roomId: RoomId,
+                                threadId: EventId = "main",
+                                eventId: EventId
+    ) async throws {
+        let record = ReadReceiptRecord(roomId: roomId, threadId: threadId, eventId: eventId)
+        
+        try await database.write { db in
+            try record.save(db)
+        }
+    }
+    
+    // MARK: Redactions
     
     public func processRedactions(_ redactions: [ClientEvent]) async throws {
         let roomIdColumn = ClientEventRecord.Columns.roomId

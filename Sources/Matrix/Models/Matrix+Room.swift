@@ -21,7 +21,7 @@ import UIKit
 #endif
 
 extension Matrix {
-    open class Room: ObservableObject, RoomAvatarInfo {
+    open class Room: ObservableObject, BasicRoomProtocol {
         public typealias HistoryVisibility = RoomHistoryVisibilityContent.HistoryVisibility
         public typealias Membership = RoomMemberContent.Membership
         public typealias PowerLevels = RoomPowerLevelsContent
@@ -42,10 +42,15 @@ extension Matrix {
 
         @Published private(set) public var state: [String: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
                 
-        @Published public var highlightCount: Int = 0
-        @Published public var notificationCount: Int = 0
+        @Published private(set) public var highlightCount: Int = 0
+        @Published private(set) public var notificationCount: Int = 0
         
         @Published private(set) public var accountData: [String: Codable]
+        
+        // UserId -> ThreadId -> EventId
+        private(set) public var readMarkers: [UserId: [EventId: EventId]] = [:]
+        // Apparently we don't get our own read marker in the /sync response?  Or at least sometimes we don't have one
+        private var myReadReceipt: EventId?
         
         private var backwardToken: String?
         private var forwardToken: String?
@@ -59,7 +64,8 @@ extension Matrix {
         public required init(roomId: RoomId, session: Session,
                              initialState: [ClientEventWithoutRoomId],
                              initialTimeline: [ClientEventWithoutRoomId] = [],
-                             initialAccountData: [AccountDataEvent] = []
+                             initialAccountData: [AccountDataEvent] = [],
+                             initialReadReceipt: EventId? = nil
         ) throws {
             self.roomId = roomId
             self.session = session
@@ -74,6 +80,7 @@ extension Matrix {
             self.replies = [:]
             self.state = [:]
             self.accountData = [:]
+            self.myReadReceipt = initialReadReceipt
             
             self.logger = os.Logger(subsystem: "matrix", category: "room \(roomId)")
             
@@ -146,15 +153,18 @@ extension Matrix {
             */
         }
         
+        // MARK: Update Unread
+        
         func updateUnreadCounts(notifications: Int, highlights: Int) async {
             // Gotta run this on the main Actor because the vars are @Published, and will trigger an objectWillChange
+            logger.debug("Updating unread counts: \(highlights) / \(notifications)")
             await MainActor.run {
                 self.notificationCount = notifications
                 self.highlightCount = highlights
             }
         }
         
-        // MARK: Timeline
+        // MARK: Update Timeline
         
         open func updateTimeline(from events: [ClientEventWithoutRoomId]) async throws {
             logger.debug("Updating timeline: \(self.timeline.count) existing events vs \(events.count) new events")
@@ -208,7 +218,7 @@ extension Matrix {
             await self.updateRelations(events: events)
         }
         
-        // MARK: Relations
+        // MARK: Update Relations
         func updateRelations(events: [ClientEventWithoutRoomId]) async {
             for event in events {
                 if let content = event.content as? RelatedEventContent {
@@ -279,14 +289,14 @@ extension Matrix {
             }
         }
         
-        // MARK: Reactions
+        // MARK: Load Reactions
         public func loadReactions(for eventId: EventId) async throws -> [ClientEventWithoutRoomId] {
             let reactionEvents = try await self.session.loadRelatedEvents(for: eventId, in: self.roomId, relType: M_ANNOTATION, type: M_REACTION)
             try await self.updateTimeline(from: reactionEvents)
             return reactionEvents
         }
         
-        // MARK: State
+        // MARK: Update State
         
         open func updateState(from events: [ClientEventWithoutRoomId]) async {
             // Compute the new state from the old state and the new events
@@ -318,6 +328,75 @@ extension Matrix {
             self.updateAvatarImage()
         }
         
+        // MARK: Update Ephemeral
+        public func updateEphemeral(events: [MinimalEvent]) async {
+            for event in events {
+                switch event.type {
+                case M_RECEIPT:
+                    if let content = event.content as? ReceiptContent {
+                        await updateReadMarkers(receipt: content)
+                    } else {
+                        logger.error("updateEphemeral: Not updating read markers - Invalid m.receipt content")
+                    }
+                default:
+                    logger.debug("updateEphemeral: Not handling event of type \(event.type, privacy: .public)")
+                }
+            }
+        }
+        
+        private func updateReadMarkers(receipt content: ReceiptContent) async {
+            for (eventId, info) in content {
+                if let read = info.read {
+                    for (userId, timestamp) in read {
+                        let threadId = timestamp.threadId ?? "main"
+
+                        var dict = self.readMarkers[userId] ?? [:]
+                        dict[threadId] = eventId
+                        let newDict = dict
+                        
+                        await MainActor.run {
+                            self.readMarkers[userId] = newDict
+                        }
+                        
+                        if userId == self.session.creds.userId && threadId == "main" {
+                            await updateMyReadMarker(eventId: eventId)
+                        }
+                    }
+                }
+            }
+        }
+        
+        @MainActor
+        private func updateMyReadMarker(eventId: EventId) -> EventId {
+            
+            guard let oldEventId = self.myReadReceipt,
+                  let oldIndex = self.timeline.index(forKey: oldEventId)
+            else {
+                logger.debug("No old read marker, or it's too old")
+                self.myReadReceipt = eventId
+                return eventId
+            }
+            
+            guard let newIndex = self.timeline.index(forKey: eventId)
+            else {
+                logger.debug("Can't update read index to an event that we don't have")
+                return oldEventId
+            }
+            
+            if newIndex > oldIndex {
+                
+                logger.debug("New read marker is \(eventId) (\(newIndex))")
+                self.myReadReceipt = eventId
+                
+                return eventId
+            } else {
+                logger.debug("Not updating read marker to \(eventId) (\(newIndex)) -- it's behind \(oldEventId) (\(oldIndex))")
+                return oldEventId
+            }
+        }
+
+        
+        // MARK: State
         
         public func getState(type: String, stateKey: String) async throws -> Codable? {
             if let event = self.state[type]?[stateKey] {
@@ -436,6 +515,15 @@ extension Matrix {
             return content.info.thumbhash
         }
         
+        public var fullyRead: EventId? {
+            if let content = self.accountData[M_FULLY_READ] as? FullyReadContent {
+                return content.eventId
+            }
+            else {
+                return nil
+            }
+        }
+        
         public var predecessorRoomId: RoomId? {
             guard let event = state[M_ROOM_CREATE]?[""],
                   let content = event.content as? RoomCreateContent
@@ -522,6 +610,10 @@ extension Matrix {
         
         public var threads: [EventId: Set<Message>] {
             relations[M_THREAD] ?? [:]
+        }
+        
+        open var unread: Int {
+            notificationCount
         }
         
         public var tags: [String] {
@@ -1236,6 +1328,63 @@ extension Matrix {
         public func addReaction(_ reaction: String, to eventId: EventId) async throws -> EventId {
             // FIXME: What about encryption?
             try await self.session.addReaction(reaction: reaction, to: eventId, in: self.roomId)
+        }
+        
+        // MARK: Read Markers
+        public func setReadMarkers(fullyRead: EventId? = nil,
+                                   read: EventId? = nil,
+                                   readPrivate: EventId? = nil
+        ) async throws {
+            try await self.session.setReadMarkers(roomId: roomId, fullyRead: fullyRead, read: read, readPrivate: readPrivate)
+        }
+        
+        public func sendReadReceipt(eventId: EventId,
+                                    threadId: EventId? = nil
+        ) async throws {
+            // Don't send a receipt for an event that we don't have
+            guard let newIndex = self.timeline.index(forKey: eventId)
+            else {
+                logger.error("Can't send read receipt for an unknown event (\(eventId))")
+                throw Matrix.Error("Unknown event \(eventId)")
+            }
+            
+            // Don't send the API call if the old eventId is more recent than the new one
+            if threadId == nil {
+                let newMarker = await updateMyReadMarker(eventId: eventId)
+                if newMarker != eventId {
+                    logger.debug("Not sending read receipt for \(eventId) -- It's already behind")
+                    return
+                }
+            } else {
+                // FIXME: Add similar checks for threaded read receipts
+            }
+            
+            logger.debug("Sending read receipt for event \(eventId)")
+            try await self.session.sendReadReceipt(roomId: roomId, threadId: threadId, eventId: eventId)
+        }
+        
+        public func setFullyReadMarker(eventId: EventId) async throws {
+            guard let newIndex = self.timeline.index(forKey: eventId)
+            else {
+                logger.error("Can't update fully read marker to an event that we don't have in our timeline")
+                throw Matrix.Error("Fully read marker is not in room timeline")
+            }
+            
+            // Only make the API call if the new eventId is more recent than the old one
+            if let oldEventId = self.fullyRead,
+               let oldIndex = self.timeline.index(forKey: oldEventId),
+               oldIndex >= newIndex
+            {
+                logger.debug("Not sending fully read marker -- event id is not ahead of current m.fully_read")
+                // Don't throw an error -- everything is good here, we just don't need to do any more work
+                return
+            }
+            
+            try await self.session.setReadMarkers(roomId: roomId, fullyRead: eventId)
+        }
+        
+        public func setPrivateReadReceipt(eventId: EventId) async throws {
+            try await self.session.setReadMarkers(roomId: roomId, readPrivate: eventId)
         }
     }
 }
