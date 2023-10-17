@@ -18,7 +18,7 @@ extension Matrix {
             }
             
             public init(from decoder: Decoder) throws {
-                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.MinimalEventsContainer.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.MinimalEventsContainer.CodingKeys.self)
+                let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
                 if let lossy = try container.decodeIfPresent(LossyCodableList<MinimalEvent>.self, forKey: .events) {
                     self.events = lossy.elements
                 } else {
@@ -32,8 +32,12 @@ extension Matrix {
             // Because Matrix is batshit and puts crazy stuff into these `type`s
             public var events: [AccountDataEvent]?
             
+            public enum CodingKeys: CodingKey {
+                case events
+            }
+            
             public init(from decoder: Decoder) throws {
-                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.AccountData.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.AccountData.CodingKeys.self)
+                let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
                 if let lossy = try container.decodeIfPresent(LossyCodableList<AccountDataEvent>.self, forKey: .events) {
                     self.events = lossy.elements
                 } else {
@@ -60,15 +64,15 @@ extension Matrix {
             
             public init(from decoder: Decoder) throws {
                 logger.debug("Decoding Rooms")
-                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.Rooms.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.Rooms.CodingKeys.self)
+                let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
                 logger.debug("invite")
-                self.invite = try container.decodeIfPresent([RoomId : Matrix.SyncResponseBody.InvitedRoomSyncInfo].self, forKey: Matrix.SyncResponseBody.Rooms.CodingKeys.invite)
+                self.invite = try container.decodeIfPresent([RoomId : InvitedRoomSyncInfo].self, forKey: .invite)
                 logger.debug("join")
-                self.join = try container.decodeIfPresent([RoomId : Matrix.SyncResponseBody.JoinedRoomSyncInfo].self, forKey: Matrix.SyncResponseBody.Rooms.CodingKeys.join)
+                self.join = try container.decodeIfPresent([RoomId : JoinedRoomSyncInfo].self, forKey: .join)
                 logger.debug("knock")
-                self.knock = try container.decodeIfPresent([RoomId : Matrix.SyncResponseBody.KnockedRoomSyncInfo].self, forKey: Matrix.SyncResponseBody.Rooms.CodingKeys.knock)
+                self.knock = try container.decodeIfPresent([RoomId : KnockedRoomSyncInfo].self, forKey: .knock)
                 logger.debug("leave")
-                self.leave = try container.decodeIfPresent([RoomId : Matrix.SyncResponseBody.LeftRoomSyncInfo].self, forKey: Matrix.SyncResponseBody.Rooms.CodingKeys.leave)
+                self.leave = try container.decodeIfPresent([RoomId : LeftRoomSyncInfo].self, forKey: .leave)
             }
         }
         
@@ -89,7 +93,7 @@ extension Matrix {
             }
             
             public init(from decoder: Decoder) throws {
-                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.StateEventsContainer.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.StateEventsContainer.CodingKeys.self)
+                let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
                 if let lossy = try container.decodeIfPresent(LossyCodableList<ClientEventWithoutRoomId>.self, forKey: .events) {
                     self.events = lossy.elements
                 } else {
@@ -106,7 +110,7 @@ extension Matrix {
             }
             
             public init(from decoder: Decoder) throws {
-                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.KnockedRoomSyncInfo.KnockState.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.KnockedRoomSyncInfo.KnockState.CodingKeys.self)
+                let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
                 let lossy = try container.decode(LossyCodableList<StrippedStateEvent>.self, forKey: .events)
                 self.events = lossy.elements
             }
@@ -125,11 +129,11 @@ extension Matrix {
             }
             
             public init(from decoder: Decoder) throws {
-                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.Timeline.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.Timeline.CodingKeys.self)
+                let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
                 let lossy = try container.decode(LossyCodableList<ClientEventWithoutRoomId>.self, forKey: .events)
                 self.events = lossy.elements
-                self.limited = try container.decodeIfPresent(Bool.self, forKey: Matrix.SyncResponseBody.Timeline.CodingKeys.limited)
-                self.prevBatch = try container.decodeIfPresent(String.self, forKey: Matrix.SyncResponseBody.Timeline.CodingKeys.prevBatch)
+                self.limited = try container.decodeIfPresent(Bool.self, forKey: .limited)
+                self.prevBatch = try container.decodeIfPresent(String.self, forKey: .prevBatch)
             }
         }
         
@@ -175,28 +179,28 @@ extension Matrix {
             
             public init(from decoder: Decoder) throws {
                 logger.debug("Decoding JoinedRoomSyncInfo")
-                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.self)
+                let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
 
                 logger.debug("Account Data")
-                self.accountData = try container.decodeIfPresent(Matrix.SyncResponseBody.AccountData.self, forKey: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.accountData)
+                self.accountData = try container.decodeIfPresent(Matrix.SyncResponseBody.AccountData.self, forKey: .accountData)
 
                 logger.debug("Ephemeral")
-                self.ephemeral = try container.decodeIfPresent(Matrix.SyncResponseBody.Ephemeral.self, forKey: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.ephemeral)
+                self.ephemeral = try container.decodeIfPresent(Matrix.SyncResponseBody.Ephemeral.self, forKey: .ephemeral)
 
                 logger.debug("State")
-                self.state = try container.decodeIfPresent(Matrix.SyncResponseBody.StateEventsContainer.self, forKey: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.state)
+                self.state = try container.decodeIfPresent(Matrix.SyncResponseBody.StateEventsContainer.self, forKey: .state)
 
                 logger.debug("Summary")
-                self.summary = try container.decodeIfPresent(Matrix.SyncResponseBody.JoinedRoomSyncInfo.RoomSummary.self, forKey: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.summary)
+                self.summary = try container.decodeIfPresent(Matrix.SyncResponseBody.JoinedRoomSyncInfo.RoomSummary.self, forKey: .summary)
 
                 logger.debug("Timeline")
-                self.timeline = try container.decodeIfPresent(Matrix.SyncResponseBody.Timeline.self, forKey: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.timeline)
+                self.timeline = try container.decodeIfPresent(Matrix.SyncResponseBody.Timeline.self, forKey: .timeline)
 
                 logger.debug("Unread Notifications")
-                self.unreadNotifications = try container.decodeIfPresent(Matrix.SyncResponseBody.JoinedRoomSyncInfo.UnreadNotificationCounts.self, forKey: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.unreadNotifications)
+                self.unreadNotifications = try container.decodeIfPresent(Matrix.SyncResponseBody.JoinedRoomSyncInfo.UnreadNotificationCounts.self, forKey: .unreadNotifications)
 
                 logger.debug("Unread Thread Notifications")
-                self.unreadThreadNotifications = try container.decodeIfPresent([EventId : Matrix.SyncResponseBody.JoinedRoomSyncInfo.UnreadNotificationCounts].self, forKey: Matrix.SyncResponseBody.JoinedRoomSyncInfo.CodingKeys.unreadThreadNotifications)
+                self.unreadThreadNotifications = try container.decodeIfPresent([EventId : Matrix.SyncResponseBody.JoinedRoomSyncInfo.UnreadNotificationCounts].self, forKey: .unreadThreadNotifications)
             }
         }
         
@@ -229,7 +233,7 @@ extension Matrix {
             }
             
             public init(from decoder: Decoder) throws {
-                let container: KeyedDecodingContainer<Matrix.SyncResponseBody.ToDevice.CodingKeys> = try decoder.container(keyedBy: Matrix.SyncResponseBody.ToDevice.CodingKeys.self)
+                let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
                 let lossy = try container.decode(LossyCodableList<ToDeviceEvent>.self, forKey: .events)
                 self.events = lossy.elements
             }

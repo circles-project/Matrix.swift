@@ -954,6 +954,46 @@ public class Client {
                                             limit: limit)
     }
     
+    // MARK: Read Markers and Receipts
+    
+    public func setReadMarkers(roomId: RoomId,
+                               fullyRead: EventId? = nil,
+                               read: EventId? = nil,
+                               readPrivate: EventId? = nil
+    ) async throws {
+        
+        if fullyRead == nil && read == nil && readPrivate == nil {
+            logger.warning("Attempting to set read markers without any event id's.  Doing nothing.")
+            return
+        }
+        
+        struct RequestBody: Codable {
+            var fullyRead: EventId?
+            var read: EventId?
+            var readPrivate: EventId?
+            
+            enum CodingKeys: String, CodingKey {
+                case fullyRead = "m.fully_read"
+                case read = "m.read"
+                case readPrivate = "m.read.private"
+            }
+        }
+        
+        let path = "/_matrix/client/v3/rooms/\(roomId)/read_markers"
+        let body = RequestBody(fullyRead: fullyRead, read: read, readPrivate: readPrivate)
+        let (data, response) = try await call(method: "POST", path: path, body: body)
+    }
+    
+    public func sendReadReceipt(roomId: RoomId,
+                                threadId: EventId? = nil,
+                                eventId: EventId
+    ) async throws {
+        let path = "/_matrix/client/v3/rooms/\(roomId)/receipt/m.read/\(eventId)"
+        let body = [
+            "thread_id": threadId ?? "main"
+        ]
+        let (data, response) = try await call(method: "POST", path: path, body: body)
+    }
     
     // MARK: Room State
     

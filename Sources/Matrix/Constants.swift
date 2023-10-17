@@ -90,3 +90,8 @@ public let M_SECRET_SEND = "m.secret.send"
 
 // MARK: Key backup
 public let M_MEGOLM_BACKUP_V1_CURVE25519_AES_SHA2 = "m.megolm_backup.v1.curve25519-aes-sha2"
+
+// MARK: Read receipts
+public let M_READ = "m.read"
+public let M_READ_PRIVATE = "m.read.private"
+// m.fully_read is already defined above

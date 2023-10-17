@@ -13,10 +13,17 @@ extension Matrix {
         public required init(roomId: RoomId, session: Session,
                              initialState: [ClientEventWithoutRoomId],
                              initialTimeline: [ClientEventWithoutRoomId] = [],
-                             initialAccountData: [AccountDataEvent] = []
+                             initialAccountData: [AccountDataEvent] = [],
+                             initialReadReceipt: EventId? = nil
         ) throws {
 
-            try super.init(roomId: roomId, session: session, initialState: initialState, initialTimeline: initialTimeline, initialAccountData: initialAccountData)
+            try super.init(roomId: roomId,
+                           session: session,
+                           initialState: initialState,
+                           initialTimeline: initialTimeline,
+                           initialAccountData: initialAccountData,
+                           initialReadReceipt: initialReadReceipt
+            )
             
             guard self.type == M_SPACE
             else {
