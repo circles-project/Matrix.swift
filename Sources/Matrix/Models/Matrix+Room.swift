@@ -199,12 +199,15 @@ extension Matrix {
 
             var tmpTimeline = self.timeline
             for event in events {
-                tmpTimeline[event.eventId] = Matrix.Message(event: event, room: self)
-                
-                // When we receive the "real" version of a message, we can remove the local echo
-                if event.eventId == self.localEchoMessage?.eventId {
-                    await MainActor.run {
-                        self.localEchoMessage = nil
+                let eventId = event.eventId
+                if tmpTimeline[eventId] == nil { // Only create a new message if we don't have one already
+                    tmpTimeline[eventId] = Matrix.Message(event: event, room: self)
+                    
+                    // When we receive the "real" version of a message, we can remove the local echo
+                    if eventId == self.localEchoMessage?.eventId {
+                        await MainActor.run {
+                            self.localEchoMessage = nil
+                        }
                     }
                 }
             }
