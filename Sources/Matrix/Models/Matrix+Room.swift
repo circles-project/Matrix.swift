@@ -891,6 +891,10 @@ extension Matrix {
                     let requestId = UInt16.random(in: 0...UInt16.max)
                     let keysQuery = MatrixSDKCrypto.Request.keysQuery(requestId: "\(requestId)", users: users)
 
+                    // Crypto SDK cannot send http requests, so we need to send outgoing requests
+                    // in two batches:
+                    //   1. Get the latest device list for the person we are inviting
+                    //   2. Send out room keys to all devices in the list
                     try await self.session.cryptoQueue.run {
                         // Get the most up-to-date device list before forwarding room keys
                         var cryptoRequests = try self.session.crypto.outgoingRequests()
@@ -900,6 +904,7 @@ extension Matrix {
                             try await self.session.sendCryptoRequest(request: request)
                         }
    
+                        // Send out room keys to invitee's devices
                         let _ = try self.session.crypto.shareRoomHistoryKeys(roomId: self.roomId.description,
                                                                              users: users)
                         cryptoRequests = try self.session.crypto.outgoingRequests()
