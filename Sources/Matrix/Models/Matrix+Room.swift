@@ -14,6 +14,8 @@ import AVFoundation
 import CoreImage
 import CoreImage.CIFilterBuiltins
 
+import MatrixSDKCrypto
+
 #if os(macOS)
 import AppKit
 #else
@@ -663,7 +665,11 @@ extension Matrix {
                 return nil
             }
             
+            #if os(macOS)
+            let img = Matrix.NativeImage(cgImage: cgImg, size: NSSize(width: cgImg.width, height: cgImg.height))
+            #else
             let img = Matrix.NativeImage(cgImage: cgImg)
+            #endif
             logger.debug("QR code image is \(img.size.height) x \(img.size.width)")
             return img
         }
@@ -872,6 +878,43 @@ extension Matrix {
         
         public func invite(userId: UserId, reason: String? = nil) async throws {
             try await self.session.inviteUser(roomId: self.roomId, userId: userId, reason: reason)
+            
+            // MSC3061: Forward past room keys to invitee
+            if isEncrypted {
+                guard let roomHistoryVisibility = try await self.getHistoryVisibility()
+                else {
+                    throw Matrix.Error("Not sharing histoical keys for room \(roomId) because we cannot determine history visibility ")
+                }
+
+                if roomHistoryVisibility == .shared || roomHistoryVisibility == .worldReadable {
+                    let users: [String] = [userId.description]
+                    let requestId = UInt16.random(in: 0...UInt16.max)
+                    let keysQuery = MatrixSDKCrypto.Request.keysQuery(requestId: "\(requestId)", users: users)
+
+                    // Crypto SDK cannot send http requests, so we need to send outgoing requests
+                    // in two batches:
+                    //   1. Get the latest device list for the person we are inviting
+                    //   2. Send out room keys to all devices in the list
+                    try await self.session.cryptoQueue.run {
+                        // Get the most up-to-date device list before forwarding room keys
+                        var cryptoRequests = try self.session.crypto.outgoingRequests()
+                        cryptoRequests.append(keysQuery)
+                        self.logger.debug("Sending \(cryptoRequests.count, privacy: .public) crypto requests")
+                        for request in cryptoRequests {
+                            try await self.session.sendCryptoRequest(request: request)
+                        }
+   
+                        // Send out room keys to invitee's devices
+                        let _ = try self.session.crypto.shareRoomHistoryKeys(roomId: self.roomId.description,
+                                                                             users: users)
+                        cryptoRequests = try self.session.crypto.outgoingRequests()
+                        self.logger.debug("Sending \(cryptoRequests.count, privacy: .public) crypto requests")
+                        for request in cryptoRequests {
+                            try await self.session.sendCryptoRequest(request: request)
+                        }
+                    }
+                }
+            }
         }
         
         public func kick(userId: UserId, reason: String? = nil) async throws {

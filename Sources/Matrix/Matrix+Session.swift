@@ -84,8 +84,8 @@ extension Matrix {
         }
         
         // Matrix Rust crypto
-        private var crypto: MatrixSDKCrypto.OlmMachine
-        private var cryptoQueue: TicketTaskQueue<Void>
+        internal var crypto: MatrixSDKCrypto.OlmMachine
+        internal var cryptoQueue: TicketTaskQueue<Void>
         var cryptoLogger: os.Logger
         
         // Key Backup
@@ -2027,7 +2027,7 @@ extension Matrix {
                 throw Matrix.Error("Failed to sign JSON for new recovery public key")
             }
             // * Then use self.crypto.sign(message: json) -- This produces the [String: [String:String]] structure that we require.
-            let signatures = self.crypto.sign(message: jsonString)
+            let signatures = try self.crypto.sign(message: jsonString)
             
             guard let newVersion = try? await createNewKeyBackupVersion(publicKey: backupPublicKey.publicKey, signatures: signatures)
             else {
