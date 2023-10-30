@@ -29,6 +29,7 @@ let package = Package(
         .package(url: "https://github.com/iosdevzone/IDZSwiftCommonCrypto.git", from: "0.13.0"),
         .package(url: "https://github.com/apple/swift-collections.git", branch: "release/1.1"),
         .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", from: "4.2.2"),
+        .package(url: "https://github.com/keefertaylor/Base58Swift.git", exact: "2.1.7"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -44,6 +45,7 @@ let package = Package(
                 .product(name: "IDZSwiftCommonCrypto", package: "IDZSwiftCommonCrypto"),
                 .product(name: "Collections", package: "swift-collections"),
                 .product(name: "KeychainAccess", package: "KeychainAccess"),
+                .product(name: "Base58Swift", package: "Base58Swift"),
             ]),
         .testTarget(
             name: "MatrixTests",
@@ -54,6 +56,7 @@ let package = Package(
                 .product(name: "AnyCodable", package: "anycodable"),
                 .product(name: "BlindSaltSpeke", package: "blindsaltspeke"),
                 .product(name: "Yams", package: "yams"),
+                .product(name: "Base58Swift", package: "Base58Swift"),
             ],
             resources: [
                 .copy("TestConfig.yaml")
