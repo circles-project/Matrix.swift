@@ -7,6 +7,9 @@
 
 import Foundation
 
+// MARK: Authentication types
+public let M_LOGIN_PASSWORD = "m.login.password"
+
 // MARK: Event Types
 public let M_ROOM_CANONICAL_ALIAS = "m.room.canonical_alias"
 public let M_ROOM_CREATE = "m.room.create"

@@ -10,30 +10,6 @@ import AnyCodable
 
 public class LoginSession: UIAuthSession {
     
-    public struct LoginRequestBody: Codable {
-        public struct Identifier: Codable {
-            public let type: String
-            public let user: String
-        }
-        public var identifier: Identifier
-        public var type: String?
-        public var password: String?
-        public var token: String?
-        public var deviceId: String?
-        public var initialDeviceDisplayName: String?
-        public var refreshToken: Bool?
-        
-        public enum CodingKeys: String, CodingKey {
-            case identifier
-            case type
-            case password
-            case token
-            case deviceId = "device_id"
-            case initialDeviceDisplayName = "initial_device_display_name"
-            case refreshToken = "refresh_token"
-        }
-    }
-    
     public convenience init(userId: UserId,
                             password: String? = nil,
                             deviceId: String? = nil,
