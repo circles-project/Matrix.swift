@@ -951,19 +951,22 @@ extension Matrix {
         
         public func generateKey(keyId: String, password: String, description: KeyDescriptionContent) throws -> SecretStorageKey? {
             guard let algorithm = description.passphrase?.algorithm,
-                  let iterations = description.passphrase?.iterations,
-                  let salt = description.passphrase?.salt,
-                  let bitLength = description.passphrase?.bits
+                  let salt = description.passphrase?.salt
             else {
-                logger.error("Can't generate secret storage key without algorithm and iterations")
+                logger.error("Can't generate secret storage key without algorithm and salt")
                 return nil
             }
             
+            let iterations = description.passphrase?.iterations ?? 100_000
+            let bitLength = description.passphrase?.bits ?? 256
+
+            
             switch algorithm {
             case M_PBKDF2:
-                logger.debug("Generating PBKDF2 key")
                 let rounds = UInt32(iterations)
                 let byteLength: UInt = UInt(bitLength) / 8
+                logger.debug("Generating PBKDF2 key  (rounds = \(rounds), length = \(byteLength)")
+
                 let keyBytes = PBKDF.deriveKey(password: password, salt: salt, prf: .sha512, rounds: rounds, derivedKeyLength: byteLength)
                 let keyData = Data(keyBytes)
                 logger.debug("Generated key data = \(Base64.padded(keyData))")
