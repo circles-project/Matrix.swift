@@ -32,9 +32,15 @@ extension Matrix {
             case refreshToken = "refresh_token"
         }
         
-        init(userId: UserId, password: String) {
+        init(userId: UserId,
+             password: String,
+             deviceId: String? = nil,
+             initialDeviceDisplayName: String? = nil
+        ) {
             self.identifier = .init(type: "m.id.user", user: userId.stringValue)
             self.type = M_LOGIN_PASSWORD
+            self.deviceId = deviceId
+            self.initialDeviceDisplayName = initialDeviceDisplayName
         }
     }
     
@@ -87,7 +93,9 @@ extension Matrix {
     
     // Matrix standard, non-UIA login
     public static func login(userId: UserId,
-                             password: String
+                             password: String,
+                             deviceId: String? = nil,
+                             initialDeviceDisplayName: String? = nil
     ) async throws -> Credentials {
         let wellKnown = try await Matrix.fetchWellKnown(for: userId.domain)
         
@@ -104,7 +112,10 @@ extension Matrix {
             throw Matrix.Error("Couldn't construct /login URL")
         }
         
-        let requestBody = LoginRequestBody(userId: userId, password: password)
+        let requestBody = LoginRequestBody(userId: userId,
+                                           password: password,
+                                           deviceId: deviceId,
+                                           initialDeviceDisplayName: initialDeviceDisplayName)
         var encoder = JSONEncoder()
         guard let requestData = try? encoder.encode(requestBody)
         else {
