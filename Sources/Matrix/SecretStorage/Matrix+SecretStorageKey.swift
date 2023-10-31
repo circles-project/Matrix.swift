@@ -41,7 +41,7 @@ extension Matrix {
             
             let keyBytes = PBKDF.deriveKey(password: passphrase,
                                            salt: salt,
-                                           prf: .sha256,
+                                           prf: .sha512,
                                            rounds: UInt32(iterations),
                                            derivedKeyLength: byteLen)
             
