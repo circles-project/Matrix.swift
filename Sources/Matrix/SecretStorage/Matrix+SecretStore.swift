@@ -244,10 +244,39 @@ extension Matrix {
             }
             
             self.session.addAccountDataHandler(filter: filter,
-                                               handler: self.handleAccountDataEvent)
+                                               handler: self.handleAccountDataEvents)
+        }
+        
+        public func handleAccountDataEvents(_ events: [AccountDataEvent]) async throws {
+            
+            // We need to be a bit smart about how we handle the events here
+            // The events may arrive in any order.  But for us, order is very important.
+            // We need to process all new keys before we try to set the new default key,
+            // in case the new key is one that we're seeing for the first time in this batch.
+            
+            let newKeyEvents = events.filter { $0.type.starts(with: ORG_FUTO_SSSS_KEY_PREFIX) }
+            let newDefaultkeyEvents = events.filter { $0.type == M_SECRET_STORAGE_DEFAULT_KEY }
+            let otherEvents = events.filter { event in
+                !event.type.starts(with: ORG_FUTO_SSSS_KEY_PREFIX) && !(event.type == M_SECRET_STORAGE_DEFAULT_KEY)
+            }
+            
+            for event in newKeyEvents {
+                try await handleAccountDataEvent(event)
+            }
+            
+            for event in newDefaultkeyEvents {
+                try await handleAccountDataEvent(event)
+
+            }
+            
+            for event in otherEvents {
+                try await handleAccountDataEvent(event)
+            }
+            
         }
         
         public func handleAccountDataEvent(_ event: AccountDataEvent) async throws {
+
             if event.type == M_SECRET_STORAGE_DEFAULT_KEY {
                 
                 // New default key
@@ -273,7 +302,7 @@ extension Matrix {
                     // Not sure what to do here...
                     // I guess we save the new default key id as "pending" and wait for the key itself to come in???
                     // FIXME: Not implemented
-                    logger.error("FIXME: Not really handling \(event.type) yet")
+                    logger.error("FIXME: Not really handling new default key event yet")
                 }
                 
             } else if event.type.starts(with: M_SECRET_STORAGE_KEY_PREFIX) {
@@ -285,7 +314,7 @@ extension Matrix {
                     return
                 }
                 // FIXME: Not implemented
-                logger.error("FIXME: Not really handling \(event.type) yet")
+                logger.error("FIXME: Not really handling new key description events yet")
                 
             } else if event.type.starts(with: ORG_FUTO_SSSS_KEY_PREFIX) {
                 // New encrypted secret storage key
