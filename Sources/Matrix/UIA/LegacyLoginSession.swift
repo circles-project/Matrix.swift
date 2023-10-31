@@ -13,6 +13,7 @@ public class LegacyLoginSession: ObservableObject {
     public var initialDeviceDisplayName: String?
     
     var completion: ((Matrix.Credentials) async throws -> Void)?
+    var cancellation: (() async -> Void)?
     
     public enum Status {
         case new
@@ -24,12 +25,14 @@ public class LegacyLoginSession: ObservableObject {
     public init(userId: UserId,
                 deviceId: String? = nil,
                 initialDeviceDisplayName: String? = nil,
-                completion: ((Matrix.Credentials) async throws -> Void)? = nil
+                completion: ((Matrix.Credentials) async throws -> Void)? = nil,
+                cancellation: (() async -> Void)? = nil
     ) {
         self.userId = userId
         self.deviceId = deviceId
         self.initialDeviceDisplayName = initialDeviceDisplayName
         self.completion = completion
+        self.cancellation = cancellation
         self.status = .new
     }
     

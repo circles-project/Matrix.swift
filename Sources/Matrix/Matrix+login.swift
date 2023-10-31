@@ -128,12 +128,24 @@ extension Matrix {
         request.httpBody = requestData
         let (data, response) = try await URLSession.shared.data(for: request)
 
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200
+        guard let httpResponse = response as? HTTPURLResponse
         else {
-            Matrix.logger.error("Login request failed")
+            Matrix.logger.error("Invalid login response")
+            throw Matrix.Error("Invalid login response")
+        }
+        
+        guard httpResponse.statusCode == 200
+        else {
+            Matrix.logger.error("Login request failed - Got HTTP \(httpResponse.statusCode)")
+            
+            let decoder = JSONDecoder()
+            if let err = try? decoder.decode(ErrorResponse.self, from: data) {
+                Matrix.logger.error("Login got errcode = \(err.errcode)   error = \(err.error)")
+            }
+            
             throw Matrix.Error("Login request failed")
         }
+        Matrix.logger.debug("Login request success.  Decoding login response...")
         
         let decoder = JSONDecoder()
         guard let creds = try? decoder.decode(Credentials.self, from: data)
@@ -141,6 +153,7 @@ extension Matrix {
             Matrix.logger.error("Failed to decode login credentials from the server")
             throw Matrix.Error("Failed to decode login credentials")
         }
+        Matrix.logger.debug("Login succeeded - Got userId \(creds.userId)")
         
         return creds
     }
