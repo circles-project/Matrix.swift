@@ -39,6 +39,7 @@ extension Matrix {
         ) {
             self.identifier = .init(type: "m.id.user", user: userId.stringValue)
             self.type = M_LOGIN_PASSWORD
+            self.password = password
             self.deviceId = deviceId
             self.initialDeviceDisplayName = initialDeviceDisplayName
         }
@@ -126,6 +127,8 @@ extension Matrix {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.httpBody = requestData
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse
