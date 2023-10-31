@@ -233,23 +233,19 @@ public class UIAuthSession: UIASession, ObservableObject {
     
     public func doPasswordAuthStage(password: String) async throws {
 
-        // Added base64 encoding here to prevent a possible injection attack on the password field
-        let base64Password = Data(password.utf8).base64EncodedString()
-
         let passwordAuthDict: [String: String] = [
             "type": AUTH_TYPE_LOGIN_PASSWORD,
-            "password": base64Password,
+            "password": password,
         ]
         
         try await doUIAuthStage(auth: passwordAuthDict)
     }
     
     public func doPasswordEnrollStage(newPassword: String) async throws {
-        let base64Password = Data(newPassword.utf8).base64EncodedString()
 
         let passwordAuthDict: [String: String] = [
             "type": AUTH_TYPE_ENROLL_PASSWORD,
-            "new_password": base64Password,
+            "new_password": newPassword,
         ]
         
         try await doUIAuthStage(auth: passwordAuthDict)
