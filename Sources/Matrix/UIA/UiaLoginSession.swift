@@ -8,7 +8,7 @@
 import Foundation
 import AnyCodable
 
-public class LoginSession: UIAuthSession {
+public class UiaLoginSession: UIAuthSession {
     
     public convenience init(userId: UserId,
                             password: String? = nil,
