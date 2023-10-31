@@ -50,7 +50,7 @@ public class LoginSession: UIAuthSession {
         }
 
         var args: [String: Codable] = [
-            "identifier": LoginRequestBody.Identifier(type: "m.id.user", user: "\(userId)"),
+            "identifier": Matrix.LoginRequestBody.Identifier(type: "m.id.user", user: "\(userId)"),
         ]
         
         // For legacy non-UIA login
