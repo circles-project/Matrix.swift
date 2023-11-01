@@ -154,7 +154,7 @@ final class MatrixTests: XCTestCase {
         let wellknown = try await Matrix.fetchWellKnown(for: domain)
         
         // Create a UIAuthSession with the homeserver
-        let authSession = try await LoginSession(username: username, domain: domain)
+        let authSession = try await UiaLoginSession(username: username, domain: domain)
         try await authSession.connect()
         XCTAssertNotNil(authSession.sessionState)
         let uiaState = authSession.sessionState!

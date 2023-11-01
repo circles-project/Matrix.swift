@@ -8,31 +8,7 @@
 import Foundation
 import AnyCodable
 
-public class LoginSession: UIAuthSession {
-    
-    public struct LoginRequestBody: Codable {
-        public struct Identifier: Codable {
-            public let type: String
-            public let user: String
-        }
-        public var identifier: Identifier
-        public var type: String?
-        public var password: String?
-        public var token: String?
-        public var deviceId: String?
-        public var initialDeviceDisplayName: String?
-        public var refreshToken: Bool?
-        
-        public enum CodingKeys: String, CodingKey {
-            case identifier
-            case type
-            case password
-            case token
-            case deviceId = "device_id"
-            case initialDeviceDisplayName = "initial_device_display_name"
-            case refreshToken = "refresh_token"
-        }
-    }
+public class UiaLoginSession: UIAuthSession {
     
     public convenience init(userId: UserId,
                             password: String? = nil,
@@ -68,14 +44,13 @@ public class LoginSession: UIAuthSession {
     ) async throws {
         let version = "v3"
         let urlPath = "/_matrix/client/\(version)/login"
-        let wellknown = try await Matrix.fetchWellKnown(for: userId.domain)
         
-        guard let url = URL(string: wellknown.homeserver.baseUrl + urlPath) else {
+        guard let url = URL(string: urlPath, relativeTo: homeserver) else {
             throw Matrix.Error("Couldn't construct /login URL")
         }
 
         var args: [String: Codable] = [
-            "identifier": LoginRequestBody.Identifier(type: "m.id.user", user: "\(userId)"),
+            "identifier": Matrix.LoginRequestBody.Identifier(type: "m.id.user", user: "\(userId)"),
         ]
         
         // For legacy non-UIA login

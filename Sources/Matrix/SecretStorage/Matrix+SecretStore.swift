@@ -244,10 +244,39 @@ extension Matrix {
             }
             
             self.session.addAccountDataHandler(filter: filter,
-                                               handler: self.handleAccountDataEvent)
+                                               handler: self.handleAccountDataEvents)
+        }
+        
+        public func handleAccountDataEvents(_ events: [AccountDataEvent]) async throws {
+            
+            // We need to be a bit smart about how we handle the events here
+            // The events may arrive in any order.  But for us, order is very important.
+            // We need to process all new keys before we try to set the new default key,
+            // in case the new key is one that we're seeing for the first time in this batch.
+            
+            let newKeyEvents = events.filter { $0.type.starts(with: ORG_FUTO_SSSS_KEY_PREFIX) }
+            let newDefaultkeyEvents = events.filter { $0.type == M_SECRET_STORAGE_DEFAULT_KEY }
+            let otherEvents = events.filter { event in
+                !event.type.starts(with: ORG_FUTO_SSSS_KEY_PREFIX) && !(event.type == M_SECRET_STORAGE_DEFAULT_KEY)
+            }
+            
+            for event in newKeyEvents {
+                try await handleAccountDataEvent(event)
+            }
+            
+            for event in newDefaultkeyEvents {
+                try await handleAccountDataEvent(event)
+
+            }
+            
+            for event in otherEvents {
+                try await handleAccountDataEvent(event)
+            }
+            
         }
         
         public func handleAccountDataEvent(_ event: AccountDataEvent) async throws {
+
             if event.type == M_SECRET_STORAGE_DEFAULT_KEY {
                 
                 // New default key
@@ -273,7 +302,7 @@ extension Matrix {
                     // Not sure what to do here...
                     // I guess we save the new default key id as "pending" and wait for the key itself to come in???
                     // FIXME: Not implemented
-                    logger.error("FIXME: Not really handling \(event.type) yet")
+                    logger.error("FIXME: Not really handling new default key event yet")
                 }
                 
             } else if event.type.starts(with: M_SECRET_STORAGE_KEY_PREFIX) {
@@ -285,7 +314,7 @@ extension Matrix {
                     return
                 }
                 // FIXME: Not implemented
-                logger.error("FIXME: Not really handling \(event.type) yet")
+                logger.error("FIXME: Not really handling new key description events yet")
                 
             } else if event.type.starts(with: ORG_FUTO_SSSS_KEY_PREFIX) {
                 // New encrypted secret storage key
@@ -731,8 +760,8 @@ extension Matrix {
             // Super basic level: Add the new key to our keys
             self.keys[ssk.keyId] = ssk.key
             
-            // Create the key description that allows us (and other clients) to verify that we have the correct bytes for the key
-            try await self.registerKey(key: ssk)
+            // Save it in our keychain so it will be there next time we launch the app
+            try await self.keychain.saveKey(key: ssk.key, keyId: ssk.keyId)
             
             // Now we need to be sure to keep all our bookkeeping stuff in order
             switch state {
@@ -758,6 +787,9 @@ extension Matrix {
                 // Save our new key, encrypted under the old key, so other clients can access it
                 try await self.saveSecretString(base64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(ssk.keyId)")
 
+                // Create the key description that allows us (and other clients) to verify that we have the correct bytes for the key
+                try await self.registerKey(key: ssk)
+                
                 if makeDefault {
                     // Switch to the new key as our default
                     self.state = .online(ssk.keyId)
@@ -784,6 +816,9 @@ extension Matrix {
                 if makeDefault {
                     // Switch to the new key as our default
                     self.state = .online(ssk.keyId)
+                    // Create the key description that allows us (and other clients) to verify that we have the correct bytes for the key
+                    try await self.registerKey(key: ssk)
+                    // Mark the new key as the default
                     try await self.setDefaultKeyId(keyId: ssk.keyId)
                 }
             }
@@ -922,19 +957,22 @@ extension Matrix {
         
         public func generateKey(keyId: String, password: String, description: KeyDescriptionContent) throws -> SecretStorageKey? {
             guard let algorithm = description.passphrase?.algorithm,
-                  let iterations = description.passphrase?.iterations,
-                  let salt = description.passphrase?.salt,
-                  let bitLength = description.passphrase?.bits
+                  let salt = description.passphrase?.salt
             else {
-                logger.error("Can't generate secret storage key without algorithm and iterations")
+                logger.error("Can't generate secret storage key without algorithm and salt")
                 return nil
             }
             
+            let iterations = description.passphrase?.iterations ?? 100_000
+            let bitLength = description.passphrase?.bits ?? 256
+
+            
             switch algorithm {
             case M_PBKDF2:
-                logger.debug("Generating PBKDF2 key")
                 let rounds = UInt32(iterations)
                 let byteLength: UInt = UInt(bitLength) / 8
+                logger.debug("Generating PBKDF2 key  (rounds = \(rounds), length = \(byteLength)")
+
                 let keyBytes = PBKDF.deriveKey(password: password, salt: salt, prf: .sha512, rounds: rounds, derivedKeyLength: byteLength)
                 let keyData = Data(keyBytes)
                 logger.debug("Generated key data = \(Base64.padded(keyData))")

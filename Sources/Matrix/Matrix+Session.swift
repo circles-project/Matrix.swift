@@ -45,7 +45,7 @@ extension Matrix {
         
         // cvw: Stuff that we need to add, but haven't got to yet
         public typealias AccountDataFilter = (String) -> Bool
-        public typealias AccountDataHandler = (AccountDataEvent) async throws -> Void
+        public typealias AccountDataHandler = ([AccountDataEvent]) async throws -> Void
         @Published public private(set) var accountData: [String: Codable]
         private var accountDataHandlers: [(AccountDataFilter,AccountDataHandler)] = []
         
@@ -603,15 +603,21 @@ extension Matrix {
             // FIXME: Do something with AccountData
             if let newAccountDataEvents = responseBody.accountData?.events {
                 logger.debug("Found \(newAccountDataEvents.count, privacy: .public) account data events")
+                
+                // Call any registered account data handler callbacks
+                for (filter,handler) in self.accountDataHandlers {
+                    let matchingEvents = newAccountDataEvents.filter({ filter($0.type) })
+                    if !matchingEvents.isEmpty
+                    {
+                        try await handler(matchingEvents)
+                    }
+                }
+                
+                // Update our own local copy
                 var updates = [String: Codable]()
                 for event in newAccountDataEvents {
                     logger.debug("Got account data with type = \(event.type, privacy: .public)")
                     updates[event.type] = event.content
-                    for (filter,handler) in self.accountDataHandlers {
-                        if filter(event.type) {
-                            try await handler(event)
-                        }
-                    }
                 }
                 // Do the merge before we move to the main thread
                 let updatedAccountData = self.accountData.merging(updates, uniquingKeysWith: { (current,new) in new } )
@@ -1030,7 +1036,9 @@ extension Matrix {
         
         public override func putAccountData(_ content: Codable, for eventType: String) async throws {
             try await super.putAccountData(content, for: eventType)
-            self.accountData[eventType] = content
+            await MainActor.run {
+                self.accountData[eventType] = content
+            }
         }
         
         public func addAccountDataHandler(filter: @escaping AccountDataFilter, handler: @escaping AccountDataHandler) {
