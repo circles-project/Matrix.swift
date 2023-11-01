@@ -1036,7 +1036,9 @@ extension Matrix {
         
         public override func putAccountData(_ content: Codable, for eventType: String) async throws {
             try await super.putAccountData(content, for: eventType)
-            self.accountData[eventType] = content
+            await MainActor.run {
+                self.accountData[eventType] = content
+            }
         }
         
         public func addAccountDataHandler(filter: @escaping AccountDataFilter, handler: @escaping AccountDataHandler) {
