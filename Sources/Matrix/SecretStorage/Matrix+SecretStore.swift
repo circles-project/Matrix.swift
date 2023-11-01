@@ -760,8 +760,8 @@ extension Matrix {
             // Super basic level: Add the new key to our keys
             self.keys[ssk.keyId] = ssk.key
             
-            // Create the key description that allows us (and other clients) to verify that we have the correct bytes for the key
-            try await self.registerKey(key: ssk)
+            // Save it in our keychain so it will be there next time we launch the app
+            try await self.keychain.saveKey(key: ssk.key, keyId: ssk.keyId)
             
             // Now we need to be sure to keep all our bookkeeping stuff in order
             switch state {
@@ -787,6 +787,9 @@ extension Matrix {
                 // Save our new key, encrypted under the old key, so other clients can access it
                 try await self.saveSecretString(base64Key, type: "\(ORG_FUTO_SSSS_KEY_PREFIX).\(ssk.keyId)")
 
+                // Create the key description that allows us (and other clients) to verify that we have the correct bytes for the key
+                try await self.registerKey(key: ssk)
+                
                 if makeDefault {
                     // Switch to the new key as our default
                     self.state = .online(ssk.keyId)
@@ -813,6 +816,9 @@ extension Matrix {
                 if makeDefault {
                     // Switch to the new key as our default
                     self.state = .online(ssk.keyId)
+                    // Create the key description that allows us (and other clients) to verify that we have the correct bytes for the key
+                    try await self.registerKey(key: ssk)
+                    // Mark the new key as the default
                     try await self.setDefaultKeyId(keyId: ssk.keyId)
                 }
             }
