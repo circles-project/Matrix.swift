@@ -1360,14 +1360,14 @@ extension Matrix {
             return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
         }
         
-        public func redact(eventId: EventId, reason: String?) async throws -> EventId {
+        public func redact(eventId: EventId, reason: String? = nil) async throws -> EventId {
             let redactionEventId = try await self.session.sendRedactionEvent(to: self.roomId, for: eventId, reason: reason)
             self.timeline.removeValue(forKey: eventId)
             try await self.session.deleteEvent(eventId, in: self.roomId)
             return redactionEventId
         }
         
-        public func report(eventId: EventId, score: Int, reason: String?) async throws {
+        public func report(eventId: EventId, score: Int, reason: String? = nil) async throws {
             try await self.session.sendReport(for: eventId, in: self.roomId, score: score, reason: reason)
         }
         
