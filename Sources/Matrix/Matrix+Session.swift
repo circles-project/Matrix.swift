@@ -487,10 +487,9 @@ extension Matrix {
                         }
                         
                         // Also process any redactions that need to hit the database
-                        let redactionEvents = timelineEvents
-                                                .filter { $0.type == M_ROOM_REDACTION }
-                                                .compactMap { try? ClientEvent(from: $0, roomId: roomId) }
-                        try await store.processRedactions(redactionEvents)
+                        let redactionEventsWithRoomId = redactionEvents
+                                                            .compactMap { try? ClientEvent(from: $0, roomId: roomId) }
+                        try await store.processRedactions(redactionEventsWithRoomId)
                         
                         // Save the room summary with the latest timestamp
                         if let timestamp = roomTimestamp {
@@ -550,6 +549,7 @@ extension Matrix {
                         // Update the room with the latest data from `info`
                         await room.updateState(from: stateEvents)
                         try await room.updateTimeline(from: timelineEvents)
+                        await room.updateRedactions(redactionEvents)
                         
                         if let unread = info.unreadNotifications {
                             //logger.debug("\t\(unread.notificationCount) notifications, \(unread.highlightCount) highlights")

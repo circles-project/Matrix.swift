@@ -201,6 +201,52 @@ extension Matrix {
             await self.addReaction(event: message.event)
         }
         
+        public func removeReaction(event: ClientEventWithoutRoomId) async {
+            guard let content = event.content as? ReactionContent,
+                  let key = content.relatesTo.key
+            else {
+                logger.error("Can't remove reaction: Event \(event.eventId) is not a reaction")
+                return
+            }
+            
+            await MainActor.run {
+                reactions[key]?.remove(event.sender)
+            }
+        }
+                
+        public func removeReaction(message: Message) async {
+            await self.removeReaction(event: message.event)
+        }
+        
+        public func sendRemoveReaction(_ emoji: String) async throws {
+            let userId = room.session.creds.userId
+            guard reactions[emoji]?.contains(userId) ?? false
+            else {
+                logger.error("Can't remove reaction \(emoji) because there isn't one from us")
+                return
+            }
+            
+            // Now we have to go digging in the room's data to find the original event
+            guard let messages = room.relations[M_REACTION]?[eventId],
+                  let myMessage = messages.first(where: { message in
+                      guard message.sender.userId == userId,
+                            let content = message.content as? ReactionContent,
+                            content.relatesTo.key == emoji
+                      else {
+                          return false
+                      }
+                      return true
+                  })
+            else {
+                logger.error("Can't find my reaction message for \(emoji)")
+                return
+            }
+            
+            // Redact the original event to remove the reaction
+            try await self.room.redact(eventId: myMessage.eventId)
+            
+        }
+        
         public func loadReactions() {
             logger.debug("Loading reactions")
             
@@ -247,6 +293,13 @@ extension Matrix {
                 }
             }
             logger.debug("Now we have \(self.replies?.count ?? 0) replies")
+        }
+        
+        public func removeReply(message: Message) async {
+            logger.debug("Removing reply message \(message.eventId)")
+            await MainActor.run {
+                self.replies?.removeAll(where: { $0.eventId == message.eventId })
+            }
         }
         
         // MARK: Replacements

@@ -294,6 +294,46 @@ extension Matrix {
             }
         }
         
+        // MARK: Update redactions
+        public func updateRedactions(_ events: [ClientEventWithoutRoomId]) async {
+            for event in events {
+                guard event.type == M_ROOM_REDACTION,
+                      let content = event.content as? RedactionContent,
+                      let redactedEventId = content.redacts
+                else {
+                    continue
+                }
+                
+                if let message = self.timeline[redactedEventId] {
+                    
+                    // Special handling -- Updating related messages etc
+                    switch message.type {
+                        
+                    case M_REACTION:
+                        if let parentEventId = message.relatedEventId,
+                           let parent = self.timeline[parentEventId]
+                        {
+                            await parent.removeReaction(message: message)
+                        }
+                        
+                    case M_ROOM_MESSAGE:
+                        if let parentEventId = message.replyToEventId ?? message.relatedEventId,
+                           let parent = self.timeline[parentEventId]
+                        {
+                            await parent.removeReply(message: message)
+                        }
+                        
+                    default:
+                        logger.warning("No special handling for redacted message of type \(message.type)")
+                    }
+                    
+                    await MainActor.run {
+                        self.timeline[redactedEventId] = nil
+                    }
+                }
+            }
+        }
+        
         // MARK: Load Reactions
         public func loadReactions(for eventId: EventId) async throws -> [ClientEventWithoutRoomId] {
             let reactionEvents = try await self.session.loadRelatedEvents(for: eventId, in: self.roomId, relType: M_ANNOTATION, type: M_REACTION)
