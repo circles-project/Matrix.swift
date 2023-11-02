@@ -625,7 +625,7 @@ public class Client {
         
         print("CREATEROOM\tSending Matrix API request...")
         let (data, response) = try await call(method: "POST",
-                                    path: "/_matrix/client/\(version)/createRoom",
+                                    path: "/_matrix/client/v3/createRoom",
                                     body: requestBody)
         print("CREATEROOM\tGot Matrix API response")
         
