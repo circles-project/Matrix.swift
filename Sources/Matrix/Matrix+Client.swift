@@ -512,6 +512,7 @@ public class Client {
     // https://spec.matrix.org/v1.2/client-server-api/#post_matrixclientv3createroom
     public func createRoom(name: String,
                     type: String? = nil,
+                    version: String = DEFAULT_ROOM_VERSION,
                     encrypted: Bool = true,
                     invite userIds: [UserId] = [],
                     direct: Bool = false,
@@ -569,7 +570,7 @@ public class Client {
             }
             var preset: Preset = .private_chat
             var room_alias_name: String?
-            var room_version: String = "10"
+            var room_version: String
             var topic: String?
             enum Visibility: String, Codable {
                 case pub = "public"
@@ -577,7 +578,10 @@ public class Client {
             }
             var visibility: Visibility = .priv
             
-            init(name: String, type: String? = nil, encrypted: Bool,
+            init(name: String,
+                 type: String? = nil, 
+                 version: String = DEFAULT_ROOM_VERSION,
+                 encrypted: Bool,
                  joinRule: RoomJoinRuleContent.JoinRule? = nil,
                  powerLevelContentOverride: RoomPowerLevelsContent? = nil
             ) {
@@ -607,12 +611,17 @@ public class Client {
                     self.creation_content = ["type": roomType]
                 }
                 
+                self.room_version = version
+                
                 if let powerLevels = powerLevelContentOverride {
                     self.power_level_content_override = powerLevels
                 }
             }
         }
-        let requestBody = CreateRoomRequestBody(name: name, type: type, encrypted: encrypted,
+        let requestBody = CreateRoomRequestBody(name: name,
+                                                type: type,
+                                                version: version,
+                                                encrypted: encrypted,
                                                 joinRule: joinRule,
                                                 powerLevelContentOverride: powerLevelContentOverride)
         
