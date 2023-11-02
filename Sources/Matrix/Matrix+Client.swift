@@ -21,7 +21,6 @@ extension Matrix {
 public class Client {
     public var creds: Matrix.Credentials
     public var baseUrl: URL
-    public let version: String
     private var apiUrlSession: URLSession   // For making API calls
     private var mediaUrlSession: URLSession // For downloading media
     private var mediaCache: URLCache        // For downloading media
@@ -32,7 +31,6 @@ public class Client {
     // MARK: Init
     
     public init(creds: Matrix.Credentials) async throws {
-        self.version = "v3"
         let logger = os.Logger(subsystem: "matrix", category: "client")
         self.logger = logger
         
@@ -210,7 +208,7 @@ public class Client {
     // https://spec.matrix.org/v1.2/client-server-api/#put_matrixclientv3profileuseriddisplayname
     public func setMyDisplayName(_ name: String) async throws {
         let (_, _) = try await call(method: "PUT",
-                                    path: "/_matrix/client/\(version)/profile/\(creds.userId)/displayname",
+                                    path: "/_matrix/client/v3/profile/\(creds.userId)/displayname",
                                     body: [
                                         "displayname": name,
                                     ])
@@ -226,7 +224,7 @@ public class Client {
     
     public func setMyAvatarUrl(_ mxc: MXC) async throws {
         let (_,_) = try await call(method: "PUT",
-                                   path: "_matrix/client/\(version)/profile/\(creds.userId)/avatar_url",
+                                   path: "_matrix/client/v3/profile/\(creds.userId)/avatar_url",
                                    body: [
                                      "avatar_url": "\(mxc)",
                                    ])
@@ -237,13 +235,13 @@ public class Client {
             "presence": "online",
             "status_msg": message,
         ]
-        try await call(method: "PUT", path: "/_matrix/client/\(version)/presence/\(creds.userId)/status", body: body)
+        try await call(method: "PUT", path: "/_matrix/client/v3/presence/\(creds.userId)/status", body: body)
     }
     
     // MARK: Other User Profiles
     
     public func getDisplayName(userId: UserId) async throws -> String? {
-        let path = "/_matrix/client/\(version)/profile/\(userId)/displayname"
+        let path = "/_matrix/client/v3/profile/\(userId)/displayname"
         let (data, response) = try await call(method: "GET", path: path)
         
         struct ResponseBody: Codable {
@@ -263,7 +261,7 @@ public class Client {
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3profileuseridavatar_url
     public func getAvatarUrl(userId: UserId) async throws -> MXC? {
-        let path = "/_matrix/client/\(version)/profile/\(userId)/avatar_url"
+        let path = "/_matrix/client/v3/profile/\(userId)/avatar_url"
         let (data, response) = try await call(method: "GET", path: path)
         
         struct ResponseBody: Codable {
@@ -302,7 +300,7 @@ public class Client {
     
     public func getProfileInfo(userId: UserId) async throws -> (String?,MXC?) {
                
-        let (data, response) = try await call(method: "GET", path: "/_matrix/client/\(version)/profile/\(userId)")
+        let (data, response) = try await call(method: "GET", path: "/_matrix/client/v3/profile/\(userId)")
         
         struct UserProfileInfo: Codable {
             let displayName: String?
@@ -393,7 +391,7 @@ public class Client {
     // MARK: Devices
     
     public func getDevices() async throws -> [Matrix.MyDevice] {
-        let path = "/_matrix/client/\(version)/devices"
+        let path = "/_matrix/client/v3/devices"
         let (data, response) = try await call(method: "GET", path: path)
         
         struct DeviceInfo: Codable {
@@ -445,7 +443,7 @@ public class Client {
     }
     
     public func setDeviceDisplayName(deviceId: String, displayName: String) async throws {
-        let path = "/_matrix/client/\(version)/devices/\(deviceId)"
+        let path = "/_matrix/client/v3/devices/\(deviceId)"
         let (data, response) = try await call(method: "PUT",
                                               path: path,
                                               body: [
@@ -490,7 +488,7 @@ public class Client {
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3joined_rooms
     public func getJoinedRoomIds() async throws -> [RoomId] {
         
-        let (data, response) = try await call(method: "GET", path: "/_matrix/client/\(version)/joined_rooms")
+        let (data, response) = try await call(method: "GET", path: "/_matrix/client/v3/joined_rooms")
         
         struct ResponseBody: Codable {
             var joinedRooms: [RoomId]
@@ -654,7 +652,7 @@ public class Client {
         print("SENDSTATE\tSending state event of type [\(type)] to room [\(roomId)]")
         
         let (data, response) = try await call(method: "PUT",
-                                              path: "/_matrix/client/\(version)/rooms/\(roomId)/state/\(type)/\(stateKey)",
+                                              path: "/_matrix/client/v3/rooms/\(roomId)/state/\(type)/\(stateKey)",
                                               body: content)
         struct ResponseBody: Codable {
             var eventId: EventId
@@ -680,7 +678,7 @@ public class Client {
 
         let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
         let (data, response) = try await call(method: "PUT",
-                                              path: "/_matrix/client/\(version)/rooms/\(roomId)/send/\(type)/\(txnId)",
+                                              path: "/_matrix/client/v3/rooms/\(roomId)/send/\(type)/\(txnId)",
                                               body: content)
         
         struct ResponseBody: Codable {
@@ -716,7 +714,7 @@ public class Client {
         
         let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
         let (data, response) = try await call(method: "PUT",
-                                              path: "/_matrix/client/\(version)/rooms/\(roomId)/redact/\(eventId)/\(txnId)",
+                                              path: "/_matrix/client/v3/rooms/\(roomId)/redact/\(eventId)/\(txnId)",
                                               body: ["reason": reason])
         
         struct ResponseBody: Codable {
@@ -743,7 +741,7 @@ public class Client {
         
         let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
         let (data, response) = try await call(method: "PUT",
-                                              path: "/_matrix/client/\(version)/rooms/\(roomId)/report/\(eventId)/\(txnId)",
+                                              path: "/_matrix/client/v3/rooms/\(roomId)/report/\(eventId)/\(txnId)",
                                               body: [
                                                 "reason": AnyCodable(reason),
                                                 "score": AnyCodable(score)
@@ -754,13 +752,13 @@ public class Client {
     // MARK: Room tags
     
     public func addTag(roomId: RoomId, tag: String, order: Float? = nil) async throws {
-        let path = "/_matrix/client/\(version)/user/\(creds.userId)/rooms/\(roomId)/tags/\(tag)"
+        let path = "/_matrix/client/v3/user/\(creds.userId)/rooms/\(roomId)/tags/\(tag)"
         let body = ["order": order ?? Float.random(in: 0.0 ..< 1.0)]
         let _ = try await call(method: "PUT", path: path, body: body)
     }
     
     private func getTagEventContent(roomId: RoomId) async throws -> TagContent {
-        let path = "/_matrix/client/\(version)/user/\(creds.userId)/rooms/\(roomId)/tags"
+        let path = "/_matrix/client/v3/user/\(creds.userId)/rooms/\(roomId)/tags"
         let (data, response) = try await call(method: "GET", path: path, body: nil)
         
         let decoder = JSONDecoder()
@@ -1008,7 +1006,7 @@ public class Client {
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3roomsroomidjoined_members
     public func getJoinedMembers(roomId: RoomId) async throws -> [UserId] {
-        let path = "/_matrix/client/\(version)/rooms/\(roomId)/joined_members"
+        let path = "/_matrix/client/v3/rooms/\(roomId)/joined_members"
         let (data, response) = try await call(method: "GET", path: path)
         let string = String(decoding: data, as: UTF8.self)
         print("getJoinedMembers:\t\(self.creds.userId) Got response = \(string)")
@@ -1037,7 +1035,7 @@ public class Client {
     // It's possible that we're introducing a vulnerability here -- The server could return events from other rooms
     // OTOH it can already do that when we call /sync, so what's new?
     public func getRoomStateEvents(roomId: RoomId) async throws -> [ClientEventWithoutRoomId] {
-        let path = "/_matrix/client/\(version)/rooms/\(roomId)/state"
+        let path = "/_matrix/client/v3/rooms/\(roomId)/state"
         
         let (data, response) = try await call(method: "GET", path: path)
 
@@ -1050,7 +1048,7 @@ public class Client {
     }
     
     public func getRoomState(roomId: RoomId, eventType: String, with stateKey: String = "") async throws -> Codable {
-        let path = "/_matrix/client/\(version)/rooms/\(roomId)/state/\(eventType)/\(stateKey)"
+        let path = "/_matrix/client/v3/rooms/\(roomId)/state/\(eventType)/\(stateKey)"
         let (data, response) = try await call(method: "GET", path: path)
         
         let decoder = JSONDecoder()
@@ -1067,7 +1065,7 @@ public class Client {
     }
     
     public func inviteUser(roomId: RoomId, userId: UserId, reason: String? = nil) async throws {
-        let path = "/_matrix/client/\(version)/rooms/\(roomId)/invite"
+        let path = "/_matrix/client/v3/rooms/\(roomId)/invite"
         let (data, response) = try await call(method: "POST",
                                               path: path,
                                               body: [
@@ -1078,7 +1076,7 @@ public class Client {
     }
     
     public func kickUser(roomId: RoomId, userId: UserId, reason: String? = nil) async throws {
-        let path = "/_matrix/client/\(version)/rooms/\(roomId)/kick"
+        let path = "/_matrix/client/v3/rooms/\(roomId)/kick"
         let (data, response) = try await call(method: "POST",
                                               path: path,
                                               body: [
@@ -1088,7 +1086,7 @@ public class Client {
     }
     
     public func banUser(roomId: RoomId, userId: UserId, reason: String? = nil) async throws {
-        let path = "/_matrix/client/\(version)/rooms/\(roomId)/ban"
+        let path = "/_matrix/client/v3/rooms/\(roomId)/ban"
         let (data, response) = try await call(method: "POST",
                                               path: path,
                                               body: [
@@ -1098,7 +1096,7 @@ public class Client {
     }
     
     public func join(roomId: RoomId, reason: String? = nil) async throws {
-        let path = "/_matrix/client/\(version)/rooms/\(roomId)/join"
+        let path = "/_matrix/client/v3/rooms/\(roomId)/join"
         let (data, response) = try await call(method: "POST",
                                               path: path,
                                               body: [
@@ -1107,7 +1105,7 @@ public class Client {
     }
     
     public func knock(roomId: RoomId, reason: String? = nil) async throws {
-        let path = "/_matrix/client/\(version)/knock/\(roomId)"
+        let path = "/_matrix/client/v3/knock/\(roomId)"
         let (data, response) = try await call(method: "POST",
                                               path: path,
                                               body: [
@@ -1116,7 +1114,7 @@ public class Client {
     }
     
     public func leave(roomId: RoomId, reason: String? = nil) async throws {
-        let path = "/_matrix/client/\(version)/rooms/\(roomId)/leave"
+        let path = "/_matrix/client/v3/rooms/\(roomId)/leave"
         let (data, response) = try await call(method: "POST",
                                               path: path,
                                               body: [
@@ -1125,7 +1123,7 @@ public class Client {
     }
     
     public func forget(roomId: RoomId) async throws {
-        let path = "/_matrix/client/\(version)/rooms/\(roomId)/forget"
+        let path = "/_matrix/client/v3/rooms/\(roomId)/forget"
         let (data, response) = try await call(method: "POST", path: path)
     }
     
@@ -1351,7 +1349,7 @@ public class Client {
     
     public func uploadData(data: Data, contentType: String) async throws -> MXC {
         
-        let url = URL(string: "/_matrix/media/\(version)/upload", relativeTo: baseUrl)!
+        let url = URL(string: "/_matrix/media/v3/upload", relativeTo: baseUrl)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
