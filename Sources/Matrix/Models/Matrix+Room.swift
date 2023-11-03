@@ -84,8 +84,11 @@ extension Matrix {
             self.accountData = [:]
             self.myReadReceipt = initialReadReceipt
             
-            self.logger = os.Logger(subsystem: "matrix", category: "room \(roomId)")
+            let logger = os.Logger(subsystem: "matrix", category: "room \(roomId)")
+            self.logger = logger
             
+            logger.debug("Creating Room from \(initialState.count, privacy: .public) state events and \(initialTimeline.count, privacy: .public) timeline events")
+
             // Ugh, sometimes all of our state is actually in the timeline.
             // This can happen especially for an initial sync when there are new rooms and very few messages.
             // See https://spec.matrix.org/v1.5/client-server-api/#syncing
@@ -103,12 +106,14 @@ extension Matrix {
                 d[stateKey] = event
                 self.state[event.type] = d
             }
+            logger.debug("Initialized room state")
             
             guard let creationEvent = state[M_ROOM_CREATE]?[""],
                   let creationContent = creationEvent.content as? RoomCreateContent
             else {
                 throw Matrix.Error("No m.room.create event")
             }
+            logger.debug("Found m.room.create event")
             
             // Swift Phase 1 initialization complete
             // See https://docs.swift.org/swift-book/documentation/the-swift-programming-language/initialization/#Two-Phase-Initialization
@@ -118,10 +123,12 @@ extension Matrix {
             for event in initialTimeline.sorted() {
                 self.timeline[event.eventId] = Matrix.Message(event: event, room: self)
             }
+            logger.debug("Initialized timeline")
             
             for event in initialAccountData {
                 self.accountData[event.type] = event.content
             }
+            logger.debug("Initialized account data")
             
             // Now run all the async stuff that we can't run in a sync context
             Task {
@@ -153,6 +160,8 @@ extension Matrix {
                 }
             }
             */
+            
+            logger.debug("Done with init()")
         }
         
         // MARK: Update Unread
