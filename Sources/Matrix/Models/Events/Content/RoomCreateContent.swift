@@ -9,7 +9,7 @@ import Foundation
 
 /// m.room.create: https://spec.matrix.org/v1.5/client-server-api/#mroomcreate
 public struct RoomCreateContent: Codable {
-    public let creator: UserId
+    public let creator: UserId?
     /// Whether users on other servers can join this room. Defaults to true if key does not exist.
     public let federate: Bool?
     
@@ -33,7 +33,7 @@ public struct RoomCreateContent: Codable {
     public let roomVersion: String?
     public let type: String?
     
-    public init(creator: UserId, federate: Bool?, predecessor: PreviousRoom?,
+    public init(creator: UserId?, federate: Bool?, predecessor: PreviousRoom?,
                 roomVersion: String?, type: String?) {
         self.creator = creator
         self.federate = federate
