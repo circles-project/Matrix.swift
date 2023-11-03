@@ -230,6 +230,12 @@ extension Matrix {
             
             // Also update our reactions, replies, and other relations
             await self.updateRelations(events: events)
+            
+            // Also process any redaction events
+            let redactions = events.filter({ $0.type == M_ROOM_REDACTION })
+            if !redactions.isEmpty {
+                await self.processRedactions(redactions)
+            }
         }
         
         // MARK: Update Relations
@@ -301,17 +307,22 @@ extension Matrix {
             }
         }
         
-        // MARK: Update redactions
-        public func updateRedactions(_ events: [ClientEventWithoutRoomId]) async {
+        // MARK: Process redactions
+        public func processRedactions(_ events: [ClientEventWithoutRoomId]) async {
+            logger.debug("Processing \(events.count) redaction events")
             for event in events {
                 guard event.type == M_ROOM_REDACTION,
                       let content = event.content as? RedactionContent,
                       let redactedEventId = content.redacts
                 else {
+                    logger.warning("Event \(event.eventId) is not a redaction event.  Ignoring.")
                     continue
                 }
                 
+                logger.debug("Event \(event.eventId) redacts \(redactedEventId)")
+                
                 if let message = self.timeline[redactedEventId] {
+                    logger.debug("Found redacted message \(message.eventId) in our timeline")
                     
                     // Special handling -- Updating related messages etc
                     switch message.type {
@@ -320,6 +331,7 @@ extension Matrix {
                         if let parentEventId = message.relatedEventId,
                            let parent = self.timeline[parentEventId]
                         {
+                            logger.debug("Redacted message \(message.eventId) is a reaction to messge \(parentEventId)")
                             await parent.removeReaction(message: message)
                         }
                         
@@ -334,6 +346,7 @@ extension Matrix {
                         logger.warning("No special handling for redacted message of type \(message.type)")
                     }
                     
+                    logger.debug("Removing redacted message \(redactedEventId) from our timeline")
                     await MainActor.run {
                         self.timeline[redactedEventId] = nil
                     }

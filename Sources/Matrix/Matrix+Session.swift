@@ -549,7 +549,6 @@ extension Matrix {
                         // Update the room with the latest data from `info`
                         await room.updateState(from: stateEvents)
                         try await room.updateTimeline(from: timelineEvents)
-                        await room.updateRedactions(redactionEvents)
                         
                         if let unread = info.unreadNotifications {
                             //logger.debug("\t\(unread.notificationCount) notifications, \(unread.highlightCount) highlights")
