@@ -246,12 +246,10 @@ extension Matrix {
                     {
                         logger.debug("relType = \(relType) relatedEventId = \(relatedEventId)")
                         // Update our state here in the Room
-                        if let set = self.relations[relType]?[relatedEventId] {
-                            await MainActor.run {
+                        await MainActor.run {
+                            if let set = self.relations[relType]?[relatedEventId] {
                                 self.relations[relType]![relatedEventId] = set.union([message])
-                            }
-                        } else {
-                            await MainActor.run {
+                            } else {
                                 self.relations[relType] = self.relations[relType] ?? [:]
                                 self.relations[relType]![relatedEventId] = [message]
                             }
