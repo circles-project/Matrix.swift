@@ -7,6 +7,8 @@
 
 import Foundation
 
+public let DEFAULT_ROOM_VERSION = "11"
+
 // MARK: Authentication types
 public let M_LOGIN_PASSWORD = "m.login.password"
 

@@ -71,7 +71,7 @@ extension Matrix {
             return redactionContent
             
         default:
-            return EmptyStruct()
+            return badContent
         }
     }
     

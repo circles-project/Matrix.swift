@@ -468,8 +468,6 @@ extension Matrix {
                     }
                     let allStateEvents = stateEvents + timelineStateEvents
                     
-                    let redactionEvents = timelineEvents.filter { $0.type == M_ROOM_REDACTION }
-                    
                     let roomTimestamp = timelineEvents.map { $0.originServerTS }.max()
                     
                     if let store = self.dataStore {
@@ -487,9 +485,8 @@ extension Matrix {
                         }
                         
                         // Also process any redactions that need to hit the database
-                        let redactionEvents = timelineEvents
-                                                .filter { $0.type == M_ROOM_REDACTION }
-                                                .compactMap { try? ClientEvent(from: $0, roomId: roomId) }
+                        let redactionEvents = timelineEvents.filter { $0.type == M_ROOM_REDACTION }
+                                                            .compactMap { try? ClientEvent(from: $0, roomId: roomId) }
                         try await store.processRedactions(redactionEvents)
                         
                         // Save the room summary with the latest timestamp

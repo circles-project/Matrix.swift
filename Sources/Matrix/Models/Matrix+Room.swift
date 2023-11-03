@@ -84,8 +84,11 @@ extension Matrix {
             self.accountData = [:]
             self.myReadReceipt = initialReadReceipt
             
-            self.logger = os.Logger(subsystem: "matrix", category: "room \(roomId)")
+            let logger = os.Logger(subsystem: "matrix", category: "room \(roomId)")
+            self.logger = logger
             
+            logger.debug("Creating Room from \(initialState.count, privacy: .public) state events and \(initialTimeline.count, privacy: .public) timeline events")
+
             // Ugh, sometimes all of our state is actually in the timeline.
             // This can happen especially for an initial sync when there are new rooms and very few messages.
             // See https://spec.matrix.org/v1.5/client-server-api/#syncing
@@ -103,12 +106,14 @@ extension Matrix {
                 d[stateKey] = event
                 self.state[event.type] = d
             }
+            logger.debug("Initialized room state")
             
             guard let creationEvent = state[M_ROOM_CREATE]?[""],
                   let creationContent = creationEvent.content as? RoomCreateContent
             else {
                 throw Matrix.Error("No m.room.create event")
             }
+            logger.debug("Found m.room.create event")
             
             // Swift Phase 1 initialization complete
             // See https://docs.swift.org/swift-book/documentation/the-swift-programming-language/initialization/#Two-Phase-Initialization
@@ -118,10 +123,12 @@ extension Matrix {
             for event in initialTimeline.sorted() {
                 self.timeline[event.eventId] = Matrix.Message(event: event, room: self)
             }
+            logger.debug("Initialized timeline")
             
             for event in initialAccountData {
                 self.accountData[event.type] = event.content
             }
+            logger.debug("Initialized account data")
             
             // Now run all the async stuff that we can't run in a sync context
             Task {
@@ -153,6 +160,8 @@ extension Matrix {
                 }
             }
             */
+            
+            logger.debug("Done with init()")
         }
         
         // MARK: Update Unread
@@ -221,6 +230,12 @@ extension Matrix {
             
             // Also update our reactions, replies, and other relations
             await self.updateRelations(events: events)
+            
+            // Also process any redaction events
+            let redactions = events.filter({ $0.type == M_ROOM_REDACTION })
+            if !redactions.isEmpty {
+                await self.processRedactions(redactions)
+            }
         }
         
         // MARK: Update Relations
@@ -237,12 +252,10 @@ extension Matrix {
                     {
                         logger.debug("relType = \(relType) relatedEventId = \(relatedEventId)")
                         // Update our state here in the Room
-                        if let set = self.relations[relType]?[relatedEventId] {
-                            await MainActor.run {
+                        await MainActor.run {
+                            if let set = self.relations[relType]?[relatedEventId] {
                                 self.relations[relType]![relatedEventId] = set.union([message])
-                            }
-                        } else {
-                            await MainActor.run {
+                            } else {
                                 self.relations[relType] = self.relations[relType] ?? [:]
                                 self.relations[relType]![relatedEventId] = [message]
                             }
@@ -290,6 +303,67 @@ extension Matrix {
                     } else {
                         logger.debug("Event \(event.eventId) doesn't look like a rich reply")
                     }
+                }
+            }
+        }
+        
+        // MARK: Process redactions
+        public func processRedactions(_ events: [ClientEventWithoutRoomId]) async {
+            logger.debug("Processing \(events.count) redaction events")
+            for event in events {
+                guard event.type == M_ROOM_REDACTION,
+                      let content = event.content as? RedactionContent,
+                      let redactedEventId = content.redacts
+                else {
+                    logger.warning("Event \(event.eventId) is not a redaction event.  Ignoring.")
+                    continue
+                }
+                
+                logger.debug("Event \(event.eventId) redacts \(redactedEventId)")
+                
+                if let messageToRedact = self.timeline[redactedEventId] {
+                    logger.debug("Found redacted message \(messageToRedact.eventId) in our timeline")
+                    
+                    // Special handling -- Updating related messages etc
+                    switch messageToRedact.type {
+                        
+                    case M_REACTION:
+                        logger.debug("Redacted message \(messageToRedact.eventId) is a reaction")
+
+                        if let parentEventId = messageToRedact.relatedEventId {
+                            if let parent = self.timeline[parentEventId] {
+                                logger.debug("Found redacted reaction message's parent \(parent.eventId)")
+                                await parent.removeReaction(message: messageToRedact)
+                            } else {
+                                logger.debug("Couldn't find parent for redacted reaction \(messageToRedact.eventId)")
+                            }
+                            
+                            await MainActor.run {
+                                self.relations[M_ANNOTATION]?[parentEventId]?.remove(messageToRedact)
+                            }
+                        }
+                        
+                    case M_ROOM_MESSAGE:
+                        if let parentEventId = messageToRedact.replyToEventId ?? messageToRedact.relatedEventId {
+                            if let parent = self.timeline[parentEventId] {
+                                await parent.removeReply(message: messageToRedact)
+                            }
+                            
+                            await MainActor.run {
+                                self.relations[M_THREAD]?[parentEventId]?.remove(messageToRedact)
+                            }
+                        }
+                        
+                    default:
+                        logger.warning("No special handling for redacted message of type \(messageToRedact.type)")
+                    }
+                    
+                    logger.debug("Removing redacted message \(redactedEventId) from our timeline")
+                    await MainActor.run {
+                        self.timeline[redactedEventId] = nil
+                    }
+                } else {
+                    logger.warning("Can't find redacted message \(redactedEventId) in our timeline")
                 }
             }
         }
@@ -1360,14 +1434,14 @@ extension Matrix {
             return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
         }
         
-        public func redact(eventId: EventId, reason: String?) async throws -> EventId {
+        public func redact(eventId: EventId, reason: String? = nil) async throws -> EventId {
             let redactionEventId = try await self.session.sendRedactionEvent(to: self.roomId, for: eventId, reason: reason)
-            self.timeline.removeValue(forKey: eventId)
-            try await self.session.deleteEvent(eventId, in: self.roomId)
+            //self.timeline.removeValue(forKey: eventId)
+            //try await self.session.deleteEvent(eventId, in: self.roomId)
             return redactionEventId
         }
         
-        public func report(eventId: EventId, score: Int, reason: String?) async throws {
+        public func report(eventId: EventId, score: Int, reason: String? = nil) async throws {
             try await self.session.sendReport(for: eventId, in: self.roomId, score: score, reason: reason)
         }
         
