@@ -31,7 +31,7 @@ public class Client {
     // MARK: Init
     
     public init(creds: Matrix.Credentials) async throws {
-        let logger = os.Logger(subsystem: "matrix", category: "client")
+        let logger = os.Logger(subsystem: "matrix", category: "\(creds.userId.stringValue) client")
         self.logger = logger
         
         logger.debug("Creating a new Matrix Client for user \(creds.userId)")
@@ -109,14 +109,14 @@ public class Client {
                      expectedStatuses: [Int] = [200]
     ) async throws -> (Data, HTTPURLResponse) {
         if let stringBody = body as? String {
-            print("APICALL\t\(self.creds.userId) String request body = \n\(stringBody)")
+            logger.debug("CALL String request body = \(stringBody)")
             let data = stringBody.data(using: .utf8)!
             return try await call(method: method, path: path, params: params, bodyData: data, expectedStatuses: expectedStatuses)
         } else if let codableBody = body {
             let encoder = JSONEncoder()
             encoder.keyEncodingStrategy = .convertToSnakeCase
             let encodedBody = try encoder.encode(AnyCodable(codableBody))
-            print("APICALL\t\(self.creds.userId) Raw request body = \n\(String(decoding: encodedBody, as: UTF8.self))")
+            logger.debug("CALL Raw request body = \(String(decoding: encodedBody, as: UTF8.self))")
             return try await call(method: method, path: path, params: params, bodyData: encodedBody, expectedStatuses: expectedStatuses)
         } else {
             let noBody: Data? = nil
@@ -131,7 +131,7 @@ public class Client {
                      bodyData: Data?=nil,
                      expectedStatuses: [Int] = [200]
     ) async throws -> (Data, HTTPURLResponse) {
-        print("APICALL\t\(self.creds.userId) Calling \(method) \(path)")
+        logger.debug("CALL \(method) \(path)")
 
         //let url = URL(string: path, relativeTo: baseUrl)!.appending(queryItems: queryItems)
         var components = URLComponents(url: URL(string: path, relativeTo: self.baseUrl)!, resolvingAgainstBaseURL: true)!
@@ -156,9 +156,8 @@ public class Client {
             
             guard let httpResponse = response as? HTTPURLResponse
             else {
-                let msg = "Couldn't handle HTTP response"
-                print("APICALL\t\(self.creds.userId) \(msg)")
-                throw Matrix.Error(msg)
+                logger.error("CALL Couldn't handle HTTP response")
+                throw Matrix.Error("Couldn't handle HTTP response")
             }
             
             if httpResponse.statusCode == 429 {
@@ -174,7 +173,7 @@ public class Client {
                     delayNs *= 2
                 }
                 
-                print("APICALL\t\(self.creds.userId) Got 429 error...  Waiting \(delayNs) nanosecs and then retrying")
+                logger.error("CALL Got 429 error...  Waiting \(delayNs, privacy: .public) nanosecs and then retrying")
                 try await Task.sleep(nanoseconds: delayNs)
                 
                 count += 1
@@ -182,18 +181,18 @@ public class Client {
                 slowDown = false
                 guard expectedStatuses.contains(httpResponse.statusCode)
                 else {
-                    let msg = "Matrix API call \(method) \(path) rejected with status \(httpResponse.statusCode)"
-                    print("APICALL\t\(self.creds.userId) \(msg)")
+                    logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) rejected with status \(httpResponse.statusCode, privacy: .public)")
                     let decoder = JSONDecoder()
                     if let errorResponse = try? decoder.decode(Matrix.ErrorResponse.self, from: data) {
                         print("APICALL\terrcode = \(errorResponse.errcode)\terror = \(errorResponse.error)")
+                        logger.error("CALL errcode = \(errorResponse.errcode, privacy: .public)\terror = \(errorResponse.error, privacy: .public)")
                     } else {
                         let errorString = String(decoding: data, as: UTF8.self)
-                        print("APICALL\tGot error response = \(errorString)")
+                        logger.error("CALL Got error response = \(errorString, privacy: .public)")
                     }
-                    throw Matrix.Error(msg)
+                    throw Matrix.Error("API call rejected with status \(httpResponse.statusCode)")
                 }
-                print("APICALL\tGot response with status \(httpResponse.statusCode)")
+                logger.debug("CALL \(method) \(path) Got response with status \(httpResponse.statusCode, privacy: .public)")
                 
                 return (data, httpResponse)
             }
@@ -315,9 +314,8 @@ public class Client {
         let decoder = JSONDecoder()
         guard let profileInfo: UserProfileInfo = try? decoder.decode(UserProfileInfo.self, from: data)
         else {
-            let msg = "Failed to decode user profile"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("Failed to decode user profile")
+            throw Matrix.Error("Failed to decode user profile")
         }
         
         return (profileInfo.displayName, profileInfo.avatarUrl)
@@ -432,9 +430,8 @@ public class Client {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let info = try? decoder.decode(DeviceInfo.self, from: data)
         else {
-            let msg = "Couldn't decode info for device \(deviceId)"
-            print("DEVICES\t\(msg)")
-            throw Matrix.Error(msg)
+            logger.error("DEVICES Couldn't decode info for device \(deviceId, privacy: .public)")
+            throw Matrix.Error("Couldn't decode info for device")
         }
         
         let device = Matrix.MyDevice(/*matrix: self,*/ deviceId: info.deviceId, displayName: info.displayName, lastSeenIp: info.lastSeenIp, lastSeenUnixMs: info.lastSeenTs)
@@ -470,15 +467,15 @@ public class Client {
             decoder.keyDecodingStrategy = .convertFromSnakeCase
             guard let uiaState = try? decoder.decode(UIAA.SessionState.self, from: data)
             else {
-                let msg = "Could not decode UIA info"
-                print("API\t\(msg)")
-                throw Matrix.Error(msg)
+                logger.error("DEVICES Failed to decode UIA info")
+                throw Matrix.Error("Failed to decode UIA info")
             }
             let uiaSession = UIAuthSession(method: "DELETE", url: URL(string: path, relativeTo: baseUrl)!, credentials: creds, requestDict: [:])
             uiaSession.state = .connected(uiaState)
             
             return uiaSession
         default:
+            logger.error("DEVICES Call to delete got unexpected response \(response.statusCode, privacy: .public)")
             throw Matrix.Error("Got unexpected response")
         }
     }
@@ -499,9 +496,8 @@ public class Client {
 
         guard let responseBody = try? decoder.decode(ResponseBody.self, from: data)
         else {
-            let msg = "Failed to decode list of joined rooms"
-            print("GETJOINEDROOMS\t\(msg)")
-            throw Matrix.Error(msg)
+            logger.error("ROOMS Failed to decode list of joined rooms")
+            throw Matrix.Error("Failed to decode list of joined rooms")
         }
         
         return responseBody.joinedRooms
@@ -517,7 +513,7 @@ public class Client {
                     joinRule: RoomJoinRuleContent.JoinRule? = nil,
                     powerLevelContentOverride: RoomPowerLevelsContent? = nil
     ) async throws -> RoomId {
-        print("CREATEROOM\tCreating room with name=[\(name)] and type=[\(type ?? "(none)")]")
+        logger.debug("CREATEROOM Creating room with name=[\(name)] and type=[\(type ?? "(none)", privacy: .public)]")
         
         struct CreateRoomRequestBody: Codable {
             var creation_content: [String: String] = [:]
@@ -623,11 +619,11 @@ public class Client {
                                                 joinRule: joinRule,
                                                 powerLevelContentOverride: powerLevelContentOverride)
         
-        print("CREATEROOM\tSending Matrix API request...")
+        logger.debug("CREATEROOM Sending Matrix API request...")
         let (data, response) = try await call(method: "POST",
                                     path: "/_matrix/client/v3/createRoom",
                                     body: requestBody)
-        print("CREATEROOM\tGot Matrix API response")
+        logger.debug("CREATEROOM Got Matrix API response \(response.statusCode, privacy: .public)")
         
         struct CreateRoomResponseBody: Codable {
             var roomId: String
@@ -636,11 +632,10 @@ public class Client {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let responseBody = try? decoder.decode(CreateRoomResponseBody.self, from: data)
         else {
-            let msg = "Failed to decode response from server"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("CREATEROOM Failed to decode response")
+            throw Matrix.Error("Failed to decode response")
         }
-        
+        logger.debug("CREATEROOM Created new room \(responseBody.roomId)")
         return RoomId(responseBody.roomId)!
     }
     
@@ -649,7 +644,7 @@ public class Client {
                         content: Codable,
                         stateKey: String = ""
     ) async throws -> EventId {
-        print("SENDSTATE\tSending state event of type [\(type)] to room [\(roomId)]")
+        logger.debug("SENDSTATE Sending state event of type [\(type, privacy: .public)] to room [\(roomId)]")
         
         let (data, response) = try await call(method: "PUT",
                                               path: "/_matrix/client/v3/rooms/\(roomId)/state/\(type)/\(stateKey)",
@@ -661,9 +656,8 @@ public class Client {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let responseBody = try? decoder.decode(ResponseBody.self, from: data)
         else {
-            let msg = "Failed to decode state event response"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("SENDSTATE Failed to decode state event response")
+            throw Matrix.Error("Failed to decode state event response")
         }
     
         return responseBody.eventId
@@ -674,7 +668,7 @@ public class Client {
                           type: String,
                           content: Codable
     ) async throws -> EventId {
-        print("SENDMESSAGE\tSending message event of type [\(type)] to room [\(roomId)]")
+        logger.debug("SENDMESSAGE Sending message event of type [\(type, privacy: .public)] to room [\(roomId)]")
 
         let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
         let (data, response) = try await call(method: "PUT",
@@ -688,9 +682,8 @@ public class Client {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let responseBody = try? decoder.decode(ResponseBody.self, from: data)
         else {
-            let msg = "Failed to decode state event response"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("SENDMESSAGE Failed to decode message event response")
+            throw Matrix.Error("Failed to decode message event response")
         }
     
         return responseBody.eventId
@@ -710,7 +703,7 @@ public class Client {
                             for eventId: EventId,
                             reason: String? = nil
     ) async throws -> EventId {
-        print("REDACT\tSending redaction for event [\(eventId)] to room [\(roomId)]")
+        logger.debug("REDACT Sending redaction for event [\(eventId)] to room [\(roomId)]")
         
         let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
         let (data, response) = try await call(method: "PUT",
@@ -724,9 +717,8 @@ public class Client {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let responseBody = try? decoder.decode(ResponseBody.self, from: data)
         else {
-            let msg = "Failed to decode state event response"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("REDACT Failed to decode response")
+            throw Matrix.Error("Failed to decode response")
         }
     
         return responseBody.eventId
@@ -737,7 +729,7 @@ public class Client {
                     score: Int,
                     reason: String? = nil
     ) async throws {
-        print("REPORT\tSending report for event [\(eventId)] in room [\(roomId)]")
+        logger.debug("REPORT Sending report for event [\(eventId)] in room [\(roomId)]")
         
         let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
         let (data, response) = try await call(method: "PUT",
@@ -765,9 +757,8 @@ public class Client {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let tagContent = try? decoder.decode(TagContent.self, from: data)
         else {
-            let msg = "Failed to decode room tag content"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("TAG Failed to decode room tag content")
+            throw Matrix.Error("Failed to decode tag content")
         }
         
         return tagContent
@@ -789,24 +780,21 @@ public class Client {
         
         guard let scaledImage = image.downscale(to: size)
         else {
-            let msg = "Failed to downscale image"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("AVATAR Failed to downscale image")
+            throw Matrix.Error("Failed to downscale image")
         }
-        logger.debug("Scaled image down to (\(scaledImage.size.width),\(scaledImage.size.height))")
+        logger.debug("AVATAR Scaled image down to (\(scaledImage.size.width),\(scaledImage.size.height))")
         
         guard let jpegData = scaledImage.jpegData(compressionQuality: quality)
         else {
-            let msg = "Failed to compress image"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("AVATAR Failed to compress image")
+            throw Matrix.Error("Failed to compress image")
         }
-        logger.debug("Compressed image down to \(Double(jpegData.count)/1024) KB")
+        logger.debug("AVATAR Compressed image down to \(Double(jpegData.count)/1024) KB")
         
         guard let mxc = try? await uploadData(data: jpegData, contentType: "image/jpeg") else {
-            let msg = "Failed to upload image for room avatar"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("AVATAR Failed to upload image")
+            throw Matrix.Error("Failed to upload image")
         }
         
         let info = mImageInfo(h: Int(scaledImage.size.height),
@@ -939,9 +927,8 @@ public class Client {
         
         guard let responseBody = try? decoder.decode(RelatedMessagesResponseBody.self, from: data)
         else {
-            let msg = "Failed to decode GET /threads response body"
-            logger.error("\(msg)")
-            throw Matrix.Error(msg)
+            logger.error("Failed to decode GET /threads response body")
+            throw Matrix.Error("Failed to decode GET /threads response body")
         }
         
         return responseBody
@@ -1009,7 +996,7 @@ public class Client {
         let path = "/_matrix/client/v3/rooms/\(roomId)/joined_members"
         let (data, response) = try await call(method: "GET", path: path)
         let string = String(decoding: data, as: UTF8.self)
-        print("getJoinedMembers:\t\(self.creds.userId) Got response = \(string)")
+        //logger.debug("getJoinedMembers Got response = \(string)")
         
         struct ResponseBody: Codable {
             struct RoomMember: Codable {
@@ -1024,7 +1011,6 @@ public class Client {
         }
         
         let decoder = JSONDecoder()
-        //decoder.keyDecodingStrategy = .convertFromSnakeCase
         let responseBody = try decoder.decode(ResponseBody.self, from: data)
         let users = [UserId](responseBody.joined.keys)
         return users
@@ -1040,7 +1026,7 @@ public class Client {
         let (data, response) = try await call(method: "GET", path: path)
 
         let stringResponse = String(data: data, encoding: .utf8)!
-        print("Got state events:\n\(stringResponse)")
+        logger.debug("ROOMSTATE Got state events:\n\(stringResponse)")
         
         let decoder = JSONDecoder()
         let events = try decoder.decode([ClientEventWithoutRoomId].self, from: data)
@@ -1056,9 +1042,8 @@ public class Client {
         guard let codableType = Matrix.eventTypes[eventType],
               let content = try? decoder.decode(codableType.self, from: data)
         else {
-            let msg = "Couldn't decode room state for event type \(eventType)"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("ROOMSTATE Couldn't decode room state for event type \(eventType, privacy: .public)")
+            throw Matrix.Error("Couldn't decode room state")
         }
         
         return content
@@ -1136,13 +1121,13 @@ public class Client {
     public func createSpace(name: String,
                             joinRule: RoomJoinRuleContent.JoinRule? = nil
     ) async throws -> RoomId {
-        print("CREATESPACE\tCreating space with name [\(name)]")
+        logger.debug("SPACES Creating space with name [\(name)]")
         let roomId = try await createRoom(name: name, type: "m.space", encrypted: false, joinRule: joinRule)
         return roomId
     }
     
     public func addSpaceChild(_ child: RoomId, to parent: RoomId) async throws {
-        print("SPACES\tAdding [\(child)] as a child space of [\(parent)]")
+        logger.debug("SPACES Adding [\(child)] as a child space of [\(parent)]")
         let servers = Array(Set([child.domain, parent.domain]))
         let order = (0x20 ... 0x7e).randomElement()?.description ?? "A"
         let content = SpaceChildContent(order: order, via: servers)
@@ -1214,7 +1199,7 @@ public class Client {
     }
     
     public func removeSpaceChild(_ child: RoomId, from parent: RoomId) async throws {
-        print("SPACES\tRemoving [\(child)] as a child space of [\(parent)]")
+        logger.debug("SPACES Removing [\(child)] as a child space of [\(parent)]")
         let order = "\(0x7e)"
         let content = SpaceChildContent(order: order, via: nil)  // This stupid `via = nil` thing is the only way we have to remove a child relationship
         let _ = try await sendStateEvent(to: parent, type: M_SPACE_CHILD, content: content, stateKey: child.description)
@@ -1248,9 +1233,8 @@ public class Client {
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200
         else {
-            let msg = "Failed to download media"
-            print("DOWNLOAD\t\(msg)")
-            throw Matrix.Error(msg)
+            logger.error("DOWNLOAD Failed to download media")
+            throw Matrix.Error("Failed to download media")
         }
         
         return data
@@ -1324,9 +1308,8 @@ public class Client {
     public func uploadImage(_ original: NativeImage, maxSize: CGSize, quality: CGFloat = 0.80) async throws -> MXC {
         guard let scaled = original.downscale(to: maxSize)
         else {
-            let msg = "Failed to downscale image"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("UPLOAD Failed to downscale image")
+            throw Matrix.Error("Failed to downscale image")
         }
         
         let uri = try await uploadImage(scaled, quality: quality)
@@ -1338,9 +1321,8 @@ public class Client {
 
         guard let jpeg = image.jpegData(compressionQuality: quality)
         else {
-            let msg = "Failed to encode image as JPEG"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("UPLOAD Failed to encode image as JPEG")
+            throw Matrix.Error("Failed to encode image as JPEG")
         }
         
         return try await uploadData(data: jpeg, contentType: "image/jpeg")
@@ -1371,16 +1353,14 @@ public class Client {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let responseBody = try? decoder.decode(UploadResponse.self, from: responseData)
         else {
-            let msg = "Failed to decode upload response"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("UPLOAD Failed to decode response")
+            throw Matrix.Error("Failed to decode response")
         }
         
         guard let mxc = MXC(responseBody.contentUri)
         else {
-            let msg = "Could not parse MXC URL"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("UPLOAD Could not parse MXC URL")
+            throw Matrix.Error("Could not parse MXC URL")
         }
         
         // FIXME: Also save a copy of our data in the download cache, so we don't have to fetch it over the network when we see it mentioned in an event
@@ -1409,7 +1389,7 @@ public class Client {
                                                          ])
         else {
             // hmmm somehow we failed to create what we needed for the cache.  Just return the MXC that we already received from the upload.
-            print("UPLOAD\tFailed to create URL and HTTP response for the cache.  Proceeding without caching.")
+            logger.warning("UPLOAD Failed to create URL and HTTP response for the cache.  Proceeding without caching.")
             return mxc
         }
         let cachedUrlResponse = CachedURLResponse(response: httpResponseForCache, data: data)
@@ -1417,7 +1397,7 @@ public class Client {
         let dataTaskForCache = mediaUrlSession.dataTask(with: urlForCache)
         
         mediaCache.storeCachedResponse(cachedUrlResponse, for: dataTaskForCache)
-        print("UPLOAD\tPre-populated uploaded data into our download cache")
+        logger.debug("UPLOAD Pre-populated uploaded data into our download cache")
 
         // Finally return the mxc:// URL to the caller
         return mxc
