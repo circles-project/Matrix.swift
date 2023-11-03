@@ -416,7 +416,7 @@ public struct GRDBDataStore: DataStore {
             else {
                 continue
             }
-            
+                        
             try await database.write { db in
                 
                 if let badEvent = try ClientEventRecord
@@ -424,9 +424,18 @@ public struct GRDBDataStore: DataStore {
                                         .filter(eventIdColumn == redactedEventId)
                                         .fetchOne(db)
                 {
-                    let redacted = try Matrix.redactEvent(badEvent, because: redaction)
-                    
-                    try ClientEventRecord(event: redacted).save(db)
+                    if badEvent.stateKey != nil {
+                        // It's a state event, so we can't just delete it completely.
+                        // Try to redact it, and save the redacted version.
+                        let redacted = try Matrix.redactEvent(badEvent, because: redaction)
+                        try ClientEventRecord(event: redacted).save(db)
+                    } else {
+                        // Not a state event.  Nuke it from orbit.
+                        try ClientEventRecord
+                            .filter(roomIdColumn == "\(redaction.roomId)")
+                            .filter(eventIdColumn == redactedEventId)
+                            .deleteAll(db)
+                    }
                 }
             }
         }
