@@ -227,8 +227,14 @@ extension Matrix {
             }
             
             // Now we have to go digging in the room's data to find the original event
-            guard let messages = room.relations[M_REACTION]?[eventId],
-                  let myMessage = messages.first(where: { message in
+            guard let messages = room.relations[M_ANNOTATION]?[eventId]?.filter({$0.type == M_REACTION})
+            else {
+                logger.error("Can't find any reaction events")
+                return
+            }
+            logger.debug("Found \(messages.count) reactions")
+            
+            guard let myMessage = messages.first(where: { message in
                       guard message.sender.userId == userId,
                             let content = message.content as? ReactionContent,
                             content.relatesTo.key == emoji
