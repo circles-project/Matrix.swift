@@ -321,29 +321,41 @@ extension Matrix {
                 
                 logger.debug("Event \(event.eventId) redacts \(redactedEventId)")
                 
-                if let message = self.timeline[redactedEventId] {
-                    logger.debug("Found redacted message \(message.eventId) in our timeline")
+                if let messageToRedact = self.timeline[redactedEventId] {
+                    logger.debug("Found redacted message \(messageToRedact.eventId) in our timeline")
                     
                     // Special handling -- Updating related messages etc
-                    switch message.type {
+                    switch messageToRedact.type {
                         
                     case M_REACTION:
-                        if let parentEventId = message.relatedEventId,
-                           let parent = self.timeline[parentEventId]
-                        {
-                            logger.debug("Redacted message \(message.eventId) is a reaction to messge \(parentEventId)")
-                            await parent.removeReaction(message: message)
+                        logger.debug("Redacted message \(messageToRedact.eventId) is a reaction")
+
+                        if let parentEventId = messageToRedact.relatedEventId {
+                            if let parent = self.timeline[parentEventId] {
+                                logger.debug("Found redacted reaction message's parent \(parent.eventId)")
+                                await parent.removeReaction(message: messageToRedact)
+                            } else {
+                                logger.debug("Couldn't find parent for redacted reaction \(messageToRedact.eventId)")
+                            }
+                            
+                            await MainActor.run {
+                                self.relations[M_ANNOTATION]?[parentEventId]?.remove(messageToRedact)
+                            }
                         }
                         
                     case M_ROOM_MESSAGE:
-                        if let parentEventId = message.replyToEventId ?? message.relatedEventId,
-                           let parent = self.timeline[parentEventId]
-                        {
-                            await parent.removeReply(message: message)
+                        if let parentEventId = messageToRedact.replyToEventId ?? messageToRedact.relatedEventId {
+                            if let parent = self.timeline[parentEventId] {
+                                await parent.removeReply(message: messageToRedact)
+                            }
+                            
+                            await MainActor.run {
+                                self.relations[M_THREAD]?[parentEventId]?.remove(messageToRedact)
+                            }
                         }
                         
                     default:
-                        logger.warning("No special handling for redacted message of type \(message.type)")
+                        logger.warning("No special handling for redacted message of type \(messageToRedact.type)")
                     }
                     
                     logger.debug("Removing redacted message \(redactedEventId) from our timeline")
