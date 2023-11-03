@@ -362,6 +362,8 @@ extension Matrix {
                     await MainActor.run {
                         self.timeline[redactedEventId] = nil
                     }
+                } else {
+                    logger.warning("Can't find redacted message \(redactedEventId) in our timeline")
                 }
             }
         }
@@ -1434,8 +1436,8 @@ extension Matrix {
         
         public func redact(eventId: EventId, reason: String? = nil) async throws -> EventId {
             let redactionEventId = try await self.session.sendRedactionEvent(to: self.roomId, for: eventId, reason: reason)
-            self.timeline.removeValue(forKey: eventId)
-            try await self.session.deleteEvent(eventId, in: self.roomId)
+            //self.timeline.removeValue(forKey: eventId)
+            //try await self.session.deleteEvent(eventId, in: self.roomId)
             return redactionEventId
         }
         
