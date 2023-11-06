@@ -68,7 +68,7 @@ extension Matrix {
                              initialTimeline: [ClientEventWithoutRoomId] = [],
                              initialAccountData: [AccountDataEvent] = [],
                              initialReadReceipt: EventId? = nil
-        ) throws {
+        ) async throws {
             self.roomId = roomId
             self.session = session
             self.timeline = [:] // Set this to empty for starters, because we need `self` to create instances of Matrix.Message
@@ -121,7 +121,7 @@ extension Matrix {
             
             self.timeline = [:]
             for event in initialTimeline.sorted() {
-                self.timeline[event.eventId] = Matrix.Message(event: event, room: self)
+                self.timeline[event.eventId] = await Matrix.Message(event: event, room: self)
             }
             logger.debug("Initialized timeline")
             
@@ -197,7 +197,7 @@ extension Matrix {
                 // No old events.  Start from scratch with the new stuff.
                 var tmpTimeline: OrderedDictionary<EventId,Matrix.Message> = [:]
                 for event in events {
-                    tmpTimeline[event.eventId] = Matrix.Message(event: event, room: self)
+                    tmpTimeline[event.eventId] = await Matrix.Message(event: event, room: self)
                 }
                 let newTimeline = tmpTimeline
                 await MainActor.run {
@@ -212,7 +212,7 @@ extension Matrix {
             for event in events {
                 let eventId = event.eventId
                 if tmpTimeline[eventId] == nil { // Only create a new message if we don't have one already
-                    tmpTimeline[eventId] = Matrix.Message(event: event, room: self)
+                    tmpTimeline[eventId] = await Matrix.Message(event: event, room: self)
                     
                     // When we receive the "real" version of a message, we can remove the local echo
                     if eventId == self.localEchoMessage?.eventId {
@@ -244,7 +244,13 @@ extension Matrix {
                 if let content = event.content as? RelatedEventContent {
                     logger.debug("Updating relations with event \(event.eventId) (\(event.type))")
                     
-                    let message = self.timeline[event.eventId] ?? Message(event: event, room: self)
+                    let message: Matrix.Message
+                    if let existingMessage = self.timeline[event.eventId] {
+                        message = existingMessage
+                    }
+                    else {
+                        message = await Message(event: event, room: self)
+                    }
                     
                     // Check relType
                     if let relType = content.relationType,
@@ -1104,8 +1110,9 @@ extension Matrix {
                                                                   originServerTS: UInt64(1000*Date().timeIntervalSince1970),
                                                                   sender: session.creds.userId,
                                                                   type: M_ROOM_MESSAGE)
+                let message = await Matrix.Message(event: localEchoEvent, room: self)
                 await MainActor.run {
-                    self.localEchoMessage = Matrix.Message(event: localEchoEvent, room: self)
+                    self.localEchoMessage = message
                 }
             }
             return eventId

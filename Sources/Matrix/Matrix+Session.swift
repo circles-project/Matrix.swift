@@ -30,9 +30,6 @@ extension Matrix {
         @Published public private(set) var avatarUrl: MXC?
         @Published public private(set) var avatar: Matrix.NativeImage?
         @Published public private(set) var statusMessage: String?
-        public var me: User {
-            self.getUser(userId: self.creds.userId)
-        }
         
         // cvw: Leaving these as comments for now, as they require us to define even more types
         //@Published public var device: MatrixDevice
@@ -1095,12 +1092,12 @@ extension Matrix {
                  
                 
                     logger.debug("getRoom \(roomId) Constructing the room")
-                    if let room = try? T(roomId: roomId,
-                                         session: self,
-                                         initialState: stateEvents,
-                                         initialTimeline: timelineEvents,
-                                         initialAccountData: accountDataEvents,
-                                         initialReadReceipt: readReceipt
+                    if let room = try? await T(roomId: roomId,
+                                               session: self,
+                                               initialState: stateEvents,
+                                               initialTimeline: timelineEvents,
+                                               initialAccountData: accountDataEvents,
+                                               initialReadReceipt: readReceipt
                     ) {
                         logger.debug("getRoom \(roomId) Adding new room to the cache")
                         await MainActor.run {
@@ -1122,7 +1119,7 @@ extension Matrix {
             }
             logger.debug("getRoom \(roomId) Got \(events.count, privacy: .public) events from the server")
             
-            if let room = try? T(roomId: roomId, session: self, initialState: events, initialTimeline: []) {
+            if let room = try? await T(roomId: roomId, session: self, initialState: events, initialTimeline: []) {
                 logger.debug("getRoom \(roomId) Created room.  Adding to cache.")
                 await MainActor.run {
                     self.rooms[roomId] = room
@@ -1154,7 +1151,7 @@ extension Matrix {
             if let store = self.dataStore {
                 let events = try await store.loadEssentialState(for: roomId)
                 if events.count > 0 {
-                    if let space = try? Matrix.SpaceRoom(roomId: roomId, session: self, initialState: events)
+                    if let space = try? await Matrix.SpaceRoom(roomId: roomId, session: self, initialState: events)
                     {
                         await MainActor.run {
                             self.rooms[roomId] = space
@@ -1167,7 +1164,7 @@ extension Matrix {
             // Ok we didn't have the room state cached locally
             // Maybe the server knows about this room?
             let events = try await getRoomStateEvents(roomId: roomId)
-            if let space = try? Matrix.SpaceRoom(roomId: roomId, session: self, initialState: events) {
+            if let space = try? await Matrix.SpaceRoom(roomId: roomId, session: self, initialState: events) {
                 await MainActor.run {
                     self.rooms[roomId] = space
                 }
@@ -1226,7 +1223,7 @@ extension Matrix {
         // MARK: Users
         
         @MainActor
-        public func getUser(userId: UserId) -> Matrix.User {
+        public func getUser(userId: UserId) async -> Matrix.User {
             if let existingUser = self.users[userId] {
                 return existingUser
             }

@@ -15,14 +15,14 @@ extension Matrix {
                              initialTimeline: [ClientEventWithoutRoomId] = [],
                              initialAccountData: [AccountDataEvent] = [],
                              initialReadReceipt: EventId? = nil
-        ) throws {
+        ) async throws {
 
-            try super.init(roomId: roomId,
-                           session: session,
-                           initialState: initialState,
-                           initialTimeline: initialTimeline,
-                           initialAccountData: initialAccountData,
-                           initialReadReceipt: initialReadReceipt
+            try await super.init(roomId: roomId,
+                                 session: session,
+                                 initialState: initialState,
+                                 initialTimeline: initialTimeline,
+                                 initialAccountData: initialAccountData,
+                                 initialReadReceipt: initialReadReceipt
             )
             
             guard self.type == M_SPACE

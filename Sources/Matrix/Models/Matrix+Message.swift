@@ -27,10 +27,10 @@ extension Matrix {
         
         private var logger: os.Logger
         
-        public init(event: ClientEventWithoutRoomId, room: Room) {
+        public init(event: ClientEventWithoutRoomId, room: Room) async {
             self.event = event
             self.room = room
-            self.sender = room.session.getUser(userId: event.sender)
+            self.sender = await room.session.getUser(userId: event.sender)
             self.reactions = [:]
             self.replies = nil
             
