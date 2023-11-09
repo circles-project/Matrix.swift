@@ -56,6 +56,53 @@ public struct UserId: LosslessStringConvertible, Codable, Identifiable, Equatabl
         return true
     }
     
+    public static func autoCorrect(_ string: String, domain: String? = nil) -> UserId? {
+        
+        let lower = string.lowercased()
+        
+        // If we already have a valid UserId, let's just stick with that
+        if let userId = UserId(lower) {
+            return userId
+        }
+
+        // Case 1 - User just forgot the leading "@"
+        //        - And it's clear that they did not enter an email address
+        if !lower.contains("@") {
+            
+            if lower.contains(":") {
+                // Looks like they tried their best to give us a localpart and a domainpart
+                // Let's see if just prefixing the "@" will be sufficient
+                return UserId("@\(lower)")
+            } else {
+                // Looks like they gave us one string with no ":" separator
+                // The best that we can hope is that this is their username
+                if let domain = domain {
+                    // If we have a default domain, we'll try that one
+                    return UserId("@\(lower):\(domain)")
+                } else {
+                    // Otherwise they're out of luck
+                    return nil
+                }
+            }
+            
+        }
+        // Case 2 - User transposed their Matrix UserId into an email address
+        else if lower.contains("@") && !lower.starts(with: "@") {
+            let toks = lower.split(separator: "@")
+            guard toks.count == 2,
+                  let userpart = toks.first,
+                  let domainAndPort = toks.last,
+                  !userpart.contains(":")
+            else {
+                return nil
+            }
+            return UserId("@\(userpart):\(domainAndPort)")
+        }
+        
+        // If we didn't match any of the cases above, then we don't know what to do with this one
+        return nil
+    }
+    
     public init?(username: String, domain: String, port: UInt16? = nil) {
         
         guard let _ = try? UserId.usernameRegex.wholeMatch(in: username)
