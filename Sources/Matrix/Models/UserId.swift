@@ -98,9 +98,18 @@ public struct UserId: LosslessStringConvertible, Codable, Identifiable, Equatabl
             }
             return UserId("@\(userpart):\(domainAndPort)")
         }
-        
-        // If we didn't match any of the cases above, then we don't know what to do with this one
-        return nil
+        // Case 3 - User input their user part but without a domain
+        else if lower.starts(with: "@") && !lower.contains(":") {
+            if let domain = domain {
+                return UserId("\(lower):\(domain)")
+            } else {
+                return nil
+            }
+        }
+        else {
+            // If we didn't match any of the cases above, then we don't know what to do with this one
+            return nil
+        }
     }
     
     public init?(username: String, domain: String, port: UInt16? = nil) {
