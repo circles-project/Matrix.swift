@@ -42,8 +42,11 @@ public protocol UIASession {
     
     func doTermsStage() async throws
  
-    func doEmailRequestTokenStage(email: String) async throws -> String?
-    func doEmailSubmitTokenStage(token: String, secret: String) async throws
+    func doEmailEnrollRequestTokenStage(email: String, subscribeToList: Bool?) async throws -> String?
+    func doEmailEnrollSubmitTokenStage(token: String, secret: String) async throws
+    
+    func doEmailLoginRequestTokenStage(email: String) async throws -> String?
+    func doEmailLoginSubmitTokenStage(token: String, secret: String) async throws
     
     func doBSSpekeEnrollOprfStage(userId: UserId, password: String) async throws
     func doBSSpekeEnrollOprfStage(password: String) async throws
