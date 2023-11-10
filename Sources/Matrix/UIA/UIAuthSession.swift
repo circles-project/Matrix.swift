@@ -385,9 +385,9 @@ public class UIAuthSession: UIASession, ObservableObject {
     }
     
     
-    // MARK: (New) Email stages
+    // MARK: Email stages
     
-    public func doEmailRequestTokenStage(email: String) async throws -> String? {
+    public func doEmailEnrollRequestTokenStage(email: String, subscribeToList: Bool? = nil) async throws -> String? {
 
         guard _looksLikeValidEmail(userInput: email) == true
         else {
@@ -399,8 +399,42 @@ public class UIAuthSession: UIASession, ObservableObject {
         let clientSecretNumber = UInt64.random(in: 0 ..< UInt64.max)
         let clientSecret = String(format: "%016x", clientSecretNumber)
         
-        let emailAuthDict: [String: String] = [
+        let emailAuthDict: [String: Codable] = [
             "type": AUTH_TYPE_ENROLL_EMAIL_REQUEST_TOKEN,
+            "email": email,
+            "client_secret": clientSecret,
+            "subscribe_to_list": subscribeToList,
+        ]
+        
+        // FIXME: We need to know if this succeeded or failed
+        try await doUIAuthStage(auth: emailAuthDict)
+        
+        return clientSecret
+    }
+    
+    public func doEmailEnrollSubmitTokenStage(token: String, secret: String) async throws {
+        let emailAuthDict: [String: String] = [
+            "type": AUTH_TYPE_ENROLL_EMAIL_SUBMIT_TOKEN,
+            "token": token,
+            "client_secret": secret,
+        ]
+        try await doUIAuthStage(auth: emailAuthDict)
+    }
+    
+    public func doEmailLoginRequestTokenStage(email: String) async throws -> String? {
+
+        guard _looksLikeValidEmail(userInput: email) == true
+        else {
+            let msg = "Invalid email address"
+            print("Email signup Error: \(msg)")
+            throw Matrix.Error(msg)
+        }
+        
+        let clientSecretNumber = UInt64.random(in: 0 ..< UInt64.max)
+        let clientSecret = String(format: "%016x", clientSecretNumber)
+        
+        let emailAuthDict: [String: Codable] = [
+            "type": AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN,
             "email": email,
             "client_secret": clientSecret,
         ]
@@ -411,9 +445,9 @@ public class UIAuthSession: UIASession, ObservableObject {
         return clientSecret
     }
     
-    public func doEmailSubmitTokenStage(token: String, secret: String) async throws {
+    public func doEmailLoginSubmitTokenStage(token: String, secret: String) async throws {
         let emailAuthDict: [String: String] = [
-            "type": AUTH_TYPE_ENROLL_EMAIL_SUBMIT_TOKEN,
+            "type": AUTH_TYPE_LOGIN_EMAIL_SUBMIT_TOKEN,
             "token": token,
             "client_secret": secret,
         ]
