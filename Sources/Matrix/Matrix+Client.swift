@@ -506,7 +506,7 @@ public class Client {
     // https://spec.matrix.org/v1.2/client-server-api/#post_matrixclientv3createroom
     public func createRoom(name: String,
                     type: String? = nil,
-                    version: String = DEFAULT_ROOM_VERSION,
+                    version: String? = nil,
                     encrypted: Bool = true,
                     invite userIds: [UserId] = [],
                     direct: Bool = false,
@@ -564,7 +564,7 @@ public class Client {
             }
             var preset: Preset = .private_chat
             var room_alias_name: String?
-            var room_version: String
+            var room_version: String? = nil
             var topic: String?
             enum Visibility: String, Codable {
                 case pub = "public"
@@ -574,7 +574,7 @@ public class Client {
             
             init(name: String,
                  type: String? = nil, 
-                 version: String = DEFAULT_ROOM_VERSION,
+                 version: String? = nil,
                  encrypted: Bool,
                  joinRule: RoomJoinRuleContent.JoinRule? = nil,
                  powerLevelContentOverride: RoomPowerLevelsContent? = nil
