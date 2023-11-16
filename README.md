@@ -18,9 +18,9 @@ However, if you're looking to start a new open source or hobby
 project with Matrix on iOS/MacOS, then Matrix.swift is definitely
 worth a look.
 
-Beware that this code has not yet undergone any kind of security audit.
 
-Use it at your own risk.
+## Security
+Beware that this code has not yet undergone any kind of security audit.  Use it at your own risk.
 
 
 ## Features
