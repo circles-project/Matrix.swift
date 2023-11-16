@@ -40,8 +40,12 @@ Current features include:
 
 **Messaging**
 * Sending and receiving text, image, and video messages
+* Emoji reactions
+* Threading
 * Uploading and downloading media attachments
 * Sync
+* Paginating messages in a room
+* Event replacement and redaction
 
 **Room Management**
 * Enumerating rooms
@@ -63,7 +67,9 @@ Current features include:
 * ~~Support for Matrix threads~~
 * ~~Update to the latest Rust Crypto SDK~~
 * ~~Support for redaction and replacement~~
-* [Use the Keychain to hold secret storage keys on the device](https://gitlab.futo.org/circles/matrix.swift/-/issues/22)
+* ~~Use the Keychain to hold secret storage keys on the device~~
+* Documentation
+* Prepare 1.0 release
 
 
 ## Using Matrix.swift in your app
