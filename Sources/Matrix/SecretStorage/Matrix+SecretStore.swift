@@ -13,7 +13,6 @@ import CryptoKit
 import IDZSwiftCommonCrypto
 
 import LocalAuthentication
-import KeychainAccess
 
 extension Matrix {
 
@@ -81,7 +80,7 @@ extension Matrix {
         public var state: State
         private var session: Session
         private var logger: os.Logger
-        private var keychain: KeychainSecretStore
+        private var keystore: KeyStoreProtocol
         var keys: [String: Data]
         
         // MARK: init
@@ -90,7 +89,7 @@ extension Matrix {
             self.session = session
             self.logger = .init(subsystem: "matrix", category: "SSSS")
             self.keys = [ssk.keyId : ssk.key]
-            self.keychain = KeychainSecretStore(userId: session.creds.userId)
+            self.keystore = Matrix.LocalKeyStore(userId: session.creds.userId)
             self.state = .uninitialized
             
             logger.debug("Initializing with default key")
@@ -103,7 +102,7 @@ extension Matrix {
                 if oldDefaultKeyId != ssk.keyId {
                     
                     // Do we have this old key in our device keychain?
-                    if let oldDefaultKey = try await keychain.loadKey(keyId: oldDefaultKeyId, reason: "Initializing secret storage") {
+                    if let oldDefaultKey = try await keystore.loadKey(keyId: oldDefaultKeyId, reason: "Initializing secret storage") {
                         self.keys[oldDefaultKeyId] = oldDefaultKey
                         self.state = .online(oldDefaultKeyId)
                         // Save our new key under the old key
@@ -167,7 +166,7 @@ extension Matrix {
             self.session = session
             self.logger = .init(subsystem: "matrix", category: "SSSS")
             self.keys = keys
-            self.keychain = KeychainSecretStore(userId: session.creds.userId)
+            self.keystore = Matrix.LocalKeyStore(userId: session.creds.userId)
             self.state = .uninitialized
             
             logger.debug("Initializing with a set of \(keys.count) initial keys")
@@ -199,8 +198,7 @@ extension Matrix {
                 logger.debug("Looking in Keychain for key with keyId \(serverDefaultKeyId)")
                 // If the key isn't already loaded in memory, then maybe we have previously saved it in the Keychain
                 // - If we have the default key, then we are in state `.online(keyId)` where `keyId` is the id of our default key
-                let keychain = KeychainSecretStore(userId: session.creds.userId)
-                if let key = try await keychain.loadKey(keyId: serverDefaultKeyId, reason: "The app needs to load cryptographic keys for your account") {
+                if let key = try await keystore.loadKey(keyId: serverDefaultKeyId, reason: "The app needs to load cryptographic keys for your account") {
                     logger.debug("Found key \(serverDefaultKeyId) in the Keychain")
                     self.keys[serverDefaultKeyId] = key
                     self.state = .online(serverDefaultKeyId)
@@ -761,7 +759,7 @@ extension Matrix {
             self.keys[ssk.keyId] = ssk.key
             
             // Save it in our keychain so it will be there next time we launch the app
-            try await self.keychain.saveKey(key: ssk.key, keyId: ssk.keyId)
+            try await self.keystore.saveKey(key: ssk.key, keyId: ssk.keyId)
             
             // Now we need to be sure to keep all our bookkeeping stuff in order
             switch state {
