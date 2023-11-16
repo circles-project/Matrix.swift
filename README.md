@@ -62,12 +62,12 @@ Current features include:
 * Secret storage
 * Cross signing
 * Encrypted key backup and recovery
+* MSC3061 support for providing keys on invite
 
 ## To-Do List
-* ~~Support for Matrix threads~~
-* ~~Update to the latest Rust Crypto SDK~~
-* ~~Support for redaction and replacement~~
-* ~~Use the Keychain to hold secret storage keys on the device~~
+* Refresh tokens
+* Sliding sync (MSC3575)
+* Media quotas (MSC4034)
 * Documentation
 * Prepare 1.0 release
 
