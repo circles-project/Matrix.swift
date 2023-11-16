@@ -18,6 +18,8 @@ public protocol KeyStoreProtocol {
 
 extension Matrix {
     
+    public typealias LocalKeyStore = KeychainAccessKeyStore
+    
     public class InsecureKeyStore: KeyStoreProtocol {
         let userId: UserId
         private var logger: os.Logger
@@ -56,8 +58,8 @@ extension Matrix {
                 var context = LAContext()
                 context.touchIDAuthenticationAllowableReuseDuration = 60.0
                 guard let data = try? keychain
-                    //.accessibility(.whenUnlockedThisDeviceOnly, authenticationPolicy: .userPresence)
-                    .accessibility(.whenPasscodeSetThisDeviceOnly, authenticationPolicy: [.biometryAny])
+                    .accessibility(.whenUnlockedThisDeviceOnly, authenticationPolicy: .userPresence)
+                    //.accessibility(.whenPasscodeSetThisDeviceOnly, authenticationPolicy: [.biometryAny])
                     .authenticationContext(context)
                     .authenticationPrompt(reason)
                     .getData(keyId)
@@ -107,7 +109,7 @@ extension Matrix {
             let tag = "org.futo.ssss.key.\(keyId)".data(using: .utf8)! // From the Apple article on saving keys to keychain
             let query: [String: Any] = [kSecClass as String: kSecClassKey,
                                         kSecAttrApplicationTag as String: tag,
-                                        //kSecAttrAccount as String: userId.stringValue,
+                                        //`kSecAttrAccount as String: userId.stringValue,
                                         kSecMatchLimit as String: kSecMatchLimitOne,
                                         kSecReturnAttributes as String: true,
                                         kSecReturnData as String: true]
@@ -138,7 +140,7 @@ extension Matrix {
                                            kSecValueRef as String: key]
             logger.debug("Created addQuery dictionary with \(addquery.count) entries")
             let status = SecItemAdd(addquery as CFDictionary, nil)
-            logger.debug("Added key \(keyId) to the keychain")
+            logger.debug("Back from SecItemAdd for keyId \(keyId)")
             guard status == errSecSuccess
             else {
                 logger.debug("Failed to save key \(keyId) to the keychain -- status = \(status.description)")
