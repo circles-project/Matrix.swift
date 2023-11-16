@@ -107,7 +107,7 @@ extension Matrix {
             let tag = "org.futo.ssss.key.\(keyId)".data(using: .utf8)! // From the Apple article on saving keys to keychain
             let query: [String: Any] = [kSecClass as String: kSecClassKey,
                                         kSecAttrApplicationTag as String: tag,
-                                        kSecAttrAccount as String: userId.stringValue,
+                                        //kSecAttrAccount as String: userId.stringValue,
                                         kSecMatchLimit as String: kSecMatchLimitOne,
                                         kSecReturnAttributes as String: true,
                                         kSecReturnData as String: true]
@@ -134,7 +134,7 @@ extension Matrix {
             let tag = "org.futo.ssss.key.\(keyId)".data(using: .utf8)!
             let addquery: [String: Any] = [kSecClass as String: kSecClassKey,
                                            kSecAttrApplicationTag as String: tag,
-                                           kSecAttrAccount as String: userId.stringValue, // From the Apple article on loading passwords from the keychain
+                                           //kSecAttrAccount as String: userId.stringValue, // From the Apple article on loading passwords from the keychain
                                            kSecValueRef as String: key]
             logger.debug("Created addQuery dictionary with \(addquery.count) entries")
             let status = SecItemAdd(addquery as CFDictionary, nil)
