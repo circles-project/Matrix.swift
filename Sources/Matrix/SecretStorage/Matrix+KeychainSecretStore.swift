@@ -47,7 +47,7 @@ extension Matrix {
 
         public required init(userId: UserId) {
             self.userId = userId
-            self.keychain = Keychain(service: "matrix", accessGroup: userId.stringValue)
+            self.keychain = Keychain(service: userId.stringValue)
             self.logger = .init(subsystem: "matrix", category: "keychainaccess")
         }
         
