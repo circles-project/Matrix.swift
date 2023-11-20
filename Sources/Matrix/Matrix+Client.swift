@@ -101,6 +101,68 @@ public class Client {
         logger.debug("Done with init()")
     }
     
+    // MARK: Refresh
+    // https://spec.matrix.org/v1.8/client-server-api/#refreshing-access-tokens
+    // https://spec.matrix.org/v1.8/client-server-api/#post_matrixclientv3refresh
+    public func refresh() async throws {
+        // Can't build this one using call() because we are going to rely on this in call()
+        
+        guard let refreshToken = self.creds.refreshToken
+        else {
+            logger.error("Can't /refresh - Creds have no refresh token")
+            throw Matrix.Error("Can't refresh without refresh token")
+        }
+        
+        let path = "/_matrix/client/v3/refresh"
+        guard let url = URL(string: path, relativeTo: self.baseUrl)
+        else {
+            logger.error("Failed to construct /refresh URL")
+            throw Matrix.Error("Failed to construct /refresh URL")
+        }
+        
+        let requestBody = 
+        """
+        {
+            "refresh_token": "\(refreshToken)"
+        }
+        """
+        guard let requestData = requestBody.data(using: .utf8)
+        else {
+            logger.error("Failed to construct /refresh request body")
+            throw Matrix.Error("Failed to construct /refresh request body")
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = requestData
+        
+        logger.debug("Sending /refresh request")
+        let (data, response) = try await apiUrlSession.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse
+        else {
+            logger.error("/refresh Failed to handle HTTP response")
+            throw Matrix.Error("Failed to handle HTTP response")
+        }
+        
+        guard httpResponse.statusCode == 200
+        else {
+            logger.error("/refresh failed -- HTTP \(httpResponse.statusCode, privacy: .public)")
+            throw Matrix.Error("/refresh failed")
+        }
+
+        let decoder = JSONDecoder()
+        guard let newCreds = try? decoder.decode(Credentials.self, from: data)
+        else {
+            logger.error("Failed to parse /refresh response body")
+            throw Matrix.Error("Failed to parse /refresh response body")
+        }
+        
+        logger.debug("/refresh got new credentials")
+        self.creds = newCreds
+        logger.debug("/refresh done")
+    }
+    
     // MARK: API Call
     public func call(method: String,
                      path: String,
@@ -184,7 +246,6 @@ public class Client {
                     logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) rejected with status \(httpResponse.statusCode, privacy: .public)")
                     let decoder = JSONDecoder()
                     if let errorResponse = try? decoder.decode(Matrix.ErrorResponse.self, from: data) {
-                        print("APICALL\terrcode = \(errorResponse.errcode)\terror = \(errorResponse.error)")
                         logger.error("CALL errcode = \(errorResponse.errcode, privacy: .public)\terror = \(errorResponse.error, privacy: .public)")
                     } else {
                         let errorString = String(decoding: data, as: UTF8.self)
