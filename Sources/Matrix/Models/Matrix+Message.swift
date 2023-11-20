@@ -7,6 +7,7 @@
 
 import Foundation
 import os
+import Combine
 
 extension Matrix {
     public class Message: ObservableObject, Identifiable {
@@ -19,6 +20,7 @@ extension Matrix {
         @Published private(set) public var reactions: [String:Set<UserId>]
         @Published private(set) public var replies: [Message]?
         @Published private(set) public var replacement: Message?
+        private var replacementPublisher: Cancellable?
         
         public var isEncrypted: Bool
         
@@ -360,6 +362,12 @@ extension Matrix {
             
             await MainActor.run {
                 self.replacement = message
+
+                // Also re-publish changes from the replacement message
+                self.replacementPublisher?.cancel()
+                self.replacementPublisher = message.objectWillChange.sink {
+                    self.objectWillChange.send()
+                }
             }
         }
         
