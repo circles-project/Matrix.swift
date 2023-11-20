@@ -11,6 +11,7 @@ extension Matrix {
     public struct Credentials: Codable {
         public var accessToken: String
         public var deviceId: String
+        public var refreshToken: String?
         public var userId: UserId
         public var wellKnown: Matrix.WellKnown?
         //public var homeServer: String? // Warning: Deprecated; Do not use
@@ -18,14 +19,21 @@ extension Matrix {
         public enum CodingKeys: String, CodingKey {
             case accessToken = "access_token"
             case deviceId = "device_id"
+            case refreshToken = "refresh_token"
             case userId = "user_id"
             case wellKnown = "well_known"
         }
         
-        public init(userId: UserId, accessToken: String, deviceId: String, wellKnown: Matrix.WellKnown? = nil) {
+        public init(userId: UserId,
+                    accessToken: String,
+                    deviceId: String,
+                    refreshToken: String? = nil,
+                    wellKnown: Matrix.WellKnown? = nil
+        ) {
             self.userId = userId
             self.accessToken = accessToken
             self.deviceId = deviceId
+            self.refreshToken = refreshToken
             self.wellKnown = wellKnown
         }
     }

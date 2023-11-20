@@ -35,13 +35,15 @@ extension Matrix {
         init(userId: UserId,
              password: String,
              deviceId: String? = nil,
-             initialDeviceDisplayName: String? = nil
+             initialDeviceDisplayName: String? = nil,
+             refreshToken: Bool? = nil
         ) {
             self.identifier = .init(type: "m.id.user", user: userId.stringValue)
             self.type = M_LOGIN_PASSWORD
             self.password = password
             self.deviceId = deviceId
             self.initialDeviceDisplayName = initialDeviceDisplayName
+            self.refreshToken = refreshToken
         }
     }
     
@@ -96,7 +98,8 @@ extension Matrix {
     public static func login(userId: UserId,
                              password: String,
                              deviceId: String? = nil,
-                             initialDeviceDisplayName: String? = nil
+                             initialDeviceDisplayName: String? = nil,
+                             refreshToken: Bool? = nil
     ) async throws -> Credentials {
         let wellKnown = try await Matrix.fetchWellKnown(for: userId.domain)
         
@@ -116,7 +119,8 @@ extension Matrix {
         let requestBody = LoginRequestBody(userId: userId,
                                            password: password,
                                            deviceId: deviceId,
-                                           initialDeviceDisplayName: initialDeviceDisplayName)
+                                           initialDeviceDisplayName: initialDeviceDisplayName,
+                                           refreshToken: refreshToken)
         var encoder = JSONEncoder()
         guard let requestData = try? encoder.encode(requestBody)
         else {
