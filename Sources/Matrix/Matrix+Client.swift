@@ -53,7 +53,6 @@ public class Client {
         apiConfig.httpAdditionalHeaders = [
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Authorization": "Bearer \(creds.accessToken)",
         ]
         apiConfig.requestCachePolicy = .reloadIgnoringLocalCacheData
         apiConfig.httpMaximumConnectionsPerHost = 4 // Default is 6 but we're getting some 429's from Synapse...
@@ -208,6 +207,7 @@ public class Client {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.httpBody = bodyData
+        request.setValue("Bearer \(creds.accessToken)", forHTTPHeaderField: "Authorization")
                
         var slowDown = true
         var delayNs: UInt64 = 1_000_000_000
