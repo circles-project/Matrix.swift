@@ -18,29 +18,6 @@ import MatrixSDKCrypto
 
 @available(macOS 12.0, *)
 public enum Matrix {
-    
-    // MARK: Error Types
-    
-    public struct Error: LocalizedError {
-        public var msg: String
-        public var errorDescription: String?
-        
-        public init(_ msg: String) {
-            self.msg = msg
-            self.errorDescription = NSLocalizedString(msg, comment: msg)
-        }
-    }
-    
-    public struct ErrorResponse: Codable {
-        public var error: String
-        public var errcode: String
-    }
-    
-    public struct RateLimitError: Swift.Error, Codable {
-        public var errcode: String
-        public var error: String?
-        public var retryAfterMs: Int?
-    }
 
     // MARK: Utility Functions
     
