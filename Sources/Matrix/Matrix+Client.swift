@@ -26,6 +26,10 @@ public class Client {
     private var mediaCache: URLCache        // For downloading media
     private var mediaDownloadTasks: [MXC: Task<URL,Swift.Error>] // For downloading media
     
+    private let INITIAL_RATE_LIMIT_DELAY: UInt64 = 1_000_000_000 // Default delay = 1 sec
+    private var rateLimitDelayNanosec: UInt64
+
+    
     private var logger: os.Logger
     
     // MARK: Init
@@ -35,6 +39,8 @@ public class Client {
         self.logger = logger
         
         logger.debug("Creating a new Matrix Client for user \(creds.userId)")
+        
+        self.rateLimitDelayNanosec = INITIAL_RATE_LIMIT_DELAY
         
         if let wk = creds.wellKnown {
             self.creds = creds
@@ -170,14 +176,14 @@ public class Client {
                      expectedStatuses: [Int] = [200]
     ) async throws -> (Data, HTTPURLResponse) {
         if let stringBody = body as? String {
-            logger.debug("CALL String request body = \(stringBody)")
+            logger.debug("CALL \(method, privacy: .public) \(path, privacy: .public) String request body = \(stringBody)")
             let data = stringBody.data(using: .utf8)!
             return try await call(method: method, path: path, params: params, bodyData: data, expectedStatuses: expectedStatuses)
         } else if let codableBody = body {
             let encoder = JSONEncoder()
             encoder.keyEncodingStrategy = .convertToSnakeCase
             let encodedBody = try encoder.encode(AnyCodable(codableBody))
-            logger.debug("CALL Raw request body = \(String(decoding: encodedBody, as: UTF8.self))")
+            logger.debug("CALL \(method, privacy: .public) \(path, privacy: .public) Raw request body = \(String(decoding: encodedBody, as: UTF8.self))")
             return try await call(method: method, path: path, params: params, bodyData: encodedBody, expectedStatuses: expectedStatuses)
         } else {
             let noBody: Data? = nil
@@ -192,7 +198,7 @@ public class Client {
                      bodyData: Data?=nil,
                      expectedStatuses: [Int] = [200]
     ) async throws -> (Data, HTTPURLResponse) {
-        logger.debug("CALL \(method) \(path)")
+        logger.debug("CALL \(method, privacy: .public) \(path, privacy: .public)")
 
         //let url = URL(string: path, relativeTo: baseUrl)!.appending(queryItems: queryItems)
         var components = URLComponents(url: URL(string: path, relativeTo: self.baseUrl)!, resolvingAgainstBaseURL: true)!
@@ -210,56 +216,93 @@ public class Client {
         request.setValue("Bearer \(creds.accessToken)", forHTTPHeaderField: "Authorization")
                
         var slowDown = true
-        var delayNs: UInt64 = 1_000_000_000
+        var keepTrying = false
         var count = 0
+        let MAX_RETRIES = 5
+        
+        typealias HTTPErrorHandler = (Data) async throws -> Bool
+        let errorHandlers: [Int: HTTPErrorHandler] = [
+            429: { data in
+
+                let decoder = JSONDecoder()
+                decoder.keyDecodingStrategy = .convertFromSnakeCase
+                if let rateLimitError = try? decoder.decode(Matrix.RateLimitError.self, from: data),
+                   rateLimitError.errcode == M_LIMIT_EXCEEDED,
+                   let delayMs = rateLimitError.retryAfterMs
+                {
+                    self.rateLimitDelayNanosec = 1_000_000 * UInt64(delayMs)
+                } else {
+                    // The server didn't tell us how long to wait
+                    // Let's try exponential backoff
+                    self.rateLimitDelayNanosec = UInt64.random(in: self.rateLimitDelayNanosec...(2*self.rateLimitDelayNanosec))
+                }
+                
+                self.logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) Got 429 error...  Waiting \(self.rateLimitDelayNanosec, privacy: .public) nanosecs and then retrying")
+                try await Task.sleep(nanoseconds: self.rateLimitDelayNanosec)
+                // Tell the caller it's OK to keep retrying the original API call
+                return true
+            },
+            403: { data in
+                let decoder = JSONDecoder()
+                // Did we get an invalid token error?
+                // And do we have a refresh token?
+                // If so, we can try to refresh and get a new access token
+                if let errorResponse = try? decoder.decode(Matrix.InvalidTokenError.self, from: data),
+                   errorResponse.errcode == M_INVALID_TOKEN,
+                   errorResponse.softLogout == true,
+                   self.creds.refreshToken != nil
+                {
+                    try await self.refresh()
+                    return true
+                }
+                else {
+                    // Otherwise we have a problem
+                    self.logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) Got 403 error but unable to refresh")
+                    throw Matrix.Error("Unauthorized")
+                }
+            }
+        ]
         
         repeat {
             let (data, response) = try await apiUrlSession.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse
             else {
-                logger.error("CALL Couldn't handle HTTP response")
+                logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) Couldn't handle HTTP response")
                 throw Matrix.Error("Couldn't handle HTTP response")
             }
             
-            if httpResponse.statusCode == 429 {
-                slowDown = true
+            logger.debug("CALL \(method, privacy: .public) \(path, privacy: .public) Got response with status \(httpResponse.statusCode, privacy: .public)")
 
-                let decoder = JSONDecoder()
-                decoder.keyDecodingStrategy = .convertFromSnakeCase
-                if let rateLimitError = try? decoder.decode(Matrix.RateLimitError.self, from: data),
-                   let delayMs = rateLimitError.retryAfterMs
-                {
-                    delayNs = 1_000_000 * UInt64(delayMs)
-                } else {
-                    delayNs *= 2
-                }
-                
-                logger.error("CALL Got 429 error...  Waiting \(delayNs, privacy: .public) nanosecs and then retrying")
-                try await Task.sleep(nanoseconds: delayNs)
-                
-                count += 1
-            } else {
-                slowDown = false
-                guard expectedStatuses.contains(httpResponse.statusCode)
-                else {
-                    logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) rejected with status \(httpResponse.statusCode, privacy: .public)")
-                    let decoder = JSONDecoder()
-                    if let errorResponse = try? decoder.decode(Matrix.ErrorResponse.self, from: data) {
-                        logger.error("CALL errcode = \(errorResponse.errcode, privacy: .public)\terror = \(errorResponse.error, privacy: .public)")
-                    } else {
-                        let errorString = String(decoding: data, as: UTF8.self)
-                        logger.error("CALL Got error response = \(errorString, privacy: .public)")
-                    }
-                    throw Matrix.Error("API call rejected with status \(httpResponse.statusCode)")
-                }
-                logger.debug("CALL \(method) \(path) Got response with status \(httpResponse.statusCode, privacy: .public)")
-                
+            // Was this response something that we expected?
+            if expectedStatuses.contains(httpResponse.statusCode) {
+                // If so, great - return the response to the caller
                 return (data, httpResponse)
             }
+            // Ok it's not something that the caller expected.
+            // Do we know how to handle this response?  eg maybe it's a "slow down" or a soft logout / need to refresh
+            else if let handler = errorHandlers[httpResponse.statusCode] {
+                // If so, call the error handler and ask it whether we should keep trying the original endpoint
+                keepTrying = try await handler(data)
+            }
+            // The caller didn't expect this response, and we don't know how to handle it
+            else {
+                // Nothing left to do but throw an error
+                logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) failed with HTTP \(httpResponse.statusCode, privacy: .public)")
+                throw Matrix.Error("API call failed")
+            }
             
-        } while slowDown && count < 5
+            if httpResponse.statusCode != 429 {
+                // The server didn't tell us to slow down
+                // Reset our rate limiting delay back to the starting level
+                self.rateLimitDelayNanosec = INITIAL_RATE_LIMIT_DELAY
+            }
         
+            count += 1
+            
+        } while keepTrying && count <= MAX_RETRIES
+        
+        logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) ran out of retries")
         throw Matrix.Error("API call failed")
     }
     
@@ -510,7 +553,6 @@ public class Client {
     }
     
     // https://spec.matrix.org/v1.3/client-server-api/#delete_matrixclientv3devicesdeviceid
-    // FIXME This must support UIA.  Return a UIAASession???
     public func deleteDevice(deviceId: String) async throws -> UIAuthSession? {
         let path = "/_matrix/client/v3/devices/\(deviceId)"
         let (data, response) = try await call(method: "DELETE",
