@@ -147,7 +147,7 @@ extension Matrix {
             
             let decoder = JSONDecoder()
             if let err = try? decoder.decode(ErrorResponse.self, from: data) {
-                Matrix.logger.error("Login got errcode = \(err.errcode)   error = \(err.error)")
+                Matrix.logger.error("Login got errcode = \(err.errcode)   error = \(err.error ?? "(none)")")
             }
             
             throw Matrix.Error("Login request failed")

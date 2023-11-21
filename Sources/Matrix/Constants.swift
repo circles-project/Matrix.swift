@@ -103,7 +103,7 @@ public let M_READ_PRIVATE = "m.read.private"
 
 // MARK: Matrix errors
 // https://spec.matrix.org/v1.8/client-server-api/#common-error-codes
-public let M_INVALID_TOKEN = "M_INVALID_TOKEN"
+public let M_UNKNOWN_TOKEN = "M_UNKNOWN_TOKEN"
 public let M_FORBIDDEN = "M_FORBIDDEN"
 public let M_MISSING_TOKEN = "M_MISSING_TOKEN"
 public let M_BAD_JSON = "M_BAD_JSON"

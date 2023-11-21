@@ -39,12 +39,14 @@ extension Matrix {
         public init(userId: UserId,
                     accessToken: String,
                     deviceId: String,
+                    expiration: Date? = nil,
                     refreshToken: String? = nil,
                     wellKnown: Matrix.WellKnown? = nil
         ) {
             self.userId = userId
             self.accessToken = accessToken
             self.deviceId = deviceId
+            self.expiration = expiration
             self.refreshToken = refreshToken
             self.wellKnown = wellKnown
         }

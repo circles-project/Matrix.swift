@@ -50,6 +50,8 @@ public class Client {
             self.creds = Matrix.Credentials(userId: creds.userId,
                                             accessToken: creds.accessToken,
                                             deviceId: creds.deviceId,
+                                            expiration: creds.expiration,
+                                            refreshToken: creds.refreshToken,
                                             wellKnown: wk)
             self.baseUrl = URL(string: wk.homeserver.baseUrl)!
         }
@@ -155,13 +157,39 @@ public class Client {
             logger.error("/refresh failed -- HTTP \(httpResponse.statusCode, privacy: .public)")
             throw Matrix.Error("/refresh failed")
         }
+        
+        struct RefreshResponseBody: Codable {
+            var accessToken: String
+            var expiresInMs: UInt?
+            var refreshToken: String?
+            
+            enum CodingKeys: String, CodingKey {
+                case accessToken = "access_token"
+                case expiresInMs = "expires_in_ms"
+                case refreshToken = "refresh_token"
+            }
+        }
 
         let decoder = JSONDecoder()
-        guard let newCreds = try? decoder.decode(Credentials.self, from: data)
+        guard let responseBody = try? decoder.decode(RefreshResponseBody.self, from: data)
         else {
             logger.error("Failed to parse /refresh response body")
             throw Matrix.Error("Failed to parse /refresh response body")
         }
+        
+        let expiration: Date?
+        if let milliseconds = responseBody.expiresInMs {
+            expiration = Date() + TimeInterval(milliseconds/1000)
+        } else {
+            expiration = nil
+        }
+        
+        let newCreds = Credentials(userId: creds.userId,
+                                   accessToken: responseBody.accessToken,
+                                   deviceId: creds.deviceId,
+                                   expiration: expiration,
+                                   refreshToken: responseBody.refreshToken,
+                                   wellKnown: creds.wellKnown)
         
         logger.debug("/refresh got new credentials")
         self.creds = newCreds
@@ -210,10 +238,7 @@ public class Client {
         }
         let url = components.url!
         
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.httpBody = bodyData
-        request.setValue("Bearer \(creds.accessToken)", forHTTPHeaderField: "Authorization")
+
                
         var slowDown = true
         var keepTrying = false
@@ -242,13 +267,15 @@ public class Client {
                 // Tell the caller it's OK to keep retrying the original API call
                 return true
             },
-            403: { data in
+            401: { data in
+                let stringBody = String(data: data, encoding: .utf8)!
+                self.logger.debug("Got HTTP 401 with body = \(stringBody)")
                 let decoder = JSONDecoder()
                 // Did we get an invalid token error?
                 // And do we have a refresh token?
                 // If so, we can try to refresh and get a new access token
                 if let errorResponse = try? decoder.decode(Matrix.InvalidTokenError.self, from: data),
-                   errorResponse.errcode == M_INVALID_TOKEN,
+                   errorResponse.errcode == M_UNKNOWN_TOKEN,
                    errorResponse.softLogout == true,
                    self.creds.refreshToken != nil
                 {
@@ -257,13 +284,18 @@ public class Client {
                 }
                 else {
                     // Otherwise we have a problem
-                    self.logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) Got 403 error but unable to refresh")
+                    self.logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) Got unauthorized but unable to refresh")
                     throw Matrix.Error("Unauthorized")
                 }
             }
         ]
         
         repeat {
+            var request = URLRequest(url: url)
+            request.httpMethod = method
+            request.httpBody = bodyData
+            request.setValue("Bearer \(creds.accessToken)", forHTTPHeaderField: "Authorization")
+            
             let (data, response) = try await apiUrlSession.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse
