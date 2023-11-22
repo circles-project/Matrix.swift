@@ -74,5 +74,48 @@ extension Matrix {
             try container.encode(self.userId, forKey: .userId)
             try container.encodeIfPresent(self.wellKnown, forKey: .wellKnown)
         }
+        
+        public func save() throws {
+            let defaults = UserDefaults.standard
+            let encoder = JSONEncoder()
+            let data = try encoder.encode(self)
+            // Save the creds data in a single blob
+            defaults.set(data, forKey: "credentials[\(userId)]")
+            
+            /*
+            // Remove any of the old-style individual objects
+            defaults.removeObject(forKey: "device_id[\(userId)]")
+            defaults.removeObject(forKey: "access_token[\(userId)]")
+            defaults.removeObject(forKey: "expiration[\(userId)]")
+            defaults.removeObject(forKey: "refresh_token[\(userId)]")
+            */
+        }
+        
+        public static func load(for userId: UserId) throws -> Credentials? {
+            let defaults = UserDefaults.standard
+            // First check to see if we have saved our creds in the new format
+            let decoder = JSONDecoder()
+            if let data = defaults.data(forKey: "credentials[\(userId)]"),
+               let creds = try? decoder.decode(Matrix.Credentials.self, from: data),
+               creds.userId == userId
+            {
+                return creds
+            }
+            
+            // Fall back to the older approach of loading each item individually
+            guard let deviceId = defaults.string(forKey: "device_id[\(userId)]"),
+                  let accessToken = defaults.string(forKey: "access_token[\(userId)]")
+            else {
+                return nil
+            }
+            let expiration = defaults.object(forKey: "expiration[\(userId)]") as? Date
+            let refreshToken = defaults.string(forKey: "refresh_token[\(userId)]")
+            
+            return .init(userId: userId,
+                         accessToken: accessToken,
+                         deviceId: deviceId,
+                         expiration: expiration,
+                         refreshToken: refreshToken)
+        }
     }
 }

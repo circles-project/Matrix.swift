@@ -202,6 +202,8 @@ public class Client {
             
             logger.debug("/refresh got new credentials")
             self.creds = newCreds
+            // Save the credentials so we can reconnect in the future
+            try? self.creds.save()
             logger.debug("/refresh done")
             
             self.refreshTask = nil
