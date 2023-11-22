@@ -29,6 +29,7 @@ public class Client {
     private let INITIAL_RATE_LIMIT_DELAY: UInt64 = 1_000_000_000 // Default delay = 1 sec
     private var rateLimitDelayNanosec: UInt64
 
+    private var refreshTask: Task<Void,Swift.Error>?
     
     private var logger: os.Logger
     
@@ -111,89 +112,102 @@ public class Client {
     // MARK: Refresh
     // https://spec.matrix.org/v1.8/client-server-api/#refreshing-access-tokens
     // https://spec.matrix.org/v1.8/client-server-api/#post_matrixclientv3refresh
+    @MainActor
     public func refresh() async throws {
         // Can't build this one using call() because we are going to rely on this in call()
         
-        guard let refreshToken = self.creds.refreshToken
-        else {
-            logger.error("Can't /refresh - Creds have no refresh token")
-            throw Matrix.Error("Can't refresh without refresh token")
+        if let task = self.refreshTask {
+            let _ = await task.result
+            return
         }
-        
-        let path = "/_matrix/client/v3/refresh"
-        guard let url = URL(string: path, relativeTo: self.baseUrl)
-        else {
-            logger.error("Failed to construct /refresh URL")
-            throw Matrix.Error("Failed to construct /refresh URL")
-        }
-        
-        let requestBody = 
-        """
-        {
-            "refresh_token": "\(refreshToken)"
-        }
-        """
-        guard let requestData = requestBody.data(using: .utf8)
-        else {
-            logger.error("Failed to construct /refresh request body")
-            throw Matrix.Error("Failed to construct /refresh request body")
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.httpBody = requestData
-        
-        logger.debug("Sending /refresh request")
-        let (data, response) = try await apiUrlSession.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse
-        else {
-            logger.error("/refresh Failed to handle HTTP response")
-            throw Matrix.Error("Failed to handle HTTP response")
-        }
-        
-        guard httpResponse.statusCode == 200
-        else {
-            logger.error("/refresh failed -- HTTP \(httpResponse.statusCode, privacy: .public)")
-            throw Matrix.Error("/refresh failed")
-        }
-        
-        struct RefreshResponseBody: Codable {
-            var accessToken: String
-            var expiresInMs: UInt?
-            var refreshToken: String?
             
-            enum CodingKeys: String, CodingKey {
-                case accessToken = "access_token"
-                case expiresInMs = "expires_in_ms"
-                case refreshToken = "refresh_token"
+        self.refreshTask = Task {
+                
+            guard let refreshToken = self.creds.refreshToken
+            else {
+                logger.error("Can't /refresh - Creds have no refresh token")
+                throw Matrix.Error("Can't refresh without refresh token")
             }
-        }
-
-        let decoder = JSONDecoder()
-        guard let responseBody = try? decoder.decode(RefreshResponseBody.self, from: data)
-        else {
-            logger.error("Failed to parse /refresh response body")
-            throw Matrix.Error("Failed to parse /refresh response body")
+            
+            let path = "/_matrix/client/v3/refresh"
+            guard let url = URL(string: path, relativeTo: self.baseUrl)
+            else {
+                logger.error("Failed to construct /refresh URL")
+                throw Matrix.Error("Failed to construct /refresh URL")
+            }
+            
+            let requestBody =
+            """
+            {
+                "refresh_token": "\(refreshToken)"
+            }
+            """
+            guard let requestData = requestBody.data(using: .utf8)
+            else {
+                logger.error("Failed to construct /refresh request body")
+                throw Matrix.Error("Failed to construct /refresh request body")
+            }
+            
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.httpBody = requestData
+            
+            logger.debug("Sending /refresh request")
+            let (data, response) = try await apiUrlSession.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse
+            else {
+                logger.error("/refresh Failed to handle HTTP response")
+                throw Matrix.Error("Failed to handle HTTP response")
+            }
+                
+            guard httpResponse.statusCode == 200
+            else {
+                logger.error("/refresh failed -- HTTP \(httpResponse.statusCode, privacy: .public)")
+                throw Matrix.Error("/refresh failed")
+            }
+            
+            struct RefreshResponseBody: Codable {
+                var accessToken: String
+                var expiresInMs: UInt?
+                var refreshToken: String?
+                
+                enum CodingKeys: String, CodingKey {
+                    case accessToken = "access_token"
+                    case expiresInMs = "expires_in_ms"
+                    case refreshToken = "refresh_token"
+                }
+            }
+                
+            let decoder = JSONDecoder()
+            guard let responseBody = try? decoder.decode(RefreshResponseBody.self, from: data)
+            else {
+                logger.error("Failed to parse /refresh response body")
+                throw Matrix.Error("Failed to parse /refresh response body")
+            }
+            
+            let expiration: Date?
+            if let milliseconds = responseBody.expiresInMs {
+                expiration = Date() + TimeInterval(milliseconds/1000)
+            } else {
+                expiration = nil
+            }
+            
+            let newCreds = Credentials(userId: creds.userId,
+                                       accessToken: responseBody.accessToken,
+                                       deviceId: creds.deviceId,
+                                       expiration: expiration,
+                                       refreshToken: responseBody.refreshToken,
+                                       wellKnown: creds.wellKnown)
+            
+            logger.debug("/refresh got new credentials")
+            self.creds = newCreds
+            logger.debug("/refresh done")
+            
+            self.refreshTask = nil
         }
         
-        let expiration: Date?
-        if let milliseconds = responseBody.expiresInMs {
-            expiration = Date() + TimeInterval(milliseconds/1000)
-        } else {
-            expiration = nil
-        }
-        
-        let newCreds = Credentials(userId: creds.userId,
-                                   accessToken: responseBody.accessToken,
-                                   deviceId: creds.deviceId,
-                                   expiration: expiration,
-                                   refreshToken: responseBody.refreshToken,
-                                   wellKnown: creds.wellKnown)
-        
-        logger.debug("/refresh got new credentials")
-        self.creds = newCreds
-        logger.debug("/refresh done")
+        await self.refreshTask?.result
     }
     
     // MARK: API Call
@@ -237,10 +251,7 @@ public class Client {
             components.queryItems = queryItems
         }
         let url = components.url!
-        
-
                
-        var slowDown = true
         var keepTrying = false
         var count = 0
         let MAX_RETRIES = 5
@@ -268,8 +279,8 @@ public class Client {
                 return true
             },
             401: { data in
-                let stringBody = String(data: data, encoding: .utf8)!
-                self.logger.debug("Got HTTP 401 with body = \(stringBody)")
+                //let stringBody = String(data: data, encoding: .utf8)!
+                //self.logger.debug("Got HTTP 401 with body = \(stringBody)")
                 let decoder = JSONDecoder()
                 // Did we get an invalid token error?
                 // And do we have a refresh token?
