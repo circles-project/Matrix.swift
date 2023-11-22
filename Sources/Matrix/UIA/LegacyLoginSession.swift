@@ -11,6 +11,7 @@ public class LegacyLoginSession: ObservableObject {
     public var userId: UserId
     public var deviceId: String?
     public var initialDeviceDisplayName: String?
+    public var refreshToken: Bool?
     
     var completion: ((Matrix.Credentials) async throws -> Void)?
     var cancellation: (() async -> Void)?
@@ -25,12 +26,14 @@ public class LegacyLoginSession: ObservableObject {
     public init(userId: UserId,
                 deviceId: String? = nil,
                 initialDeviceDisplayName: String? = nil,
+                refreshToken: Bool? = nil,
                 completion: ((Matrix.Credentials) async throws -> Void)? = nil,
                 cancellation: (() async -> Void)? = nil
     ) {
         self.userId = userId
         self.deviceId = deviceId
         self.initialDeviceDisplayName = initialDeviceDisplayName
+        self.refreshToken = refreshToken
         self.completion = completion
         self.cancellation = cancellation
         self.status = .new
@@ -38,7 +41,7 @@ public class LegacyLoginSession: ObservableObject {
     
     public func login(password: String) async throws {
         
-        if let creds: Matrix.Credentials = try? await Matrix.login(userId: userId, password: password, deviceId: deviceId, initialDeviceDisplayName: initialDeviceDisplayName) {
+        if let creds: Matrix.Credentials = try? await Matrix.login(userId: userId, password: password, deviceId: deviceId, initialDeviceDisplayName: initialDeviceDisplayName, refreshToken: refreshToken) {
             await MainActor.run {
                 self.status = .success(creds)
             }
