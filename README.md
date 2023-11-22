@@ -65,9 +65,9 @@ Current features include:
 * MSC3061 support for providing keys on invite
 
 ## To-Do List
-* Refresh tokens
-* Sliding sync (MSC3575)
-* Media quotas (MSC4034)
+* ~~Refresh tokens~~ #24
+* MSC3575 Sliding sync #7
+* MSC4034 Media quotas #32
 * Documentation
 * Prepare 1.0 release
 
