@@ -34,6 +34,7 @@ public class SignupSession: UIAuthSession {
                             initialDeviceDisplayName: String? = nil,
                             //showMSISDN: Bool = false,
                             inhibitLogin: Bool = false,
+                            refreshToken: Bool? = nil,
                             completion: ((UIAuthSession,Data) async throws -> Void)? = nil,
                             cancellation: (() async -> Void)? = nil
     ) async throws {
@@ -51,6 +52,7 @@ public class SignupSession: UIAuthSession {
                             deviceId: deviceId,
                             initialDeviceDisplayName: initialDeviceDisplayName,
                             inhibitLogin: inhibitLogin,
+                            refreshToken: refreshToken,
                             completion: completion,
                             cancellation: cancellation)
     }
@@ -64,6 +66,7 @@ public class SignupSession: UIAuthSession {
                 initialDeviceDisplayName: String? = nil,
                 //showMSISDN: Bool = false,
                 inhibitLogin: Bool = false,
+                refreshToken: Bool? = nil,
                 completion: ((UIAuthSession,Data) async throws -> Void)? = nil,
                 cancellation: (() async -> Void)? = nil
     ) async throws {
@@ -95,6 +98,9 @@ public class SignupSession: UIAuthSession {
         }
         if let initialDeviceDisplayName = initialDeviceDisplayName {
             requestDict["initial_device_display_name"] = initialDeviceDisplayName
+        }
+        if let refreshToken = refreshToken {
+            requestDict["refresh_token"] = refreshToken
         }
 
         super.init(method: "POST", url: signupURL, requestDict: requestDict, completion: completion, cancellation: cancellation)

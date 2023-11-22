@@ -14,6 +14,7 @@ public class UiaLoginSession: UIAuthSession {
                             password: String? = nil,
                             deviceId: String? = nil,
                             initialDeviceDisplayName: String? = nil,
+                            refreshToken: Bool? = nil,
                             completion: ((UIAuthSession,Data) async throws -> Void)? = nil,
                             cancellation: (() async -> Void)? = nil
     ) async throws {
@@ -30,6 +31,7 @@ public class UiaLoginSession: UIAuthSession {
                             password: password,
                             deviceId: deviceId,
                             initialDeviceDisplayName: initialDeviceDisplayName,
+                            refreshToken: refreshToken,
                             completion: completion,
                             cancellation: cancellation)
     }
@@ -39,6 +41,7 @@ public class UiaLoginSession: UIAuthSession {
                 password: String? = nil,
                 deviceId: String? = nil,
                 initialDeviceDisplayName: String? = nil,
+                refreshToken: Bool? = nil,
                 completion: ((UIAuthSession,Data) async throws -> Void)? = nil,
                 cancellation: (() async -> Void)? = nil
     ) async throws {
@@ -67,6 +70,10 @@ public class UiaLoginSession: UIAuthSession {
             args["initial_device_display_name"] = initialDeviceDisplayName
         }
         
+        if let refreshToken = refreshToken {
+            args["refresh_token"] = refreshToken
+        }
+        
         super.init(method: "POST", url: url, requestDict: args, completion: completion, cancellation: cancellation)
         
         self.storage["userId"] = userId
@@ -76,6 +83,7 @@ public class UiaLoginSession: UIAuthSession {
                             domain: String,
                             deviceId: String? = nil,
                             initialDeviceDisplayName: String? = nil,
+                            refreshToken: Bool? = nil,
                             completion: ((UIAuthSession,Data) async throws -> Void)? = nil,
                             cancellation: (() async -> Void)? = nil
     ) async throws {
@@ -86,6 +94,7 @@ public class UiaLoginSession: UIAuthSession {
         try await self.init(userId: userId,
                             deviceId: deviceId,
                             initialDeviceDisplayName: initialDeviceDisplayName,
+                            refreshToken: refreshToken,
                             completion: completion,
                             cancellation: cancellation)
     }
