@@ -206,10 +206,18 @@ public struct TermsParams: UiaStageParams {
 
 public struct AppleSubscriptionParams: UiaStageParams {
     public var productIds: [String]
+    
+    public enum CodingKeys: String, CodingKey {
+        case productIds = "product_ids"
+    }
 }
 
 public struct PasswordEnrollParams: UiaStageParams {
     public var minimumLength: Int
+    
+    public enum CodingKeys: String, CodingKey {
+        case minimumLength = "minimum_length"
+    }
 }
 
 public struct EmailLoginParams: UiaStageParams {
@@ -253,7 +261,7 @@ public struct BSSpekeVerifyParams: UiaStageParams {
     }
 }
 
-
+// Here's our extension that tells Swift to use our `parameterTypes` dictionary to decode the proper type for each UIA stage by name
 extension KeyedDecodingContainer {
     func decode(_ type: Dictionary<UIAA.StageId,UiaStageParams>.Type, forKey key: KeyedDecodingContainer<K>.Key) throws -> Dictionary<UIAA.StageId,UiaStageParams> {
         let subContainer: KeyedDecodingContainer<UIAA.StageId> = try self.nestedContainer(keyedBy: UIAA.StageId.self, forKey: key)
