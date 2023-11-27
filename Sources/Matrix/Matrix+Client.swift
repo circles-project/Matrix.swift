@@ -94,9 +94,6 @@ public class Client {
 
         logger.debug("Creating media URL session config")
         let mediaConfig = URLSessionConfiguration.default
-        mediaConfig.httpAdditionalHeaders = [
-            "Authorization": "Bearer \(creds.accessToken)",
-        ]
         logger.debug("Creating URL cache")
         let cache = URLCache(memoryCapacity: 64*1024*1024, diskCapacity: 512*1024*1024, directory: mediaCacheDir)
         mediaConfig.urlCache = cache
@@ -1374,14 +1371,22 @@ public class Client {
             logger.error("Invalid mxc:// URL \(mxc.description)")
             throw Matrix.Error("Invalid mxc:// URL \(mxc.description)")
         }
-        let request = URLRequest(url: url)
+        
+        // Build the request headers dynamically each time, now that we support refreshable access tokens which may change all the time
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(creds.accessToken)", forHTTPHeaderField: "Authorization")
         
         let (data, response) = try await mediaUrlSession.data(for: request)
         
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200
+        guard let httpResponse = response as? HTTPURLResponse
         else {
-            logger.error("DOWNLOAD Failed to download media")
+            logger.error("Failed to download media - Couldn't handle response")
+            throw Matrix.Error("Failed to download media")
+        }
+        
+        guard httpResponse.statusCode == 200
+        else {
+            logger.error("DOWNLOAD Failed to download media - Got HTTP \(httpResponse.statusCode)")
             throw Matrix.Error("Failed to download media")
         }
         
@@ -1425,14 +1430,23 @@ public class Client {
         
         // Finally, if it's really necessary, connect to the server and download the file
         let task = Task {
-            let (location, response) = try await mediaUrlSession.download(from: url, delegate: delegate)
+            // Build the request headers dynamically each time, now that we support refreshable access tokens which may change all the time
+            var request = URLRequest(url: url)
+            request.setValue("Bearer \(creds.accessToken)", forHTTPHeaderField: "Authorization")
             
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200
+            let (location, response) = try await mediaUrlSession.download(for: request, delegate: delegate)
+            
+            guard let httpResponse = response as? HTTPURLResponse
             else {
-                logger.error("Failed to download media from \(url.description)")
+                logger.error("Failed to download file - Coulnd't handle response")
+                throw Matrix.Error("Failed to download file")
+            }
+            
+            guard httpResponse.statusCode == 200
+            else {
+                logger.error("Failed to download media from \(url.description) - Got HTTP \(httpResponse.statusCode)")
                 self.mediaDownloadTasks.removeValue(forKey: mxc)
-                throw Matrix.Error("Failed to download media from \(url.description)")
+                throw Matrix.Error("Failed to download media")
             }
             logger.debug("Downloaded \(mxc) to temporary location \(location)")
             
@@ -1483,15 +1497,21 @@ public class Client {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        // Build the request headers dynamically each time, now that we support refreshable access tokens which may change all the time
+        request.setValue("Bearer \(creds.accessToken)", forHTTPHeaderField: "Authorization")
         
         let (responseData, response) = try await mediaUrlSession.upload(for: request, from: data)
         
-        guard let httpResponse = response as? HTTPURLResponse,
-              [200].contains(httpResponse.statusCode)
+        guard let httpResponse = response as? HTTPURLResponse
         else {
-            let msg = "Upload request failed"
-            print(msg)
-            throw Matrix.Error(msg)
+            logger.error("Upload data failed - Couldn't handle response")
+            throw Matrix.Error("Upload data failed")
+        }
+        
+        guard [200].contains(httpResponse.statusCode)
+        else {
+            let msg = "Upload data failed - Got HTTP \(httpResponse.statusCode)"
+            throw Matrix.Error("Upload data failed")
         }
         
         struct UploadResponse: Codable {
