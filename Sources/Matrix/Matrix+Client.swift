@@ -32,6 +32,10 @@ public class Client {
     private var refreshTask: Task<Void,Swift.Error>?
     
     private var logger: os.Logger
+        
+    public typealias APIErrorHandler = (Data) async throws -> Bool
+    private(set) public var errorHandlers: [Int: APIErrorHandler] = [:]
+
     
     // MARK: Init
     
@@ -103,8 +107,64 @@ public class Client {
         self.mediaCache = cache
         self.mediaDownloadTasks = [:]
         
+        logger.debug("Initializing error handlers")
+        self.errorHandlers = [
+            429: handleSlowDown,
+            401: handleInvalidToken,
+        ]
+        
         logger.debug("Done with init()")
     }
+    
+    
+    // MARK: API Error Handlers
+    
+    public func registerErrorHandler(statusCode: Int, handler: @escaping APIErrorHandler) {
+        self.errorHandlers[statusCode] = handler
+    }
+    
+    public func handleSlowDown(data: Data) async throws -> Bool {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        if let rateLimitError = try? decoder.decode(Matrix.RateLimitError.self, from: data),
+           rateLimitError.errcode == M_LIMIT_EXCEEDED,
+           let delayMs = rateLimitError.retryAfterMs
+        {
+            self.rateLimitDelayNanosec = 1_000_000 * UInt64(delayMs)
+        } else {
+            // The server didn't tell us how long to wait
+            // Let's try exponential backoff
+            self.rateLimitDelayNanosec = UInt64.random(in: self.rateLimitDelayNanosec...(2*self.rateLimitDelayNanosec))
+        }
+        
+        self.logger.error("Got 429 error...  Waiting \(self.rateLimitDelayNanosec, privacy: .public) nanosecs and then retrying")
+        try await Task.sleep(nanoseconds: self.rateLimitDelayNanosec)
+        // Tell the caller it's OK to keep retrying the original API call
+        return true
+    }
+    
+    public func handleInvalidToken(data: Data) async throws -> Bool {
+        //let stringBody = String(data: data, encoding: .utf8)!
+        //self.logger.debug("Got HTTP 401 with body = \(stringBody)")
+        let decoder = JSONDecoder()
+        // Did we get an invalid token error?
+        // And do we have a refresh token?
+        // If so, we can try to refresh and get a new access token
+        if let errorResponse = try? decoder.decode(Matrix.InvalidTokenError.self, from: data),
+           errorResponse.errcode == M_UNKNOWN_TOKEN,
+           errorResponse.softLogout == true,
+           self.creds.refreshToken != nil
+        {
+            try await self.refresh()
+            return true
+        }
+        else {
+            // Otherwise we have a problem
+            self.logger.error("Got unauthorized but unable to refresh")
+            throw Matrix.Error("Unauthorized")
+        }
+    }
+    
     
     // MARK: Refresh
     // https://spec.matrix.org/v1.8/client-server-api/#refreshing-access-tokens
@@ -254,51 +314,6 @@ public class Client {
         var keepTrying = false
         var count = 0
         let MAX_RETRIES = 5
-        
-        typealias HTTPErrorHandler = (Data) async throws -> Bool
-        let errorHandlers: [Int: HTTPErrorHandler] = [
-            429: { data in
-
-                let decoder = JSONDecoder()
-                decoder.keyDecodingStrategy = .convertFromSnakeCase
-                if let rateLimitError = try? decoder.decode(Matrix.RateLimitError.self, from: data),
-                   rateLimitError.errcode == M_LIMIT_EXCEEDED,
-                   let delayMs = rateLimitError.retryAfterMs
-                {
-                    self.rateLimitDelayNanosec = 1_000_000 * UInt64(delayMs)
-                } else {
-                    // The server didn't tell us how long to wait
-                    // Let's try exponential backoff
-                    self.rateLimitDelayNanosec = UInt64.random(in: self.rateLimitDelayNanosec...(2*self.rateLimitDelayNanosec))
-                }
-                
-                self.logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) Got 429 error...  Waiting \(self.rateLimitDelayNanosec, privacy: .public) nanosecs and then retrying")
-                try await Task.sleep(nanoseconds: self.rateLimitDelayNanosec)
-                // Tell the caller it's OK to keep retrying the original API call
-                return true
-            },
-            401: { data in
-                //let stringBody = String(data: data, encoding: .utf8)!
-                //self.logger.debug("Got HTTP 401 with body = \(stringBody)")
-                let decoder = JSONDecoder()
-                // Did we get an invalid token error?
-                // And do we have a refresh token?
-                // If so, we can try to refresh and get a new access token
-                if let errorResponse = try? decoder.decode(Matrix.InvalidTokenError.self, from: data),
-                   errorResponse.errcode == M_UNKNOWN_TOKEN,
-                   errorResponse.softLogout == true,
-                   self.creds.refreshToken != nil
-                {
-                    try await self.refresh()
-                    return true
-                }
-                else {
-                    // Otherwise we have a problem
-                    self.logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) Got unauthorized but unable to refresh")
-                    throw Matrix.Error("Unauthorized")
-                }
-            }
-        ]
         
         repeat {
             var request = URLRequest(url: url)
@@ -1365,6 +1380,7 @@ public class Client {
         }
     }
     
+    
     public func downloadData(mxc: MXC, allowRedirect: Bool = true) async throws -> Data {
         guard let url = getMediaHttpUrl(mxc: mxc, allowRedirect: allowRedirect)
         else {
@@ -1372,25 +1388,40 @@ public class Client {
             throw Matrix.Error("Invalid mxc:// URL \(mxc.description)")
         }
         
-        // Build the request headers dynamically each time, now that we support refreshable access tokens which may change all the time
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(creds.accessToken)", forHTTPHeaderField: "Authorization")
+        var keepTrying = false
+        var count = 0
+        let MAX_RETRIES = 5
         
-        let (data, response) = try await mediaUrlSession.data(for: request)
+        repeat {
+            count += 1
+            
+            // Build the request headers dynamically each time, now that we support refreshable access tokens which may change all the time
+            var request = URLRequest(url: url)
+            request.setValue("Bearer \(creds.accessToken)", forHTTPHeaderField: "Authorization")
+            
+            let (data, response) = try await mediaUrlSession.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse
+            else {
+                logger.error("Failed to download media - Couldn't handle response")
+                throw Matrix.Error("Failed to download media")
+            }
+            
+            if httpResponse.statusCode == 200 {
+                return data
+            }
+            else if let handler = self.errorHandlers[httpResponse.statusCode] {
+                keepTrying = try await handler(data)
+            }
+            else {
+                logger.error("Failed to download media - Got HTTP \(httpResponse.statusCode)")
+                throw Matrix.Error("Failed to download media")
+            }
+            
+        } while keepTrying == true && count <= MAX_RETRIES
         
-        guard let httpResponse = response as? HTTPURLResponse
-        else {
-            logger.error("Failed to download media - Couldn't handle response")
-            throw Matrix.Error("Failed to download media")
-        }
-        
-        guard httpResponse.statusCode == 200
-        else {
-            logger.error("DOWNLOAD Failed to download media - Got HTTP \(httpResponse.statusCode)")
-            throw Matrix.Error("Failed to download media")
-        }
-        
-        return data
+        logger.error("Failed to download media")
+        throw Matrix.Error("Failed to download media")
     }
     
     public func downloadFile(mxc: MXC,
@@ -1490,29 +1521,54 @@ public class Client {
         return try await uploadData(data: jpeg, contentType: "image/jpeg")
     }
 
+    // Low-level API call for media uploads
+    func _uploadData(data: Data, contentType: String) async throws -> (Data, HTTPURLResponse) {
+        var keepTrying = false
+        var count = 0
+        let MAX_RETRIES = 5
+        
+        repeat {
+            
+            count += 1
+        
+            let url = URL(string: "/_matrix/media/v3/upload", relativeTo: baseUrl)!
+
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+            // Build the request headers dynamically each time, now that we support refreshable access tokens which may change all the time
+            request.setValue("Bearer \(creds.accessToken)", forHTTPHeaderField: "Authorization")
+            
+            let (responseData, response) = try await mediaUrlSession.upload(for: request, from: data)
+            
+            guard let httpResponse = response as? HTTPURLResponse
+            else {
+                logger.error("Upload data failed - Couldn't handle response")
+                throw Matrix.Error("Upload data failed")
+            }
+            
+            if httpResponse.statusCode == 200 {
+                return (responseData, httpResponse)
+            }
+            // Do we know how to handle this response?  eg maybe it's a "slow down" or a soft logout / need to refresh
+            else if let handler = errorHandlers[httpResponse.statusCode] {
+                // If so, call the error handler and ask it whether we should keep trying the original endpoint
+                keepTrying = try await handler(data)
+            }
+            else {
+                logger.error("Upload call failed - Got HTTP \(httpResponse.statusCode)")
+                throw Matrix.Error("Upload call failed")
+            }
+            
+        } while keepTrying == true && count <= MAX_RETRIES
+                             
+        logger.error("Upload call failed")
+        throw Matrix.Error("Upload call failed")
+    }
     
     public func uploadData(data: Data, contentType: String) async throws -> MXC {
         
-        let url = URL(string: "/_matrix/media/v3/upload", relativeTo: baseUrl)!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
-        // Build the request headers dynamically each time, now that we support refreshable access tokens which may change all the time
-        request.setValue("Bearer \(creds.accessToken)", forHTTPHeaderField: "Authorization")
-        
-        let (responseData, response) = try await mediaUrlSession.upload(for: request, from: data)
-        
-        guard let httpResponse = response as? HTTPURLResponse
-        else {
-            logger.error("Upload data failed - Couldn't handle response")
-            throw Matrix.Error("Upload data failed")
-        }
-        
-        guard [200].contains(httpResponse.statusCode)
-        else {
-            let msg = "Upload data failed - Got HTTP \(httpResponse.statusCode)"
-            throw Matrix.Error("Upload data failed")
-        }
+        let (responseData, httpResponse) = try await _uploadData(data: data, contentType: contentType)
         
         struct UploadResponse: Codable {
             var contentUri: String
