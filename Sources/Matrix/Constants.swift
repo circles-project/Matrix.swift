@@ -101,6 +101,11 @@ public let M_READ = "m.read"
 public let M_READ_PRIVATE = "m.read.private"
 // m.fully_read is already defined above
 
+// MARK: Poll types
+public let ORG_MATRIX_MSC3381_POLL_START = "org.matrix.msc3381.poll.start"
+public let ORG_MATRIX_MSC3381_POLL_RESPONSE = "org.matrix.msc3381.poll.response"
+public let ORG_MATRIX_MSC3381_POLL_END = "org.matrix.msc3381.poll.end"
+
 // MARK: Matrix errors
 // https://spec.matrix.org/v1.8/client-server-api/#common-error-codes
 public let M_UNKNOWN_TOKEN = "M_UNKNOWN_TOKEN"
