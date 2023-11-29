@@ -145,6 +145,9 @@ public enum Matrix {
         M_ROOM_KEY_WITHHELD : RoomKeyWithheldContent.self,
         M_SECRET_REQUEST : SecretRequestContent.self,
         M_SECRET_SEND : SecretSendContent.self,
+        ORG_MATRIX_MSC3381_POLL_START : PollStartContent.self,
+        ORG_MATRIX_MSC3381_POLL_RESPONSE : PollResponseContent.self,
+        ORG_MATRIX_MSC3381_POLL_END : PollEndContent.self,
     ]
     static var messageTypes: [String: Codable.Type] = [
         M_TEXT : mTextContent.self,
