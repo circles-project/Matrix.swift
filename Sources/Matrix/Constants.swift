@@ -58,6 +58,10 @@ public let M_FILE = "m.file"
 public let M_AUDIO = "m.audio"
 public let M_VIDEO = "m.video"
 public let M_LOCATION = "m.location"
+public let M_POLL_START = "m.poll.start"
+public let M_POLL_RESPONSE = "m.poll.response"
+public let M_POLL_END = "m.poll.end"
+public let ORG_MATRIX_MSC1767_TEXT = "org.matrix.msc1767.text"
 
 // MARK: Account Data Types
 
