@@ -100,9 +100,9 @@ public struct PollStartContent: Codable {
     public struct PollStart: Codable {
         public enum Kind: String, Codable {
             /// The votes are visible up until and including when the poll is closed.
-            case open = "m.disclosed"
+            case open // "m.disclosed"
             /// The results are revealed once the poll is closed.
-            case closed = "m.undisclosed"
+            case closed // "m.undisclosed"
         }
         
         public let kind: Kind
