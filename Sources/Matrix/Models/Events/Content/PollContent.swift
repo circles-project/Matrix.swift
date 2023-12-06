@@ -81,7 +81,10 @@ public struct PollAnswer: Codable, Identifiable {
     }
 }
 
-public struct PollStartContent: Codable {
+public struct PollStartContent: Matrix.MessageContent {
+    public let msgtype: String
+    public let body: String
+    
     /// Optional fallback text representation of the message, for clients that don't support polls.
     public let message: String
     /// The poll start content of the message.
@@ -209,6 +212,10 @@ public struct PollStartContent: Codable {
     public init(message: String, start: PollStart) {
         self.message = message
         self.start = start
+        
+        // Protocol required implementations
+        self.body = message
+        self.msgtype = ORG_MATRIX_MSC3381_POLL_START
     }
     
     public init(from decoder: Decoder) throws {
@@ -236,6 +243,10 @@ public struct PollStartContent: Codable {
         else {
             self.message = self.start.question.body
         }
+        
+        // Protocol required implementations
+        self.body = self.message
+        self.msgtype = ORG_MATRIX_MSC3381_POLL_START
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -252,9 +263,64 @@ public struct PollStartContent: Codable {
             try container.encode([Matrix.mTextContent(body: message)], forKey: .message)
         }
     }
+    
+    // Protocol required implementations
+    public var mimetype: String? {
+        nil
+    }
+    
+    public var thumbnail_info: Matrix.mThumbnailInfo? {
+        nil
+    }
+    
+    public var thumbnail_file: Matrix.mEncryptedFile? {
+        nil
+    }
+    
+    public var thumbnail_url: MXC? {
+        nil
+    }
+    
+    public var blurhash: String? {
+        nil
+    }
+    
+    public var thumbhash: String? {
+        nil
+    }
+    
+    public var relationType: String? {
+        nil
+    }
+    
+    public var relatedEventId: EventId? {
+        nil
+    }
+    
+    public var replyToEventId: EventId? {
+        nil
+    }
+    
+    public var replacesEventId: EventId? {
+        nil
+    }
+    
+    public func mentions(userId: UserId) -> Bool {
+        self.body.contains(userId.username)
+    }
+    
+    public var debugString: String {
+        """
+        msg_type: \(msgtype)
+        body: \(body)
+        """
+    }
 }
 
-public struct PollResponseContent: Codable {
+public struct PollResponseContent: Matrix.MessageContent {
+    public var msgtype: String
+    public var body: String
+    
     public let relatesTo: mRelatesTo
     
     /// The IDs of the selected answers of the poll.
@@ -278,6 +344,10 @@ public struct PollResponseContent: Codable {
     public init(relatesTo: mRelatesTo, selections: [String]) {
         self.relatesTo = relatesTo
         self.selections = selections
+        
+        // Protocol required implementations
+        self.body = selections.first ?? ""
+        self.msgtype = ORG_MATRIX_MSC3381_POLL_RESPONSE
     }
     
     public init(from decoder: Decoder) throws {
@@ -303,6 +373,10 @@ public struct PollResponseContent: Codable {
         else {
             throw Matrix.Error("Error decoding PollResponseContent: selections field is missing from event")
         }
+        
+        // Protocol required implementations
+        self.body = selections.first ?? ""
+        self.msgtype = ORG_MATRIX_MSC3381_POLL_RESPONSE
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -319,9 +393,69 @@ public struct PollResponseContent: Codable {
             try container.encode(["answers": selections], forKey: .selections)
         }
     }
+    
+    // Protocol required implementations
+    public var mimetype: String? {
+        nil
+    }
+    
+    public var thumbnail_info: Matrix.mThumbnailInfo? {
+        nil
+    }
+    
+    public var thumbnail_file: Matrix.mEncryptedFile? {
+        nil
+    }
+    
+    public var thumbnail_url: MXC? {
+        nil
+    }
+    
+    public var blurhash: String? {
+        nil
+    }
+    
+    public var thumbhash: String? {
+        nil
+    }
+    
+    public var relationType: String? {
+        self.relatesTo.relType
+    }
+    
+    public var relatedEventId: EventId? {
+        self.relatesTo.eventId
+    }
+    
+    public var replyToEventId: EventId? {
+        self.relatesTo.inReplyTo?.eventId
+    }
+    
+    public var replacesEventId: EventId? {
+        if self.relatesTo.relType == M_REPLACE {
+            return self.relatesTo.eventId
+        }
+        else {
+            return nil
+        }
+    }
+    
+    public func mentions(userId: UserId) -> Bool {
+        self.body.contains(userId.username)
+    }
+    
+    public var debugString: String {
+        """
+        msg_type: \(msgtype)
+        body: \(body)
+        """
+    }
 }
 
-public struct PollEndContent: Codable {
+public struct PollEndContent: Matrix.MessageContent {
+    public var msgtype: String
+    public var body: String
+    
     public var relatesTo: mRelatesTo
     public var text: String
     public var results: [String: UInt]?
@@ -348,6 +482,10 @@ public struct PollEndContent: Codable {
         self.relatesTo = relatesTo
         self.text = text
         self.results = results
+        
+        // Protocol required implementations
+        self.body = text
+        self.msgtype = ORG_MATRIX_MSC3381_POLL_END
     }
     
     public init(from decoder: Decoder) throws {
@@ -377,6 +515,10 @@ public struct PollEndContent: Codable {
         }
         
         // org.matrix.msc3381.poll.end is required per MSC for unstable, but Android/Rust implementations ignore this
+        
+        // Protocol required implementations
+        self.body = self.text
+        self.msgtype = ORG_MATRIX_MSC3381_POLL_END
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -394,5 +536,62 @@ public struct PollEndContent: Codable {
             try container.encode(Matrix.mTextContent(body: text), forKey: .text)
             try container.encodeIfPresent(results, forKey: .results)
         }
+    }
+    
+    // Protocol required implementations
+    public var mimetype: String? {
+        nil
+    }
+    
+    public var thumbnail_info: Matrix.mThumbnailInfo? {
+        nil
+    }
+    
+    public var thumbnail_file: Matrix.mEncryptedFile? {
+        nil
+    }
+    
+    public var thumbnail_url: MXC? {
+        nil
+    }
+    
+    public var blurhash: String? {
+        nil
+    }
+    
+    public var thumbhash: String? {
+        nil
+    }
+    
+    public var relationType: String? {
+        self.relatesTo.relType
+    }
+    
+    public var relatedEventId: EventId? {
+        self.relatesTo.eventId
+    }
+    
+    public var replyToEventId: EventId? {
+        self.relatesTo.inReplyTo?.eventId
+    }
+    
+    public var replacesEventId: EventId? {
+        if self.relatesTo.relType == M_REPLACE {
+            return self.relatesTo.eventId
+        }
+        else {
+            return nil
+        }
+    }
+    
+    public func mentions(userId: UserId) -> Bool {
+        self.body.contains(userId.username)
+    }
+    
+    public var debugString: String {
+        """
+        msg_type: \(msgtype)
+        body: \(body)
+        """
     }
 }
