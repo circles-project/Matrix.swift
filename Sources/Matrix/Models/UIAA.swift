@@ -116,13 +116,13 @@ public enum UIAA {
     
     private(set) public static var parameterTypes: [String: UiaStageParams.Type] = [
         AUTH_TYPE_TERMS : TermsParams.self,
-        AUTH_TYPE_APPLE_SUBSCRIPTION : AppleSubscriptionParams.self,
         AUTH_TYPE_ENROLL_PASSWORD : PasswordEnrollParams.self,
         AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN : EmailLoginParams.self,
         AUTH_TYPE_ENROLL_BSSPEKE_OPRF : BSSpekeOprfParams.self,
         AUTH_TYPE_LOGIN_BSSPEKE_OPRF : BSSpekeOprfParams.self,
         AUTH_TYPE_ENROLL_BSSPEKE_SAVE : BSSpekeEnrollParams.self,
         AUTH_TYPE_LOGIN_BSSPEKE_VERIFY : BSSpekeVerifyParams.self,
+        AUTH_TYPE_APPSTORE_SUBSCRIPTION : AppleSubscriptionParams.self,
     ]
     
     public static func registerParameterType(type: UiaStageParams.Type, for name: String) {
