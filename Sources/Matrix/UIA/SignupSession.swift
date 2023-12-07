@@ -143,16 +143,6 @@ public class SignupSession: UIAuthSession {
         try await doUIAuthStage(auth: tokenAuthDict)
     }
     
-        
-    // MARK: Apple Subscriptions
-    
-    public func doAppleSubscriptionStage(receipt: String) async throws {
-        let args = [
-            "type": AUTH_TYPE_APPLE_SUBSCRIPTION,
-            "receipt": receipt,
-        ]
-        try await doUIAuthStage(auth: args)
-    }
     
     // MARK: Legacy email handling
     
