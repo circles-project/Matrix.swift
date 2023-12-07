@@ -108,6 +108,7 @@ public let M_READ_PRIVATE = "m.read.private"
 // MARK: Poll types
 public let ORG_MATRIX_MSC3381_POLL_START = "org.matrix.msc3381.poll.start"
 public let ORG_MATRIX_MSC3381_POLL_RESPONSE = "org.matrix.msc3381.poll.response"
+public let ORG_MATRIX_MSC3381_POLL_RESPONSE_ALIAS = "org.matrix.msc3381.poll"
 public let ORG_MATRIX_MSC3381_POLL_END = "org.matrix.msc3381.poll.end"
 
 // MARK: Matrix errors

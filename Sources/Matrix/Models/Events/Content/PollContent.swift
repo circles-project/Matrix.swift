@@ -346,7 +346,7 @@ public struct PollResponseContent: Matrix.MessageContent {
         self.selections = selections
         
         // Protocol required implementations
-        self.body = selections.first ?? ""
+        self.body = selections.description
         self.msgtype = ORG_MATRIX_MSC3381_POLL_RESPONSE
     }
     
@@ -375,7 +375,7 @@ public struct PollResponseContent: Matrix.MessageContent {
         }
         
         // Protocol required implementations
-        self.body = selections.first ?? ""
+        self.body = selections.description
         self.msgtype = ORG_MATRIX_MSC3381_POLL_RESPONSE
     }
     
