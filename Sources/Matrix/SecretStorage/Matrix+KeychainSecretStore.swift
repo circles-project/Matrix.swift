@@ -36,8 +36,9 @@ extension Matrix {
         }
         
         public func saveKey(key: Data, keyId: String) async throws {
-            logger.warning("WARNING TOTALLY INSECURE FAKE KEYCHAIN - FIXME")
-            UserDefaults.standard.set(key, forKey: "org.futo.ssss.key.\(keyId)")
+            logger.error("INSECURE FAKE KEYCHAIN - This fake keychain is now read-only")
+            //UserDefaults.standard.set(key, forKey: "org.futo.ssss.key.\(keyId)")
+            throw Matrix.Error("Writing to insecure fake keychain")
         }
         
         public func deleteKey(keyId: String, reason: String) async throws {
@@ -63,8 +64,8 @@ extension Matrix {
                 var context = LAContext()
                 context.touchIDAuthenticationAllowableReuseDuration = 60.0
                 guard let data = try? keychain
-                    .accessibility(.whenUnlockedThisDeviceOnly, authenticationPolicy: .userPresence)
-                    //.accessibility(.whenPasscodeSetThisDeviceOnly, authenticationPolicy: [.biometryAny])
+                    //.accessibility(.whenUnlockedThisDeviceOnly, authenticationPolicy: .userPresence)
+                    .accessibility(.whenUnlockedThisDeviceOnly)
                     .authenticationContext(context)
                     .authenticationPrompt(reason)
                     .getData(keyId)
@@ -99,7 +100,8 @@ extension Matrix {
                 context.touchIDAuthenticationAllowableReuseDuration = 60.0
                 self.logger.debug("Got context.  Attempting to save keyId \(keyId)")
                 try keychain
-                    .accessibility(.whenUnlockedThisDeviceOnly, authenticationPolicy: .userPresence)
+                    //.accessibility(.whenUnlockedThisDeviceOnly, authenticationPolicy: .userPresence)
+                    .accessibility(.whenUnlockedThisDeviceOnly)
                     .authenticationContext(context)
                     .set(key, key: keyId)
                 self.logger.debug("Success saving keyId \(keyId)")
