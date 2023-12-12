@@ -279,6 +279,13 @@ extension Matrix {
                                 logger.debug("Adding event \(event.eventId) as a replacement for message \(relatedEventId)")
                                 try? await relatedMessage.addReplacement(message: message)
                             }
+                            // Poll event handling is temporary until proper support is implemented
+                            else if relType == M_REFERENCE &&  (event.type == ORG_MATRIX_MSC3381_POLL_RESPONSE ||
+                                                                event.type == ORG_MATRIX_MSC3381_POLL_RESPONSE_ALIAS ||
+                                                                event.type == ORG_MATRIX_MSC3381_POLL_END) {
+                                logger.debug("POLL Adding event \(event.eventId) as a reply to \(relatedEventId)")
+                                await relatedMessage.addReply(message: message)
+                            }
                             else {
                                 logger.debug("Event \(event.eventId) doesn't look like a relation that we understand")
                             }
