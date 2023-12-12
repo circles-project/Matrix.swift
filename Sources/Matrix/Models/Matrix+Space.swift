@@ -46,7 +46,7 @@ extension Matrix {
         
         public var parents: [RoomId] {
             self.state[M_SPACE_PARENT]?.compactMap { (stateKey,event) -> RoomId? in
-                guard let content = event.content as? SpaceChildContent,
+                guard let content = event.content as? SpaceParentContent,
                       content.via?.first != nil,
                       let parentRoomId = RoomId(stateKey)
                 else {
