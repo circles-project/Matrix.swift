@@ -56,12 +56,16 @@ extension Matrix {
         }
         
         public init(from decoder: Decoder) throws {
-            let container: KeyedDecodingContainer<Matrix.JWK.CodingKeys> = try decoder.container(keyedBy: Matrix.JWK.CodingKeys.self)
-            self.kty = try container.decode(Matrix.JWK.KeyType.self, forKey: Matrix.JWK.CodingKeys.kty)
-            self.key_ops = try container.decode([Matrix.JWK.KeyOperation].self, forKey: Matrix.JWK.CodingKeys.key_ops)
-            self.alg = try container.decode(Matrix.JWK.Algorithm.self, forKey: Matrix.JWK.CodingKeys.alg)
-            let unpaddedK = try container.decode(String.self, forKey: Matrix.JWK.CodingKeys.k)
-            self.k = Base64.ensurePadding(unpaddedK)!
+            let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+            self.kty = try container.decode(KeyType.self, forKey: .kty)
+            self.key_ops = try container.decode([KeyOperation].self, forKey: .key_ops)
+            self.alg = try container.decode(Matrix.JWK.Algorithm.self, forKey: .alg)
+            let unpaddedKey = try container.decode(String.self, forKey: .k)
+            guard let paddedKey = Base64.ensurePadding(unpaddedKey)
+            else {
+                throw Matrix.Error("Failed to ensure padding on JWK key")
+            }
+            self.k = paddedKey
             self.ext = try container.decode(Bool.self, forKey: Matrix.JWK.CodingKeys.ext)
         }
         

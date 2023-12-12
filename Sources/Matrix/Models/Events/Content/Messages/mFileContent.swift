@@ -13,8 +13,9 @@ extension Matrix {
         public let msgtype: String
         public var body: String
         public var filename: String
+        public var url: MXC?
         public var info: mFileInfo
-        public var file: mEncryptedFile
+        public var file: mEncryptedFile?
         public var relatesTo: mRelatesTo?
         
         public init(body: String,
@@ -29,6 +30,18 @@ extension Matrix {
             self.info = info
             self.file = file
             self.relatesTo = relatesTo
+        }
+        
+        // Custom Decodable implementation -- Use optional try to ignore invalid optional members
+        public init(from decoder: Decoder) throws {
+            let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+            self.msgtype = try container.decode(String.self, forKey: .msgtype)
+            self.body = try container.decode(String.self, forKey: .body)
+            self.filename = try container.decode(String.self, forKey: .filename)
+            self.url = try? container.decodeIfPresent(MXC.self, forKey: .url)
+            self.info = try container.decode(Matrix.mFileInfo.self, forKey: .info)
+            self.file = try? container.decodeIfPresent(Matrix.mEncryptedFile.self, forKey: .file)
+            self.relatesTo = try? container.decodeIfPresent(mRelatesTo.self, forKey: .relatesTo)
         }
         
         public var mimetype: String? {

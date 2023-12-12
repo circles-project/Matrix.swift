@@ -36,5 +36,20 @@ extension Matrix {
             self.blurhash = blurhash
             self.thumbhash = thumbhash
         }
+        
+        // Custom Decodable implementation -- Handle invalid optional elements
+        public init(from decoder: Decoder) throws {
+            let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+            self.h = try container.decode(Int.self, forKey: .h)
+            self.w = try container.decode(Int.self, forKey: .w)
+            self.mimetype = try container.decode(String.self, forKey: .mimetype)
+            self.size = try container.decode(Int.self, forKey: .size)
+            // Use optional try to handle the case where these things are present but invalid
+            self.thumbnail_url = try? container.decodeIfPresent(MXC.self, forKey: .thumbnail_url)
+            self.thumbnail_file = try? container.decodeIfPresent(mEncryptedFile.self, forKey: .thumbnail_file)
+            self.thumbnail_info = try? container.decodeIfPresent(mThumbnailInfo.self, forKey: .thumbnail_info)
+            self.blurhash = try? container.decodeIfPresent(String.self, forKey: .blurhash)
+            self.thumbhash = try? container.decodeIfPresent(String.self, forKey: .thumbhash)
+        }
     }
 }

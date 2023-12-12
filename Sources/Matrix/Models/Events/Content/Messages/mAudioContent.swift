@@ -43,6 +43,17 @@ extension Matrix {
             self.relatesTo = relatesTo
         }
         
+        // Custom Decodable implementation -- Ignore invalid members as long as they're optionals and we can use optional try
+        public init(from decoder: Decoder) throws {
+            let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+            self.msgtype = try container.decode(String.self, forKey: .msgtype)
+            self.body = try container.decode(String.self, forKey: .body)
+            self.info = try container.decode(mAudioInfo.self, forKey: .info)
+            self.file = try? container.decodeIfPresent(mEncryptedFile.self, forKey: .file)
+            self.url = try? container.decodeIfPresent(MXC.self, forKey: .url)
+            self.relatesTo = try? container.decodeIfPresent(mRelatesTo.self, forKey: .relatesTo)
+        }
+        
         public var mimetype: String? {
             info.mimetype
         }

@@ -67,6 +67,18 @@ extension Matrix {
             self.url = url ?? copy.url
         }
         
+        // Custom Decodable implementation -- Use optional try to ignore any invalid optional elements
+        public init(from decoder: Decoder) throws {
+            let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+            self.msgtype = try container.decode(String.self, forKey: .msgtype)
+            self.body = try container.decode(String.self, forKey: .body)
+            self.file = try container.decodeIfPresent(mEncryptedFile.self, forKey: .file)
+            self.url = try? container.decodeIfPresent(MXC.self, forKey: .url)
+            self.info = try container.decode(mImageInfo.self, forKey: .info)
+            self.caption = try? container.decodeIfPresent(String.self, forKey: .caption)
+            self.relatesTo = try? container.decodeIfPresent(mRelatesTo.self, forKey: .relatesTo)
+        }
+        
         public var mimetype: String? {
             info.mimetype
         }

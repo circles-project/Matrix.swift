@@ -33,21 +33,21 @@ extension Matrix {
         }
         
         public init(from decoder: Decoder) throws {
-            let container: KeyedDecodingContainer<Matrix.mEncryptedFile.CodingKeys> = try decoder.container(keyedBy: Matrix.mEncryptedFile.CodingKeys.self)
+            let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
             
-            self.url = try container.decode(MXC.self, forKey: Matrix.mEncryptedFile.CodingKeys.url)
+            self.url = try container.decode(MXC.self, forKey: .url)
             
-            self.key = try container.decode(Matrix.JWK.self, forKey: Matrix.mEncryptedFile.CodingKeys.key)
+            self.key = try container.decode(Matrix.JWK.self, forKey: .key)
             
-            let unpaddedIV = try container.decode(String.self, forKey: Matrix.mEncryptedFile.CodingKeys.iv)
+            let unpaddedIV = try container.decode(String.self, forKey: .iv)
             self.iv = Base64.ensurePadding(unpaddedIV)!
             
-            let unpaddedHashes = try container.decode([String : String].self, forKey: Matrix.mEncryptedFile.CodingKeys.hashes)
+            let unpaddedHashes = try container.decode([String : String].self, forKey: .hashes)
             self.hashes = unpaddedHashes.compactMapValues {
                 Base64.ensurePadding($0)
             }
             
-            self.v = try container.decode(String.self, forKey: Matrix.mEncryptedFile.CodingKeys.v)
+            self.v = try container.decode(String.self, forKey: .v)
         }
         
         public func encode(to encoder: Encoder) throws {
