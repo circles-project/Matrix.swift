@@ -12,14 +12,6 @@ import BlindSaltSpeke
 // Implements the Matrix UI Auth for the Matrix /register endpoint
 // https://spec.matrix.org/v1.2/client-server-api/#post_matrixclientv3register
 
-public let AUTH_TYPE_ENROLL_USERNAME = "m.enroll.username"
-public let AUTH_TYPE_REGISTRATION_TOKEN = "m.login.registration_token"
-public let AUTH_TYPE_MSC3231_TOKEN = "org.matrix.msc3231.login.registration_token"
-public let AUTH_TYPE_APPLE_SUBSCRIPTION = "org.futo.subscriptions.apple"
-public let AUTH_TYPE_GOOGLE_SUBSCRIPTION = "org.futo.subscriptions.google"
-public let AUTH_TYPE_LEGACY_EMAIL = "m.login.email.identity"
-
-
 public class SignupSession: UIAuthSession {
     //public let domain: String // Moved this into the storage
     //public let deviceId: String?
@@ -151,16 +143,6 @@ public class SignupSession: UIAuthSession {
         try await doUIAuthStage(auth: tokenAuthDict)
     }
     
-        
-    // MARK: Apple Subscriptions
-    
-    public func doAppleSubscriptionStage(receipt: String) async throws {
-        let args = [
-            "type": AUTH_TYPE_APPLE_SUBSCRIPTION,
-            "receipt": receipt,
-        ]
-        try await doUIAuthStage(auth: args)
-    }
     
     // MARK: Legacy email handling
     

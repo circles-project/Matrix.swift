@@ -116,13 +116,13 @@ public enum UIAA {
     
     private(set) public static var parameterTypes: [String: UiaStageParams.Type] = [
         AUTH_TYPE_TERMS : TermsParams.self,
-        AUTH_TYPE_APPLE_SUBSCRIPTION : AppleSubscriptionParams.self,
         AUTH_TYPE_ENROLL_PASSWORD : PasswordEnrollParams.self,
         AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN : EmailLoginParams.self,
         AUTH_TYPE_ENROLL_BSSPEKE_OPRF : BSSpekeOprfParams.self,
         AUTH_TYPE_LOGIN_BSSPEKE_OPRF : BSSpekeOprfParams.self,
         AUTH_TYPE_ENROLL_BSSPEKE_SAVE : BSSpekeEnrollParams.self,
         AUTH_TYPE_LOGIN_BSSPEKE_VERIFY : BSSpekeVerifyParams.self,
+        AUTH_TYPE_APPSTORE_SUBSCRIPTION : AppleSubscriptionParams.self,
     ]
     
     public static func registerParameterType(type: UiaStageParams.Type, for name: String) {
@@ -206,10 +206,18 @@ public struct TermsParams: UiaStageParams {
 
 public struct AppleSubscriptionParams: UiaStageParams {
     public var productIds: [String]
+    
+    public enum CodingKeys: String, CodingKey {
+        case productIds = "product_ids"
+    }
 }
 
 public struct PasswordEnrollParams: UiaStageParams {
     public var minimumLength: Int
+    
+    public enum CodingKeys: String, CodingKey {
+        case minimumLength = "minimum_length"
+    }
 }
 
 public struct EmailLoginParams: UiaStageParams {
@@ -253,7 +261,7 @@ public struct BSSpekeVerifyParams: UiaStageParams {
     }
 }
 
-
+// Here's our extension that tells Swift to use our `parameterTypes` dictionary to decode the proper type for each UIA stage by name
 extension KeyedDecodingContainer {
     func decode(_ type: Dictionary<UIAA.StageId,UiaStageParams>.Type, forKey key: KeyedDecodingContainer<K>.Key) throws -> Dictionary<UIAA.StageId,UiaStageParams> {
         let subContainer: KeyedDecodingContainer<UIAA.StageId> = try self.nestedContainer(keyedBy: UIAA.StageId.self, forKey: key)

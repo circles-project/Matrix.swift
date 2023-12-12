@@ -686,5 +686,54 @@ public class UIAuthSession: UIASession, ObservableObject {
         
         return nil
     }
+ 
     
+    // MARK: App Store subscriptions
+    
+    public func getAppStoreProductIds() -> [String]? {
+        guard let stageId = UIAA.StageId(AUTH_TYPE_APPSTORE_SUBSCRIPTION),
+              let params = self.sessionState?.params?[stageId] as? AppleSubscriptionParams
+        else {
+            logger.warning("Couldn't get UIA params for App Store stage")
+            return nil
+        }
+        
+        return params.productIds
+    }
+    
+    public func doAppStoreSubscriptionStage(bundleId: String,
+                                            productId: String,
+                                            signedTransaction: String
+    ) async throws {
+        logger.debug("AppStore: Preparing UIA request for product \(productId, privacy: .public)")
+        
+        guard let stageId = UIAA.StageId(AUTH_TYPE_APPSTORE_SUBSCRIPTION)
+        else {
+            logger.error("Couldn't construct UIAA stage id for \(AUTH_TYPE_APPSTORE_SUBSCRIPTION, privacy: .public)")
+            throw Matrix.Error("Couldn't construct UIAA stageId")
+        }
+        
+        guard let productIds = getAppStoreProductIds()
+        else {
+            logger.error("Couldn't get product ids for App Store stage")
+            throw Matrix.Error("Couldn't get product ids")
+        }
+        
+        guard productIds.contains(productId)
+        else {
+            logger.error("Product \(productId) is not one of the available products for purchase")
+            throw Matrix.Error("Invalid subscription product id")
+        }
+        
+        let args: [String: String] = [
+            "type": stageId.stringValue,
+            "bundle_id": bundleId,
+            "product_id": productId,
+            "signed_transaction": signedTransaction
+        ]
+        
+        logger.debug("AppStore: Sending UIA request")
+        try await doUIAuthStage(auth: args)
+        logger.debug("AppStore: UIA stage success")
+    }
 }
