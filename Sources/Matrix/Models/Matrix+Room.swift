@@ -1121,25 +1121,48 @@ extension Matrix {
             return eventId
         }
         
+        // MARK: sendText
+        
+        public func sendText(text: String) async throws -> EventId {
+            return try await sendText(text: text, relatesTo: nil)
+        }
+        
         public func sendText(text: String,
-                             replacing oldMessage: Message? = nil
+                             inReplyTo parentMessage: Message
         ) async throws -> EventId {
-            
-            var relatesTo: mRelatesTo?
-            if let oldMsg = oldMessage {
-                // Check - Is this a valid way to replace the old message?
-                guard oldMsg.roomId == self.roomId,
-                      oldMsg.sender.userId == self.session.creds.userId,
-                      oldMsg.type == M_ROOM_MESSAGE,
-                      let oldContent = oldMsg.content as? Matrix.MessageContent,
-                      oldContent.msgtype == M_TEXT,
-                      oldContent.replacesEventId == nil
-                else {
-                    logger.error("Can't replace message \(oldMsg.eventId) with a new m.text message")
-                    throw Matrix.Error("Attempted an invalid message replacment (type m.text)")
-                }
-                relatesTo = mRelatesTo(relType: M_REPLACE, eventId: oldMsg.eventId)
+            // Check - Is this a valid way to replace the old message?
+            guard parentMessage.relatedEventId == nil
+            else {
+                logger.error("Can't reply to a message \(parentMessage.eventId) that is itself related to another message")
+                throw Matrix.Error("Attempted an invalid threaded reply")
             }
+            let relatesTo = mRelatesTo(relType: M_THREAD, eventId: parentMessage.eventId)
+            
+            return try await sendText(text: text, relatesTo: relatesTo)
+        }
+        
+        public func sendText(text: String,
+                             replacing oldMessage: Message
+        ) async throws -> EventId {
+            // Check - Is this a valid way to replace the old message?
+            guard oldMessage.roomId == self.roomId,
+                  oldMessage.sender.userId == self.session.creds.userId,
+                  oldMessage.type == M_ROOM_MESSAGE,
+                  let oldContent = oldMessage.content as? Matrix.MessageContent,
+                  oldContent.msgtype == M_TEXT,
+                  oldContent.replacesEventId == nil
+            else {
+                logger.error("Can't replace message \(oldMessage.eventId) with a new m.text message")
+                throw Matrix.Error("Attempted an invalid message replacment (type m.text)")
+            }
+            let relatesTo = mRelatesTo(relType: M_REPLACE, eventId: oldMessage.eventId)
+            
+            return try await sendText(text: text, relatesTo: relatesTo)
+        }
+        
+        private func sendText(text: String,
+                             relatesTo: mRelatesTo? = nil
+        ) async throws -> EventId {
             
             let content = mTextContent(body: text,
                                        relatesTo: relatesTo)
@@ -1149,29 +1172,84 @@ extension Matrix {
             return eventId
         }
         
+        // MARK: sendImage
+        
+        public func sendImage(image: NativeImage,
+                              thumbnailSize: (Int,Int)?=(800,600),
+                              caption: String?=nil,
+                              withBlurhash: Bool=true,
+                              withThumbhash: Bool=true
+        ) async throws -> EventId {
+
+            return try await sendImage(image: image,
+                                       thumbnailSize: thumbnailSize,
+                                       caption: caption,
+                                       withBlurhash: withBlurhash,
+                                       withThumbhash: withThumbhash,
+                                       relatesTo: nil)
+        }
+        
         public func sendImage(image: NativeImage,
                               thumbnailSize: (Int,Int)?=(800,600),
                               caption: String?=nil,
                               withBlurhash: Bool=true,
                               withThumbhash: Bool=true,
-                              replacing oldMessage: Message? = nil
+                              inReplyTo parentMessage: Message
         ) async throws -> EventId {
             
-            var relatesTo: mRelatesTo?
-            if let oldMsg = oldMessage {
-                // Check - Is this a valid way to replace the old message?
-                guard oldMsg.roomId == self.roomId,
-                      oldMsg.sender.userId == self.session.creds.userId,
-                      oldMsg.type == M_ROOM_MESSAGE,
-                      let oldContent = oldMsg.content as? Matrix.MessageContent,
-                      oldContent.msgtype == M_IMAGE,
-                      oldContent.replacesEventId == nil
-                else {
-                    logger.error("Can't replace message \(oldMsg.eventId) with a new image message")
-                    throw Matrix.Error("Attempted an invalid message replacment (type m.image)")
-                }
-                relatesTo = mRelatesTo(relType: M_REPLACE, eventId: oldMsg.eventId)
+            guard parentMessage.relatedEventId == nil
+            else {
+                logger.error("Can't reply to a message \(parentMessage.eventId) that is itself related to another message")
+                throw Matrix.Error("Attempted an invalid threaded reply")
             }
+            let relatesTo = mRelatesTo(relType: M_THREAD, eventId: parentMessage.eventId)
+
+            return try await sendImage(image: image,
+                                       thumbnailSize: thumbnailSize,
+                                       caption: caption,
+                                       withBlurhash: withBlurhash,
+                                       withThumbhash: withThumbhash,
+                                       relatesTo: relatesTo)
+        }
+        
+        public func sendImage(image: NativeImage,
+                              thumbnailSize: (Int,Int)?=(800,600),
+                              caption: String?=nil,
+                              withBlurhash: Bool=true,
+                              withThumbhash: Bool=true,
+                              replacing oldMessage: Message
+        ) async throws -> EventId {
+            
+            // Check - Is this a valid way to replace the old message?
+            guard oldMessage.roomId == self.roomId,
+                  oldMessage.sender.userId == self.session.creds.userId,
+                  oldMessage.type == M_ROOM_MESSAGE,
+                  let oldContent = oldMessage.content as? Matrix.MessageContent,
+                  oldContent.msgtype == M_IMAGE,
+                  oldContent.replacesEventId == nil
+            else {
+                logger.error("Can't replace message \(oldMessage.eventId) with a new image message")
+                throw Matrix.Error("Attempted an invalid message replacment (type m.image)")
+            }
+            let relatesTo = mRelatesTo(relType: M_REPLACE, eventId: oldMessage.eventId)
+
+            return try await sendImage(image: image,
+                                       thumbnailSize: thumbnailSize,
+                                       caption: caption,
+                                       withBlurhash: withBlurhash,
+                                       withThumbhash: withThumbhash,
+                                       relatesTo: relatesTo)
+        }
+        
+        private func sendImage(image: NativeImage,
+                              thumbnailSize: (Int,Int)?=(800,600),
+                              caption: String?=nil,
+                              withBlurhash: Bool=true,
+                              withThumbhash: Bool=true,
+                              relatesTo: mRelatesTo? = nil
+        ) async throws -> EventId {
+            
+
             
             let jpegStart = Date()
             guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
@@ -1287,29 +1365,61 @@ extension Matrix {
             }
         }
 
+        // MARK: sendVideo
 
+        public func sendVideo(url: URL,
+                              thumbnail: NativeImage,
+                              caption: String? = nil
+        ) async throws -> EventId {
+            
+            return try await sendVideo(url: url, thumbnail: thumbnail, caption: caption, relatesTo: nil)
+        }
         
         public func sendVideo(url: URL,
                               thumbnail: NativeImage,
                               caption: String? = nil,
-                              replacing oldMessage: Message? = nil
+                              inReplyTo parentMessage: Message
         ) async throws -> EventId {
             
-            var relatesTo: mRelatesTo?
-            if let oldMsg = oldMessage {
-                // Check - Is this a valid way to replace the old message?
-                guard oldMsg.roomId == self.roomId,
-                      oldMsg.sender.userId == self.session.creds.userId,
-                      oldMsg.type == M_ROOM_MESSAGE,
-                      let oldContent = oldMsg.content as? Matrix.MessageContent,
-                      oldContent.msgtype == M_VIDEO,
-                      oldContent.replacesEventId == nil
-                else {
-                    logger.error("Can't replace message \(oldMsg.eventId) with a new video message")
-                    throw Matrix.Error("Attempted an invalid message replacment (type m.video)")
-                }
-                relatesTo = mRelatesTo(relType: M_REPLACE, eventId: oldMsg.eventId)
+            // Check - Is this a valid way to replace the old message?
+            guard parentMessage.relatedEventId == nil
+            else {
+                logger.error("Can't reply to a message \(parentMessage.eventId) that is itself related to another message")
+                throw Matrix.Error("Attempted an invalid threaded reply")
             }
+            let relatesTo = mRelatesTo(relType: M_THREAD, eventId: parentMessage.eventId)
+            
+            return try await sendVideo(url: url, thumbnail: thumbnail, caption: caption, relatesTo: relatesTo)
+        }
+        
+        
+        public func sendVideo(url: URL,
+                              thumbnail: NativeImage,
+                              caption: String? = nil,
+                              replacing oldMessage: Message
+        ) async throws -> EventId {
+
+            // Check - Is this a valid way to replace the old message?
+            guard oldMessage.roomId == self.roomId,
+                  oldMessage.sender.userId == self.session.creds.userId,
+                  oldMessage.type == M_ROOM_MESSAGE,
+                  let oldContent = oldMessage.content as? Matrix.MessageContent,
+                  oldContent.msgtype == M_VIDEO,
+                  oldContent.replacesEventId == nil
+            else {
+                logger.error("Can't replace message \(oldMessage.eventId) with a new video message")
+                throw Matrix.Error("Attempted an invalid message replacment (type m.video)")
+            }
+            let relatesTo = mRelatesTo(relType: M_REPLACE, eventId: oldMessage.eventId)
+            
+            return try await sendVideo(url: url, thumbnail: thumbnail, caption: caption, relatesTo: relatesTo)
+        }
+        
+        private func sendVideo(url: URL,
+                              thumbnail: NativeImage,
+                              caption: String? = nil,
+                              relatesTo: mRelatesTo? = nil
+        ) async throws -> EventId {
             
             guard url.isFileURL
             else {
