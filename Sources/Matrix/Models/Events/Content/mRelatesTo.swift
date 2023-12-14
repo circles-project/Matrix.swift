@@ -49,6 +49,18 @@ public struct mRelatesTo: Codable {
         self.isFallingBack = nil
     }
     
+    public static func richReply(to parent: EventId) -> mRelatesTo {
+        return .init(inReplyTo: parent)
+    }
+    
+    public static func threadedReply(to parent: EventId) -> mRelatesTo {
+        return .init(relType: M_THREAD, eventId: parent, inReplyTo: .init(parent), isFallingBack: true)
+    }
+    
+    public static func replacing(_ old: EventId) -> mRelatesTo {
+        return .init(relType: M_REPLACE, eventId: old)
+    }
+    
     public enum CodingKeys: String, CodingKey {
         case relType = "rel_type"
         case eventId = "event_id"
