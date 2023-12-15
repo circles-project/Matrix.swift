@@ -1458,7 +1458,8 @@ extension Matrix {
             let width = UInt(abs(resolution.width))
 
             // https://developer.apple.com/documentation/avfoundation/media_reading_and_writing/exporting_video_to_alternative_formats
-            let preset: String = AVAssetExportPresetMediumQuality
+            //let preset: String = AVAssetExportPresetMediumQuality
+            let preset: String = AVAssetExportPresetHighestQuality
             let fileType: AVFileType = .mp4
             
             // Check the compatibility of the preset to export the video to the output file type.
