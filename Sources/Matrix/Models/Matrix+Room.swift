@@ -1495,6 +1495,7 @@ extension Matrix {
                 logger.error("Failed to load transcoded video data")
                 throw Matrix.Error("Failed to laod transcoded video data")
             }
+            logger.debug("Transcoded \(data.count) bytes of data")
             
             guard let thumbData = thumbnail.jpegData(compressionQuality: 0.8)
             else {
