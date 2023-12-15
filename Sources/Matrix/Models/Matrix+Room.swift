@@ -27,6 +27,7 @@ extension Matrix {
         public typealias HistoryVisibility = RoomHistoryVisibilityContent.HistoryVisibility
         public typealias Membership = RoomMemberContent.Membership
         public typealias PowerLevels = RoomPowerLevelsContent
+        public typealias JoinRule = RoomJoinRuleContent.JoinRule
 
         public let roomId: RoomId
         public let session: Session
@@ -554,6 +555,20 @@ extension Matrix {
         public func getHistoryVisibility() async throws -> HistoryVisibility? {
             let content = try await getState(type: M_ROOM_HISTORY_VISIBILITY, stateKey: "") as? RoomHistoryVisibilityContent
             return content?.historyVisibility
+        }
+        
+        public var joinRule: JoinRule? {
+            guard let event = state[M_ROOM_JOIN_RULES]?[""],
+                  let content = event.content as? RoomJoinRuleContent
+            else {
+                return nil
+            }
+            return content.joinRule
+        }
+        
+        public func getJoinRule() async throws -> JoinRule? {
+            let content = try await getState(type: M_ROOM_JOIN_RULES, stateKey: "") as? RoomJoinRuleContent
+            return content?.joinRule
         }
         
         public var name: String? {
