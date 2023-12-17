@@ -18,6 +18,16 @@ extension Matrix {
         public var caption: String?
         public var relatesTo: mRelatesTo?
         
+        public enum CodingKeys: String, CodingKey {
+            case msgtype
+            case body
+            case file
+            case url
+            case info
+            case caption
+            case relatesTo = "m.relates_to"
+        }
+        
         public init(body: String,
                     url: MXC? = nil,
                     info: mImageInfo,

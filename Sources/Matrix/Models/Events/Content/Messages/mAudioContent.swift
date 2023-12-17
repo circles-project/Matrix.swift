@@ -17,6 +17,15 @@ extension Matrix {
         public var url: MXC?
         public var relatesTo: mRelatesTo?
         
+        public enum CodingKeys: String, CodingKey {
+            case msgtype
+            case body
+            case info
+            case file
+            case url
+            case relatesTo = "m.relates_to"
+        }
+        
         public init(body: String,
                     info: mAudioInfo,
                     file: mEncryptedFile,

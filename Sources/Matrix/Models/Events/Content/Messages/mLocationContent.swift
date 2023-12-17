@@ -16,6 +16,14 @@ extension Matrix {
         public var info: mLocationInfo
         public var relatesTo: mRelatesTo?
         
+        public enum CodingKeys: String, CodingKey {
+            case msgtype
+            case body
+            case geo_uri
+            case info
+            case relatesTo = "m.relates_to"
+        }
+        
         public init(body: String,
                     geo_uri: String,
                     info: mLocationInfo,

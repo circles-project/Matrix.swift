@@ -18,6 +18,16 @@ extension Matrix {
         public var file: mEncryptedFile?
         public var relatesTo: mRelatesTo?
         
+        public enum CodingKeys: String, CodingKey {
+            case msgtype
+            case body
+            case filename
+            case url
+            case info
+            case file
+            case relatesTo = "m.relates_to"
+        }
+        
         public init(body: String,
                     filename: String,
                     info: mFileInfo,
