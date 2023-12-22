@@ -30,6 +30,8 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-collections.git", branch: "release/1.1"),
         .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", from: "4.2.2"),
         .package(url: "https://github.com/keefertaylor/Base58Swift.git", exact: "2.1.7"),
+        .package(url: "https://github.com/attaswift/SipHash.git", exact: "1.2.2"),
+        .package(url: "https://github.com/cvwright/jdenticon-swift.git", branch: "master"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -46,6 +48,8 @@ let package = Package(
                 .product(name: "Collections", package: "swift-collections"),
                 .product(name: "KeychainAccess", package: "KeychainAccess"),
                 .product(name: "Base58Swift", package: "Base58Swift"),
+                .product(name: "SipHash", package: "SipHash"),
+                .product(name: "JdenticonSwift", package: "jdenticon-swift"),
             ]),
         .testTarget(
             name: "MatrixTests",

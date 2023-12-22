@@ -6,6 +6,8 @@
 //
 
 import Foundation
+import SipHash
+import JdenticonSwift
 
 extension Matrix {
     public class User: ObservableObject {
@@ -94,6 +96,21 @@ extension Matrix {
         public var devices: [CryptoDevice] {
             self.session.getCryptoDevices(userId: self.userId)
         }
+        
+        public lazy var siphash: UInt64 = {
+            var hasher = SipHasher(k0: UInt64.zero, k1: UInt64.max)
+            self.userId.stringValue.data(using: .utf8)?.withUnsafeBytes { hasher.append($0) }
+            return hasher._finalize()
+        }()
+        
+        public lazy var jdenticon: Matrix.NativeImage? = {
+            let generator = IconGenerator(size: 120, hash: Data(self.siphash.bytes))
+            if let cgImage = generator.render() {
+                return Matrix.NativeImage(cgImage: cgImage)
+            } else {
+                return nil
+            }
+        }()
     }
 }
 
