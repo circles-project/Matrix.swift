@@ -143,6 +143,16 @@ public class SignupSession: UIAuthSession {
         try await doUIAuthStage(auth: tokenAuthDict)
     }
     
+    // MARK: Free subscription
+    
+    public func doFreeSubscriptionStage() async throws {
+        let authDict = [
+            "type": AUTH_TYPE_FREE_SUBSCRIPTION
+        ]
+        
+        try await doUIAuthStage(auth: authDict)
+    }
+    
     
     // MARK: Legacy email handling
     
