@@ -27,4 +27,4 @@ public let AUTH_TYPE_GOOGLE_SUBSCRIPTION = "org.futo.subscriptions.google"
 public let AUTH_TYPE_LEGACY_EMAIL = "m.login.email.identity"
 
 // Subscriptions
-public let AUTH_TYPE_APPSTORE_SUBSCRIPTION = "org.futo.subscription.apple_storekit_v2"
+public let AUTH_TYPE_APPSTORE_SUBSCRIPTION = "org.futo.subscriptions.apple_storekit_v2"
