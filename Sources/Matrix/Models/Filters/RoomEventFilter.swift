@@ -33,5 +33,18 @@ extension Matrix {
             case senders
             case types
         }
+        
+        public init(containsUrl: Bool? = nil, includeRedundantMembers: Bool? = nil, lazyLoadMembers: Bool? = nil, limit: Int? = nil, notRooms: [RoomId]? = nil, notSenders: [UserId]? = nil, notTypes: [String]? = nil, rooms: [RoomId]? = nil, senders: [UserId]? = nil, types: [String]? = nil) {
+            self.containsUrl = containsUrl
+            self.includeRedundantMembers = includeRedundantMembers
+            self.lazyLoadMembers = lazyLoadMembers
+            self.limit = limit
+            self.notRooms = notRooms
+            self.notSenders = notSenders
+            self.notTypes = notTypes
+            self.rooms = rooms
+            self.senders = senders
+            self.types = types
+        }
     }
 }
