@@ -640,6 +640,25 @@ public class Client {
         }
     }
     
+    // MARK: Filters
+    
+    public func uploadFilter(_ filter: SyncFilter) async throws -> String {
+        let path = "/_matrix/client/v3/user/\(creds.userId.stringValue)/filter"
+        let (data, response) = try await call(method: "POST",
+                                              path: path,
+                                              body: filter)
+        struct ResponseBody: Codable {
+            var filterId: String
+            
+            enum CodingKeys: String, CodingKey {
+                case filterId = "filter_id"
+            }
+        }
+        let decoder = JSONDecoder()
+        let responseBody = try decoder.decode(ResponseBody.self, from: data)
+        return responseBody.filterId
+    }
+    
     // MARK: Rooms
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3joined_rooms

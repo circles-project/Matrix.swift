@@ -55,6 +55,8 @@ extension Matrix {
         // Need some private stuff that outside callers can't see
         private var dataStore: DataStore?
         private var syncRequestTask: Task<String?,Swift.Error>? // FIXME Use a TaskGroup to make this subordinate to the backgroundSyncTask
+        private var initialSyncFilter: SyncFilter?
+        
         private var syncToken: String? = nil
         private var syncRequestTimeout: Int = 30_000
         private var keepSyncing: Bool
@@ -97,7 +99,7 @@ extension Matrix {
         // MARK: init
         
         public init(creds: Credentials,
-                    syncToken: String? = nil, startSyncing: Bool = true,
+                    syncToken: String? = nil, startSyncing: Bool = true, initialSyncFilter: SyncFilter? = nil,
                     displayname: String? = nil, avatarUrl: MXC? = nil, statusMessage: String? = nil,
                     recoverySecretKey: Data? = nil, recoveryTimestamp: Data? = nil,
                     storageType: StorageType = .persistent(preserve: true),
@@ -121,6 +123,7 @@ extension Matrix {
             
             self.syncToken = syncToken
             self.keepSyncing = startSyncing
+            self.initialSyncFilter = initialSyncFilter
             // Initialize the sync tasks to nil so we can run super.init()
             self.syncRequestTask = nil
             self.backgroundSyncTask = nil
@@ -355,7 +358,15 @@ extension Matrix {
 
                 params["since"] = token
             } else {
-                logger.debug("User \(self.creds.userId) syncing without any token")
+                logger.debug("User \(self.creds.userId) doing initial sync")
+                
+                if let filter = self.initialSyncFilter {
+                    logger.debug("Setting initial sync filter before we can sync")
+                    let filterId = try await self.uploadFilter(filter)
+                    params["filter"] = filterId
+                } else {
+                    logger.debug("No initial sync filter")
+                }
             }
             let (data, response) = try await self.call(method: "GET", path: url, params: params)
             logger.debug("User \(self.creds.userId) got sync response with status \(response.statusCode, privacy: .public)")

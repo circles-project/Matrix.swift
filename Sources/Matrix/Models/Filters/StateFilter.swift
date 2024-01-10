@@ -8,7 +8,7 @@
 import Foundation
 
 extension Matrix {
-    struct StateFilter: Codable {
+    public struct StateFilter: Codable {
         var containsUrl: Bool?
         var includeRedundantMembers: Bool?
         var lazyLoadMembers: Bool?
@@ -33,6 +33,20 @@ extension Matrix {
             case senders
             case types
             case unreadThreadNotifications = "unread_thread_notifications"
+        }
+        
+        public init(containsUrl: Bool? = nil, includeRedundantMembers: Bool? = nil, lazyLoadMembers: Bool? = nil, limit: UInt? = nil, notRooms: [RoomId]? = nil, notSenders: [UserId]? = nil, notTypes: [String]? = nil, rooms: [RoomId]? = nil, senders: [UserId]? = nil, types: [String]? = nil, unreadThreadNotifications: Bool? = nil) {
+            self.containsUrl = containsUrl
+            self.includeRedundantMembers = includeRedundantMembers
+            self.lazyLoadMembers = lazyLoadMembers
+            self.limit = limit
+            self.notRooms = notRooms
+            self.notSenders = notSenders
+            self.notTypes = notTypes
+            self.rooms = rooms
+            self.senders = senders
+            self.types = types
+            self.unreadThreadNotifications = unreadThreadNotifications
         }
     }
 }

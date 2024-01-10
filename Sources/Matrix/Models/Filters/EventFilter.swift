@@ -9,7 +9,7 @@ import Foundation
 
 extension Matrix {
     // https://spec.matrix.org/v1.9/client-server-api/#post_matrixclientv3useruseridfilter
-    struct EventFilter: Codable {
+    public struct EventFilter: Codable {
         var limit: UInt?
         var notSenders: [UserId]?
         var notTypes: [String]?
@@ -22,6 +22,14 @@ extension Matrix {
             case notTypes = "not_types"
             case senders
             case types
+        }
+        
+        public init(limit: UInt? = nil, notSenders: [UserId]? = nil, notTypes: [String]? = nil, senders: [UserId]? = nil, types: [String]? = nil) {
+            self.limit = limit
+            self.notSenders = notSenders
+            self.notTypes = notTypes
+            self.senders = senders
+            self.types = types
         }
     }
 }

@@ -8,11 +8,11 @@
 import Foundation
 
 extension Matrix {
-    struct SyncFilter: Codable {
+    public struct SyncFilter: Codable {
         var accountData: EventFilter?
         var eventFields: [String]?
         var eventFormat: EventFormat?
-        enum EventFormat: String, Codable {
+        public enum EventFormat: String, Codable {
             case client
             case federation
         }
@@ -26,5 +26,13 @@ extension Matrix {
             case presence
             case room
         }
+        
+        public init(accountData: EventFilter? = nil, eventFields: [String]? = nil, eventFormat: EventFormat? = nil, presence: EventFilter? = nil, room: RoomFilter? = nil) {
+            self.accountData = accountData
+            self.eventFields = eventFields
+            self.eventFormat = eventFormat
+            self.presence = presence
+            self.room = room
+        }        
     }
 }

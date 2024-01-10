@@ -8,7 +8,7 @@
 import Foundation
 
 extension Matrix {
-    struct RoomFilter: Codable {
+    public struct RoomFilter: Codable {
         var accountData: RoomEventFilter?
         var ephemeral: RoomEventFilter?
         var includeLeave: Bool?
@@ -25,6 +25,16 @@ extension Matrix {
             case rooms
             case state
             case timeline
+        }
+        
+        public init(accountData: RoomEventFilter? = nil, ephemeral: RoomEventFilter? = nil, includeLeave: Bool? = nil, notRooms: [RoomId]? = nil, rooms: [RoomId]? = nil, state: StateFilter? = nil, timeline: RoomEventFilter? = nil) {
+            self.accountData = accountData
+            self.ephemeral = ephemeral
+            self.includeLeave = includeLeave
+            self.notRooms = notRooms
+            self.rooms = rooms
+            self.state = state
+            self.timeline = timeline
         }
     }
 }
