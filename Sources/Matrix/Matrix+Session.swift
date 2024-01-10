@@ -58,6 +58,7 @@ extension Matrix {
         private var initialSyncFilter: SyncFilter?
         
         private var syncToken: String? = nil
+        private var syncFilterId: String? = nil
         private var syncRequestTimeout: Int = 30_000
         private var keepSyncing: Bool
         private var syncDelayNS: UInt64 = 30_000_000_000
@@ -357,6 +358,9 @@ extension Matrix {
                 logger.debug("User \(self.creds.userId) syncing with token \(token)")
 
                 params["since"] = token
+                if let filterId = self.syncFilterId {
+                    params["filter"] = filterId
+                }
             } else {
                 logger.debug("User \(self.creds.userId) doing initial sync")
                 
@@ -670,6 +674,14 @@ extension Matrix {
                 return try await syncRequestTask?.value
             }
         }
+        
+        public func setSyncFilter(_ filter: SyncFilter) async throws {
+            let filterId = try await uploadFilter(filter)
+            await MainActor.run {
+                self.syncFilterId = filterId
+            }
+        }
+        
         
         // MARK: Crypto
         
