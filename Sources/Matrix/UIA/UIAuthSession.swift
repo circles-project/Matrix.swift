@@ -9,6 +9,7 @@ import Foundation
 import os
 import AnyCodable
 import BlindSaltSpeke
+import KeychainAccess
 
 @available(macOS 12.0, *)
 public class UIAuthSession: UIASession, ObservableObject {
@@ -239,6 +240,11 @@ public class UIAuthSession: UIASession, ObservableObject {
         ]
         
         try await doUIAuthStage(auth: passwordAuthDict)
+
+        // UIA stage was successful
+        // Save password in keychain
+        self.storage["password"] = password
+        savePasswordToKeychain()
     }
     
     public func doPasswordEnrollStage(newPassword: String) async throws {
@@ -249,6 +255,11 @@ public class UIAuthSession: UIASession, ObservableObject {
         ]
         
         try await doUIAuthStage(auth: passwordAuthDict)
+        
+        // UIA stage was successful
+        // Save password in keychain
+        self.storage["password"] = newPassword
+        savePasswordToKeychain()
     }
 
     // MARK: Terms stage
@@ -271,7 +282,7 @@ public class UIAuthSession: UIASession, ObservableObject {
     ) async throws {
         guard let AUTH_TYPE = auth["type"] as? String else {
             print("No auth type")
-            return
+            throw Matrix.Error("No auth type")
         }
         let tag = AUTH_TYPE
         
@@ -496,6 +507,7 @@ public class UIAuthSession: UIASession, ObservableObject {
             "curve": "curve25519",
         ]
         self.storage[stage+".state"] = bss
+        self.storage["password"] = password
         try await doUIAuthStage(auth: args)
     }
     
@@ -553,6 +565,10 @@ public class UIAuthSession: UIASession, ObservableObject {
             "phf_params": phfParams,
         ]
         try await doUIAuthStage(auth: args)
+        
+        // The UIA stage was successful
+        // Save our password for future re-use
+        savePasswordToKeychain()
     }
     
     // NOTE: Just as the SignupSession needs a userId:password: version of the Enroll OPRF,
@@ -586,6 +602,7 @@ public class UIAuthSession: UIASession, ObservableObject {
             "curve": "curve25519",
         ]
         self.storage[stage+".state"] = bss
+        self.storage["password"] = password
         try await doUIAuthStage(auth: args)
     }
     
@@ -667,6 +684,19 @@ public class UIAuthSession: UIASession, ObservableObject {
                 }
             }
         })
+        
+        // If we are here, then the "verify" stage succeeded => our password was correct
+        // Save it in the Keychain
+        savePasswordToKeychain()
+    }
+    
+    private func savePasswordToKeychain() {
+        if let password = self.storage["password"] as? String,
+           let userId = self.creds?.userId ?? self.storage["userId"] as? UserId
+        {
+            let keychain = Keychain(server: "https://\(userId.domain)", protocolType: .https)
+            keychain.setSharedPassword(password, account: userId.stringValue)
+        }
     }
     
     public func getBSSpekeClient() -> BlindSaltSpeke.ClientSession? {
