@@ -753,13 +753,13 @@ extension Matrix {
             try await addNewSecretStorageKey(ssk, makeDefault: true)
         }
         
-        public func addNewSecretStorageKey(_ ssk: SecretStorageKey, makeDefault: Bool = false) async throws {
+        public func addNewSecretStorageKey(_ ssk: SecretStorageKey, makeDefault: Bool = false, sync: Bool = true) async throws {
             logger.debug("Adding new key with key id \(ssk.keyId)")
             // Super basic level: Add the new key to our keys
             self.keys[ssk.keyId] = ssk.key
             
             // Save it in our keychain so it will be there next time we launch the app
-            try await self.keystore.saveKey(key: ssk.key, keyId: ssk.keyId)
+            try await self.keystore.saveKey(key: ssk.key, keyId: ssk.keyId, sync: sync)
             
             // Now we need to be sure to keep all our bookkeeping stuff in order
             switch state {
