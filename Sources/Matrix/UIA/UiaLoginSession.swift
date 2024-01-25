@@ -10,6 +10,11 @@ import AnyCodable
 
 public class UiaLoginSession: UIAuthSession {
     
+    var uid: UserId
+    public override var userId: UserId? {
+        uid
+    }
+    
     public convenience init(userId: UserId,
                             password: String? = nil,
                             deviceId: String? = nil,
@@ -45,6 +50,8 @@ public class UiaLoginSession: UIAuthSession {
                 completion: ((UIAuthSession,Data) async throws -> Void)? = nil,
                 cancellation: (() async -> Void)? = nil
     ) async throws {
+        self.uid = userId
+        
         let version = "v3"
         let urlPath = "/_matrix/client/\(version)/login"
         

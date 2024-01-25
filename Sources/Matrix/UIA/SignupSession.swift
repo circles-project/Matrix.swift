@@ -18,6 +18,7 @@ public class SignupSession: UIAuthSession {
     //public let initialDeviceDisplayName: String?
     //public let inhibitLogin = false
     var logger = Matrix.logger
+    var domain: String
     
     public convenience init(domain: String,
                             username: String? = nil,
@@ -63,6 +64,8 @@ public class SignupSession: UIAuthSession {
                 cancellation: (() async -> Void)? = nil
     ) async throws {
         
+        self.domain = domain
+        
         guard let signupURL = URL(string: "/_matrix/client/v3/register", relativeTo: homeserver)
         else {
             throw Matrix.Error("Couldn't construct signup URL for domain [\(domain)]")
@@ -98,6 +101,17 @@ public class SignupSession: UIAuthSession {
         super.init(method: "POST", url: signupURL, requestDict: requestDict, completion: completion, cancellation: cancellation)
         
         self.storage["domain"] = domain
+    }
+    
+    public override var userId: UserId? {
+        if let username = self.storage["username"],
+           let uid = UserId("@\(username):\(domain)")
+        {
+            return uid
+        }
+        else {
+            return nil
+        }
     }
     
     // MARK: Username

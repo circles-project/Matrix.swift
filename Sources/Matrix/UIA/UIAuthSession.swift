@@ -81,6 +81,10 @@ public class UIAuthSession: UIASession, ObservableObject {
         }
     }
     
+    open var userId: UserId? {
+        creds?.userId
+    }
+    
     public func _checkBasicSanity(userInput: String) -> Bool {
         if userInput.contains(" ")
             || userInput.contains("\"")
