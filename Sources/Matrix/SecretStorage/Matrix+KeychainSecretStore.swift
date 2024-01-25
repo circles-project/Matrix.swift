@@ -13,7 +13,7 @@ import KeychainAccess
 public protocol KeyStoreProtocol {
     init(userId: UserId)
     func loadKey(keyId: String, reason: String) async throws -> Data?
-    func saveKey(key: Data, keyId: String) async throws
+    func saveKey(key: Data, keyId: String, sync: Bool) async throws
     func deleteKey(keyId: String, reason: String) async throws
 }
 
@@ -35,7 +35,7 @@ extension Matrix {
             return UserDefaults.standard.data(forKey: "org.futo.ssss.key.\(keyId)")
         }
         
-        public func saveKey(key: Data, keyId: String) async throws {
+        public func saveKey(key: Data, keyId: String, sync: Bool = false) async throws {
             logger.error("INSECURE FAKE KEYCHAIN - This fake keychain is now read-only")
             //UserDefaults.standard.set(key, forKey: "org.futo.ssss.key.\(keyId)")
             throw Matrix.Error("Writing to insecure fake keychain")
@@ -92,7 +92,7 @@ extension Matrix {
             return nil
         }
         
-        public func saveKey(key: Data, keyId: String) async throws {
+        public func saveKey(key: Data, keyId: String, sync: Bool = true) async throws {
             // https://github.com/kishikawakatsumi/KeychainAccess#closed_lock_with_key-updating-a-touch-id-face-id-protected-item
             // Ensure this runs on a background thread - Otherwise if we try to authenticate to the keychain from the main thread, the app will lock up
             let t = Task(priority: .background) {
@@ -103,6 +103,7 @@ extension Matrix {
                     //.accessibility(.whenUnlockedThisDeviceOnly, authenticationPolicy: .userPresence)
                     .accessibility(.whenUnlockedThisDeviceOnly)
                     .authenticationContext(context)
+                    .synchronizable(sync)
                     .set(key, key: keyId)
                 self.logger.debug("Success saving keyId \(keyId)")
             }
