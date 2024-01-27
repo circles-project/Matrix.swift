@@ -343,12 +343,7 @@ extension Matrix {
             // Following the Rust Crypto SDK example https://github.com/matrix-org/matrix-rust-sdk/blob/8ac7f88d22e2fa0ca96eba7239ba7ec08658552c/crates/matrix-sdk-crypto/src/lib.rs#L540
             // We first send any outbound messages from the crypto module before we actually call /sync
             logger.debug("Sending outbound crypto requests")
-            try await cryptoQueue.run {
-                let requests = try self.crypto.outgoingRequests()
-                for request in requests {
-                    try await self.sendCryptoRequest(request: request)
-                }
-            }
+            try await sendOutgoingCryptoRequests()
             
             let url = "/_matrix/client/v3/sync"
             var params = [
@@ -722,6 +717,17 @@ extension Matrix {
             return result
         }
 
+        // Send any and all pending requests from the crypto crate
+        func sendOutgoingCryptoRequests() async throws {
+            try await cryptoQueue.run {
+                let requests = try self.crypto.outgoingRequests()
+                for request in requests {
+                    try await self.sendCryptoRequest(request: request)
+                }
+            }
+        }
+        
+        // Send one request from the crypto crate
         func sendCryptoRequest(request: Request) async throws {
             var logger = self.cryptoLogger
             switch request {
@@ -1397,9 +1403,15 @@ extension Matrix {
             //logger.debug("Got encrypted string = [\(encryptedString)]")
             let encryptedData = encryptedString.data(using: .utf8)!
             let encryptedContent = try Matrix.decodeEventContent(of: M_ROOM_ENCRYPTED, from: encryptedData)
-            return try await super.sendMessageEvent(to: roomId,
-                                                    type: M_ROOM_ENCRYPTED,
-                                                    content: encryptedContent)
+            logger.debug("Sending encrypted message")
+            let eventId = try await super.sendMessageEvent(to: roomId,
+                                                           type: M_ROOM_ENCRYPTED,
+                                                           content: encryptedContent)
+            logger.debug("Got event id \(eventId)")
+            logger.debug("Sending crypto requests post-message")
+            try? await sendOutgoingCryptoRequests()
+            logger.debug("Returning event id \(eventId)")
+            return eventId
         }
         
         // MARK: Read Receipts
