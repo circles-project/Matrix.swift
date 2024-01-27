@@ -112,9 +112,6 @@ public enum Matrix {
     public typealias NativeImage = UIImage
     #endif
     
-    // Types imported from the Rust Crypto SDK
-    public typealias CryptoDevice = MatrixSDKCrypto.Device
-    
     // Mappings from String type names to Codable implementations
     // Used for encoding and decoding Matrix events
     static var eventTypes: [String: Codable.Type] = [
