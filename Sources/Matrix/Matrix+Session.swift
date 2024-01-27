@@ -57,7 +57,15 @@ extension Matrix {
         private var syncRequestTask: Task<String?,Swift.Error>? // FIXME Use a TaskGroup to make this subordinate to the backgroundSyncTask
         private var initialSyncFilter: SyncFilter?
         
+        #if DEBUG
+        public var syncToken: String? = nil
+        public var syncSuccessCount: UInt = 0
+        public var syncFailureCount: UInt = 0
+        #else
         private var syncToken: String? = nil
+        private var syncSuccessCount: UInt = 0
+        private var syncFailureCount: UInt = 0
+        #endif
         private var syncFilterId: String? = nil
         private var syncRequestTimeout: Int = 30_000
         private var keepSyncing: Bool
@@ -303,13 +311,14 @@ extension Matrix {
             self.backgroundSyncTask = self.backgroundSyncTask ?? .init(priority: .background) {
                 syncLogger.debug("Starting background sync")
                 var count: UInt = 0
-                var failureCount: UInt = 0
                 while self.keepSyncing {
                     syncLogger.debug("Keeping on syncing...")
                     guard let token = try? await sync()
                     else {
-                        failureCount += 1
-                        syncLogger.warning("Sync failed with token \(self.syncToken ?? "(none)") -- \(failureCount) failures")
+                        await MainActor.run {
+                            self.syncFailureCount += 1
+                        }
+                        syncLogger.warning("Sync failed with token \(self.syncToken ?? "(none)") -- \(self.syncFailureCount) failures")
                         /* // Update: Never stop never stopping :)
                            //         Lots of bad stuff happens if we stop syncing.  So keep going!
                         if failureCount > 3 {
@@ -319,9 +328,11 @@ extension Matrix {
                         try await Task.sleep(for: .seconds(30))
                         continue
                     }
-                    failureCount = 0
+                    await MainActor.run {
+                        self.syncFailureCount = 0
+                        self.syncSuccessCount += 1
+                    }
                     syncLogger.debug("Got new sync token \(token)")
-                    count += 1
                     if let delay = self.backgroundSyncDelayMS {
                         syncLogger.debug("Sleeping for \(delay) ms before next sync")
                         let nano = delay * 1000
@@ -423,7 +434,7 @@ extension Matrix {
                 // Send any requests from the crypto module
                 try await self.sendOutgoingCryptoRequests()
                 
-                // Save any new keys to our current backup (if any)
+                // Save any new keys to our current backup (if any)f
                 try await self.saveKeysToBackup()
             }
             
