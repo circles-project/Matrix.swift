@@ -308,12 +308,15 @@ extension Matrix {
                     syncLogger.debug("Keeping on syncing...")
                     guard let token = try? await sync()
                     else {
-                        syncLogger.warning("Sync failed with token \(self.syncToken ?? "(none)")")
                         failureCount += 1
+                        syncLogger.warning("Sync failed with token \(self.syncToken ?? "(none)") -- \(failureCount) failures")
+                        /* // Update: Never stop never stopping :)
+                           //         Lots of bad stuff happens if we stop syncing.  So keep going!
                         if failureCount > 3 {
                             self.keepSyncing = false
                         }
-                        try await Task.sleep(for: .seconds(1))
+                        */
+                        try await Task.sleep(for: .seconds(30))
                         continue
                     }
                     failureCount = 0
