@@ -421,27 +421,10 @@ extension Matrix {
                 //       plaintext of all the to-device events.
                 
                 // Send any requests from the crypto module
-                logger.debug("Querying crypto module for any new requests")
-                guard let cryptoRequests = try? self.crypto.outgoingRequests()
-                else {
-                    // Don't set success to false here -- With the outgoing requests, we can always try again later
-                    logger.error("Failed to get outgoing crypto requests")
-                    return
-                }
-                logger.debug("Sending \(cryptoRequests.count, privacy: .public) crypto requests")
-                for request in cryptoRequests {
-                    try await self.sendCryptoRequest(request: request)
-                }
+                try await self.sendOutgoingCryptoRequests()
                 
-                if self.crypto.backupEnabled() {
-                    logger.debug("Checking for any new key backup requests to send")
-                    if let request = try? self.crypto.backupRoomKeys() {
-                        logger.debug("Sending crypto request to backup room keys")
-                        try await self.sendCryptoRequest(request: request)
-                    }
-                } else {
-                    logger.debug("Key backup is not enabled; No requests to send.")
-                }
+                // Save any new keys to our current backup (if any)
+                try await self.saveKeysToBackup()
             }
             
             // Handle invites
@@ -1411,8 +1394,12 @@ extension Matrix {
                                                            type: M_ROOM_ENCRYPTED,
                                                            content: encryptedContent)
             logger.debug("Got event id \(eventId)")
+
             logger.debug("Sending crypto requests post-message")
             try? await sendOutgoingCryptoRequests()
+            logger.debug("Saving key backup")
+            try? await saveKeysToBackup()
+
             logger.debug("Returning event id \(eventId)")
             return eventId
         }
@@ -2204,6 +2191,20 @@ extension Matrix {
 
             logger.debug("Created new key backup with version \(responseBody.version)")
             return responseBody.version
+        }
+        
+        public func saveKeysToBackup() async throws {
+            if self.crypto.backupEnabled() {
+                try await cryptoQueue.run {
+                    logger.debug("Checking for any new key backup requests to send")
+                    if let request = try? self.crypto.backupRoomKeys() {
+                        logger.debug("Sending crypto request to backup room keys")
+                        try await self.sendCryptoRequest(request: request)
+                    }
+                }
+            } else {
+                logger.debug("Key backup is not enabled; No requests to send.")
+            }
         }
         
         public func loadKeysFromBackup() async throws {
