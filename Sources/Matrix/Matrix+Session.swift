@@ -436,13 +436,13 @@ extension Matrix {
                 // NOTE: If we want to track the Olm or Megolm sessions ourselves for debugging purposes,
                 //       then this is the place to do it.  The Rust Crypto SDK just provided us with the
                 //       plaintext of all the to-device events.
-                
-                // Send any requests from the crypto module
-                try await self.sendOutgoingCryptoRequests()
-                
-                // Save any new keys to our current backup (if any)f
-                try await self.saveKeysToBackup()
             }
+
+            // Send any requests from the crypto module
+            try await self.sendOutgoingCryptoRequests()
+            
+            // Save any new keys to our current backup (if any)f
+            try await self.saveKeysToBackup()
             
             // Handle invites
             if let invitedRoomsDict = responseBody.rooms?.invite {
@@ -723,9 +723,10 @@ extension Matrix {
         // Send any and all pending requests from the crypto crate
         func sendOutgoingCryptoRequests() async throws {
             try await cryptoQueue.run {
-                let requests = try self.crypto.outgoingRequests()
-                for request in requests {
-                    try await self.sendCryptoRequest(request: request)
+                if let requests = try? self.crypto.outgoingRequests() {
+                    for request in requests {
+                        try await self.sendCryptoRequest(request: request)
+                    }
                 }
             }
         }
