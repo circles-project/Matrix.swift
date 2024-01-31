@@ -304,7 +304,9 @@ extension Matrix {
         
         public func startBackgroundSync() async throws {
             self.keepSyncing = true
-            if self.backgroundSyncTask != nil {
+            if let t = self.backgroundSyncTask,
+               t.isCancelled == false
+            {
                 logger.warning("Session:\tCan't start background sync when it's already running!")
                 return
             }
@@ -333,11 +335,13 @@ extension Matrix {
                         self.syncSuccessCount += 1
                     }
                     syncLogger.debug("Got new sync token \(token)")
+                    /*
                     if let delay = self.backgroundSyncDelayMS {
                         syncLogger.debug("Sleeping for \(delay) ms before next sync")
                         let nano = delay * 1000
                         try await Task.sleep(nanoseconds: nano)
                     }
+                    */
                 }
                 self.backgroundSyncTask = nil
                 return count
