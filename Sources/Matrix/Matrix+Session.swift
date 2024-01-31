@@ -57,7 +57,15 @@ extension Matrix {
         private var syncRequestTask: Task<String?,Swift.Error>? // FIXME Use a TaskGroup to make this subordinate to the backgroundSyncTask
         private var initialSyncFilter: SyncFilter?
         
+        #if DEBUG
+        @Published public private(set) var syncToken: String? = nil
+        public private(set) var syncSuccessCount: UInt = 0
+        public private(set) var syncFailureCount: UInt = 0
+        #else
         private var syncToken: String? = nil
+        private var syncSuccessCount: UInt = 0
+        private var syncFailureCount: UInt = 0
+        #endif
         private var syncFilterId: String? = nil
         private var syncRequestTimeout: Int = 30_000
         private var keepSyncing: Bool
@@ -296,34 +304,43 @@ extension Matrix {
         
         public func startBackgroundSync() async throws {
             self.keepSyncing = true
-            if self.backgroundSyncTask != nil {
+            if let t = self.backgroundSyncTask,
+               t.isCancelled == false
+            {
                 logger.warning("Session:\tCan't start background sync when it's already running!")
                 return
             }
             self.backgroundSyncTask = self.backgroundSyncTask ?? .init(priority: .background) {
                 syncLogger.debug("Starting background sync")
                 var count: UInt = 0
-                var failureCount: UInt = 0
                 while self.keepSyncing {
                     syncLogger.debug("Keeping on syncing...")
                     guard let token = try? await sync()
                     else {
-                        syncLogger.warning("Sync failed with token \(self.syncToken ?? "(none)")")
-                        failureCount += 1
+                        self.syncFailureCount += 1
+                        syncLogger.warning("Sync failed with token \(self.syncToken ?? "(none)") -- \(self.syncFailureCount) failures")
+                        /* // Update: Never stop never stopping :)
+                           //         Lots of bad stuff happens if we stop syncing.  So keep going!
                         if failureCount > 3 {
                             self.keepSyncing = false
                         }
-                        try await Task.sleep(for: .seconds(1))
+                        */
+                        try await Task.sleep(for: .seconds(30))
                         continue
                     }
-                    failureCount = 0
-                    syncLogger.debug("Got new sync token \(token)")
+                    
                     count += 1
+                    self.syncFailureCount = 0
+                    self.syncSuccessCount += 1
+                
+                    syncLogger.debug("Got new sync token \(token)")
+                    /*
                     if let delay = self.backgroundSyncDelayMS {
                         syncLogger.debug("Sleeping for \(delay) ms before next sync")
                         let nano = delay * 1000
                         try await Task.sleep(nanoseconds: nano)
                     }
+                    */
                 }
                 self.backgroundSyncTask = nil
                 return count
@@ -343,12 +360,7 @@ extension Matrix {
             // Following the Rust Crypto SDK example https://github.com/matrix-org/matrix-rust-sdk/blob/8ac7f88d22e2fa0ca96eba7239ba7ec08658552c/crates/matrix-sdk-crypto/src/lib.rs#L540
             // We first send any outbound messages from the crypto module before we actually call /sync
             logger.debug("Sending outbound crypto requests")
-            try await cryptoQueue.run {
-                let requests = try self.crypto.outgoingRequests()
-                for request in requests {
-                    try await self.sendCryptoRequest(request: request)
-                }
-            }
+            try await sendOutgoingCryptoRequests()
             
             let url = "/_matrix/client/v3/sync"
             var params = [
@@ -421,30 +433,13 @@ extension Matrix {
                 // NOTE: If we want to track the Olm or Megolm sessions ourselves for debugging purposes,
                 //       then this is the place to do it.  The Rust Crypto SDK just provided us with the
                 //       plaintext of all the to-device events.
-                
-                // Send any requests from the crypto module
-                logger.debug("Querying crypto module for any new requests")
-                guard let cryptoRequests = try? self.crypto.outgoingRequests()
-                else {
-                    // Don't set success to false here -- With the outgoing requests, we can always try again later
-                    logger.error("Failed to get outgoing crypto requests")
-                    return
-                }
-                logger.debug("Sending \(cryptoRequests.count, privacy: .public) crypto requests")
-                for request in cryptoRequests {
-                    try await self.sendCryptoRequest(request: request)
-                }
-                
-                if self.crypto.backupEnabled() {
-                    logger.debug("Checking for any new key backup requests to send")
-                    if let request = try? self.crypto.backupRoomKeys() {
-                        logger.debug("Sending crypto request to backup room keys")
-                        try await self.sendCryptoRequest(request: request)
-                    }
-                } else {
-                    logger.debug("Key backup is not enabled; No requests to send.")
-                }
             }
+
+            // Send any requests from the crypto module
+            try await self.sendOutgoingCryptoRequests()
+            
+            // Save any new keys to our current backup (if any)f
+            try await self.saveKeysToBackup()
             
             // Handle invites
             if let invitedRoomsDict = responseBody.rooms?.invite {
@@ -722,6 +717,18 @@ extension Matrix {
             return result
         }
 
+        // Send any and all pending requests from the crypto crate
+        func sendOutgoingCryptoRequests() async throws {
+            try await cryptoQueue.run {
+                if let requests = try? self.crypto.outgoingRequests() {
+                    for request in requests {
+                        try await self.sendCryptoRequest(request: request)
+                    }
+                }
+            }
+        }
+        
+        // Send one request from the crypto crate
         func sendCryptoRequest(request: Request) async throws {
             var logger = self.cryptoLogger
             switch request {
@@ -1397,9 +1404,19 @@ extension Matrix {
             //logger.debug("Got encrypted string = [\(encryptedString)]")
             let encryptedData = encryptedString.data(using: .utf8)!
             let encryptedContent = try Matrix.decodeEventContent(of: M_ROOM_ENCRYPTED, from: encryptedData)
-            return try await super.sendMessageEvent(to: roomId,
-                                                    type: M_ROOM_ENCRYPTED,
-                                                    content: encryptedContent)
+            logger.debug("Sending encrypted message")
+            let eventId = try await super.sendMessageEvent(to: roomId,
+                                                           type: M_ROOM_ENCRYPTED,
+                                                           content: encryptedContent)
+            logger.debug("Got event id \(eventId)")
+
+            logger.debug("Sending crypto requests post-message")
+            try? await sendOutgoingCryptoRequests()
+            logger.debug("Saving key backup")
+            try? await saveKeysToBackup()
+
+            logger.debug("Returning event id \(eventId)")
+            return eventId
         }
         
         // MARK: Read Receipts
@@ -2189,6 +2206,20 @@ extension Matrix {
 
             logger.debug("Created new key backup with version \(responseBody.version)")
             return responseBody.version
+        }
+        
+        public func saveKeysToBackup() async throws {
+            if self.crypto.backupEnabled() {
+                try await cryptoQueue.run {
+                    logger.debug("Checking for any new key backup requests to send")
+                    if let request = try? self.crypto.backupRoomKeys() {
+                        logger.debug("Sending crypto request to backup room keys")
+                        try await self.sendCryptoRequest(request: request)
+                    }
+                }
+            } else {
+                logger.debug("Key backup is not enabled; No requests to send.")
+            }
         }
         
         public func loadKeysFromBackup() async throws {

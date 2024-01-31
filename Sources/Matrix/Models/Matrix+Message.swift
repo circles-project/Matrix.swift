@@ -412,6 +412,10 @@ extension Matrix {
                 
                 // Thumbnail
                 try await fetchThumbnail()
+            } else {
+                // Decryption failed!
+                // Request keys
+                // FIXME: TODO: Add this
             }
         }
         
