@@ -722,7 +722,7 @@ extension Matrix {
                                                   keyId: String,
                                                   name: String? = nil,
                                                   algorithm: String = M_SECRET_STORAGE_V1_AES_HMAC_SHA2,
-                                                  passphrase: KeyDescriptionContent.Passphrase?
+                                                  passphrase: KeyDescriptionContent.Passphrase? = nil
         ) throws -> KeyDescriptionContent {
             let zeroes = [UInt8](repeating: 0, count: 32)
             let encrypted = try encrypt(name: "", data: Data(zeroes), key: key)
