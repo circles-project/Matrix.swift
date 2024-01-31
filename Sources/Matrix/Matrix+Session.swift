@@ -330,10 +330,12 @@ extension Matrix {
                         try await Task.sleep(for: .seconds(30))
                         continue
                     }
+                    /*
                     await MainActor.run {
                         self.syncFailureCount = 0
                         self.syncSuccessCount += 1
                     }
+                    */
                     syncLogger.debug("Got new sync token \(token)")
                     /*
                     if let delay = self.backgroundSyncDelayMS {
