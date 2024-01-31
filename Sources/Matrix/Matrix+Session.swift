@@ -58,9 +58,9 @@ extension Matrix {
         private var initialSyncFilter: SyncFilter?
         
         #if DEBUG
-        public var syncToken: String? = nil
-        public var syncSuccessCount: UInt = 0
-        public var syncFailureCount: UInt = 0
+        @Published public private(set) var syncToken: String? = nil
+        public private(set) var syncSuccessCount: UInt = 0
+        public private(set) var syncFailureCount: UInt = 0
         #else
         private var syncToken: String? = nil
         private var syncSuccessCount: UInt = 0
