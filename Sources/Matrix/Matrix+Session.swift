@@ -347,6 +347,23 @@ extension Matrix {
             }
         }
         
+        public func sync() async throws -> String? {
+            //print("/sync:\t\(creds.userId) Starting sync()  -- token is \(syncToken ?? "(none)")")
+            // FIXME: Use a TaskGroup
+            if let task = syncRequestTask {
+                syncLogger.debug("Already syncing..  awaiting on the result")
+                return try await task.value
+            } else {
+                do {
+                    syncRequestTask = .init(priority: .background, operation: syncRequestTaskOperation)
+                    return try await syncRequestTask?.value
+                } catch {
+                    self.syncRequestTask = nil
+                    return nil
+                }
+            }
+        }
+        
         // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3sync
         // The Swift compiler couldn't figure this out when it was given in-line in the call below.
         // So here we are defining its type explicitly.
@@ -655,18 +672,6 @@ extension Matrix {
             } else {
                 logger.error("sync failed")
                 return self.syncToken
-            }
-        }
-        
-        public func sync() async throws -> String? {
-            //print("/sync:\t\(creds.userId) Starting sync()  -- token is \(syncToken ?? "(none)")")
-            // FIXME: Use a TaskGroup
-            if let task = syncRequestTask {
-                syncLogger.debug("Already syncing..  awaiting on the result")
-                return try await task.value
-            } else {
-                syncRequestTask = .init(priority: .background, operation: syncRequestTaskOperation)
-                return try await syncRequestTask?.value
             }
         }
         
@@ -1847,6 +1852,8 @@ extension Matrix {
             // First thing to check: Do we already have all of our cross-signing keys?
             let status = self.crypto.crossSigningStatus()
             if status.hasMaster && status.hasSelfSigning && status.hasUserSigning {
+                // FIXME: Also ensure that our current device key is signed
+
                 // Nothing more to be done here
                 logger.debug("Already all set up.  Done.")
                 return nil
@@ -1870,6 +1877,8 @@ extension Matrix {
                 logger.debug("Found keys on the server")
                 let export = CrossSigningKeyExport(masterKey: privateMSK, selfSigningKey: privateSSK, userSigningKey: privateUSK)
                 try self.crypto.importCrossSigningKeys(export: export)
+                // FIXME: Also ensure that our current device key is signed
+                
                 // Success!  And no need to do UIA!
                 return nil
             }
