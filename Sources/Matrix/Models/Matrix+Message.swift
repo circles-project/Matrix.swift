@@ -29,6 +29,8 @@ extension Matrix {
         
         private var logger: os.Logger
         
+        private var haveRequestedKeys = false
+        
         public init(event: ClientEventWithoutRoomId, room: Room) {
             self.event = event
             self.room = room
@@ -415,7 +417,12 @@ extension Matrix {
             } else {
                 // Decryption failed!
                 // Request keys
-                // FIXME: TODO: Add this
+                
+                // Remember whether we have already sent a request... Don't want to spam the other devices
+                if !haveRequestedKeys {
+                    try await self.room.session.sendKeyRequest(for: self)
+                    self.haveRequestedKeys = true
+                }
             }
         }
         

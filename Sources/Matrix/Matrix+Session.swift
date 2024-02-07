@@ -880,6 +880,31 @@ extension Matrix {
                                                   responseBody: responseBodyString)
             } // end case request
         } // end sendCryptoRequests()
+        
+        // https://spec.matrix.org/v1.9/client-server-api/#key-requests
+        public func sendKeyRequest(for message: Message) async throws {
+            guard message.type == M_ROOM_ENCRYPTED
+            else {
+                logger.error("Can only request keys for encrypted messages")
+                throw Matrix.Error("Can only request keys for encrypted messages")
+            }
+            
+            let encoder = JSONEncoder()
+            guard let data = try? encoder.encode(message.event),
+                  let string = String(data: data, encoding: .utf8)
+            else {
+                logger.error("Failed to encode encrypted message")
+                throw Matrix.Error("Failed to encode encrypted message")
+            }
+            
+            guard let requestPair = try? crypto.requestRoomKey(event: string, roomId: message.roomId.stringValue)
+            else {
+                logger.error("Failed to generate key request")
+                throw Matrix.Error("Failed to generate key request")
+            }
+            
+            try await sendCryptoRequest(request: requestPair.keyRequest)
+        }
 
         // MARK: Session state management
         
