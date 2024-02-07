@@ -1170,11 +1170,38 @@ public class Client {
     
     // MARK: Room State
     
+    // https://spec.matrix.org/v1.9/client-server-api/#get_matrixclientv3roomsroomidmembers
+    public func getRoomMembers(roomId: RoomId) async throws -> [Room.Membership: Set<UserId>] {
+        let path = "/_matrix/client/v3/rooms/\(roomId)/members"
+        let (data, response) = try await call(method: "GET", path: path)
+        
+        struct ResponseBody: Codable {
+            var chunk: [ClientEvent]
+        }
+        
+        let decoder = JSONDecoder()
+        let responseBody = try decoder.decode(ResponseBody.self, from: data)
+        let events = responseBody.chunk.filter { $0.type == M_ROOM_MEMBER }
+
+        var members: [Room.Membership: Set<UserId>] = [:]
+        for event in events {
+            guard let content = event.content as? RoomMemberContent,
+                  let stringUserId = event.stateKey,
+                  let userId = UserId(stringUserId)
+            else { continue }
+            
+            var set = members[content.membership] ?? []
+            set.insert(userId)
+            members[content.membership] = set
+        }
+        return members
+    }
+    
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3roomsroomidjoined_members
     public func getJoinedMembers(roomId: RoomId) async throws -> [UserId] {
         let path = "/_matrix/client/v3/rooms/\(roomId)/joined_members"
         let (data, response) = try await call(method: "GET", path: path)
-        let string = String(decoding: data, as: UTF8.self)
+        //let string = String(decoding: data, as: UTF8.self)
         //logger.debug("getJoinedMembers Got response = \(string)")
         
         struct ResponseBody: Codable {
