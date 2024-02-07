@@ -1348,9 +1348,27 @@ extension Matrix {
             /// member has.
 
             let logger = self.cryptoLogger
+            
+            guard let roomHistoryVisibility = try await room.getHistoryVisibility()
+            else {
+                throw Matrix.Error("Cannot encrypt because we cannot determine history visibility for room \(roomId)")
+            }
 
-            let users: [String] = try await room.getJoinedMembers().map { $0.description }
+            // NOTE: Depending on the room's history visibility we should include either:
+            //       * joined members only (for history visiblity == .joined)
+            //       * joined AND invited members (for any other history visibility)
+            let members = try await getRoomMembers(roomId: roomId)
+            let joined: Set<UserId> = members[.join] ?? []
+            let invited: Set<UserId> = members[.invite] ?? []
+            let userIds: [UserId]
+            if roomHistoryVisibility == .joined {
+                userIds = Array(joined)
+            } else {
+                userIds = Array(joined.union(invited))
+            }
+            let users = userIds.map { $0.stringValue } // Convert back to String because the Rust SDK doesn't know about our types
             logger.debug("Found \(users.count) users in the room: \(users)")
+            
             try await cryptoQueue.run {
                 if let missingSessionsRequest = try self.crypto.getMissingSessions(users: users) {
                     // Send the missing sessions request
@@ -1361,11 +1379,6 @@ extension Matrix {
             
             // FIXME: WhereTF do we get the "only allow trusted devices" setting?
             let onlyTrusted = false
-            
-            guard let roomHistoryVisibility = try await room.getHistoryVisibility()
-            else {
-                throw Matrix.Error("Cannot encrypt because we cannot determine history visibility for room \(roomId)")
-            }
             
             // I am now dumber for having written this
             // Unfortunately our version of the enum needs to be derived from String, while theirs seems to be a number
