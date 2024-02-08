@@ -37,6 +37,28 @@ extension Matrix {
             self.thumbhash = thumbhash
         }
         
+        public init(_ copy: mImageInfo,
+                    h: Int? = nil,
+                    w: Int? = nil,
+                    mimetype: String? = nil,
+                    size: Int? = nil,
+                    thumbnail_url: MXC? = nil,
+                    thumbnail_file: mEncryptedFile? = nil,
+                    thumbnail_info: mThumbnailInfo? = nil,
+                    blurhash: String? = nil,
+                    thumbhash: String? = nil
+        ) {
+            self.h = h ?? copy.h
+            self.w = w ?? copy.w
+            self.mimetype = mimetype ?? copy.mimetype
+            self.size = size ?? copy.size
+            self.thumbnail_url = thumbnail_url ?? copy.thumbnail_url
+            self.thumbnail_file = thumbnail_file ?? copy.thumbnail_file
+            self.thumbnail_info = thumbnail_info ?? copy.thumbnail_info
+            self.blurhash = blurhash ?? copy.blurhash
+            self.thumbhash = thumbhash ?? copy.thumbhash
+        }
+        
         // Custom Decodable implementation -- Handle invalid optional elements
         public init(from decoder: Decoder) throws {
             let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
