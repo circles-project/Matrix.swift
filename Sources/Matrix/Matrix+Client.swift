@@ -1673,6 +1673,22 @@ public class Client {
         return mxc
     }
     
+    private func purgeMedia(_ mxc: MXC) async throws {
+        // URL: `POST /_matrix/media/unstable/admin/purge/<server>/<media id>?access_token=your_access_token`
+        let path = "/_matrix/media/unstable/admin/purge/\(mxc.serverName)/\(mxc.mediaId)"
+        let params = [
+            "access_token": self.creds.accessToken
+        ]
+        logger.debug("Purging media \(mxc)")
+        let (data, response) = try await call(method: "POST", path: path, params: params)
+    }
+    
+    public func deleteMedia(_ mxc: MXC) async throws {
+        try await purgeMedia(mxc)
+    }
+    
+    // MARK: logout
+    
     public func logout() async throws {
         let path = "/_matrix/client/v3/logout"
         let (data, response) = try await call(method: "POST", path: path)
