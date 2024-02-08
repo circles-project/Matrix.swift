@@ -227,12 +227,23 @@ extension Matrix {
                 logger.debug("Looking for previously-saved invited rooms")
                 let invitedRoomIds = try await store.getInvitedRoomIds(for: creds.userId)
                 logger.debug("Found \(invitedRoomIds.count) invited room id's")
+                
+                // Note: We can get stuck invitations if we somehow miss the join event for a room
+                //       So here we query our entire list of joined rooms to make sure we're not incorrectly loading an old invitation
+                let joinedRoomIds = try await getJoinedRoomIds()
+                
                 for roomId in invitedRoomIds {
-                    logger.debug("Attempting to load stripped state for invited room \(roomId)")
-                    let strippedStateEvents = try await store.loadStrippedState(for: roomId)
-                    if let room = try? InvitedRoom(session: self, roomId: roomId, stateEvents: strippedStateEvents) {
-                        await MainActor.run {
-                            self.invitations[roomId] = room
+                    if joinedRoomIds.contains(roomId) {
+                        // Looks like this is a "stuck" invitation.
+                        // Purge it from the database so we don't stumble over this again
+                        try await deleteInvitedRoom(roomId: roomId)
+                    } else {
+                        logger.debug("Attempting to load stripped state for invited room \(roomId)")
+                        let strippedStateEvents = try await store.loadStrippedState(for: roomId)
+                        if let room = try? InvitedRoom(session: self, roomId: roomId, stateEvents: strippedStateEvents) {
+                            await MainActor.run {
+                                self.invitations[roomId] = room
+                            }
                         }
                     }
                 }
@@ -590,7 +601,9 @@ extension Matrix {
                             await room.updateEphemeral(events: ephemeralEvents)
                         }
 
-                    } else {
+                    }
+                    
+                    if invitations[roomId] != nil {
                         // Clearly the room is no longer in the 'invited' state
                         await MainActor.run {
                             invitations.removeValue(forKey: roomId)
@@ -624,7 +637,6 @@ extension Matrix {
                 logger.debug("No left rooms")
             }
             
-            // FIXME: Do something with AccountData
             if let newAccountDataEvents = responseBody.accountData?.events {
                 logger.debug("Found \(newAccountDataEvents.count, privacy: .public) account data events")
                 
@@ -1233,6 +1245,9 @@ extension Matrix {
         }
         
         public func deleteInvitedRoom(roomId: RoomId) async throws {
+            await MainActor.run {
+                self.invitations.removeValue(forKey: roomId)
+            }
             if let store = self.dataStore {
                 let count = try await store.deleteStrippedState(for: roomId)
                 logger.debug("Purged \(count) stripped state events for invited room \(roomId)")
