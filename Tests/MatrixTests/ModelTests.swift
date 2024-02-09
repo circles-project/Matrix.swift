@@ -48,7 +48,7 @@ final class ModelTests: XCTestCase {
         print("Presence:\n\t \(syncResponse.presence!)")
         XCTAssertEqual(presenceData.type, M_PRESENCE)
         XCTAssertEqual(presenceData.sender, UserId("@example:localhost.com"))
-        XCTAssertEqual(presenceDataContent.avatarUrl, "mxc://localhost/wefuiwegh8742w")
+        XCTAssertEqual(presenceDataContent.avatarUrl, MXC("mxc://localhost/wefuiwegh8742w"))
         XCTAssertEqual(presenceDataContent.currentlyActive, false)
         XCTAssertEqual(presenceDataContent.presence, PresenceContent.Presence.online)
         XCTAssertEqual(presenceDataContent.statusMessage, "Making cupcakes")

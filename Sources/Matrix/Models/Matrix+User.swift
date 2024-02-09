@@ -88,6 +88,18 @@ extension Matrix {
             }
         }
         
+        @MainActor
+        public func update(_ presence: PresenceContent) {
+            if let newDisplayName = presence.displayname {
+                self.displayName = newDisplayName
+            }
+            if let newAvatarUrl = presence.avatarUrl
+            {
+                self.avatarUrl = newAvatarUrl
+                self.fetchAvatarImage()
+            }
+        }
+        
         public var isVerified: Bool {
             // FIXME: Query the crypto module and/or the server to find out whether we've verified this user
             false

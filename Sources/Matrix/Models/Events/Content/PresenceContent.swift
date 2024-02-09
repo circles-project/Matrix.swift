@@ -9,7 +9,7 @@ import Foundation
 
 /// m.presence: https://spec.matrix.org/v1.5/client-server-api/#mpresence
 public struct PresenceContent: Codable {
-    public let avatarUrl: String?
+    public let avatarUrl: MXC?
     public let currentlyActive: Bool?
     public let displayname: String?
     public let lastActiveAgo: Int?
@@ -23,7 +23,7 @@ public struct PresenceContent: Codable {
     public let presence: Presence
     public let statusMessage: String?
     
-    public init(avatarUrl: String?, currentlyActive: Bool?, displayname: String?,
+    public init(avatarUrl: MXC?, currentlyActive: Bool?, displayname: String?,
                 lastActiveAgo: Int?, presence: Presence, statusMessage: String?) {
         self.avatarUrl = avatarUrl
         self.currentlyActive = currentlyActive

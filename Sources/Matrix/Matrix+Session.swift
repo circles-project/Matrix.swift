@@ -375,6 +375,8 @@ extension Matrix {
             }
         }
         
+        // MARK: Sync request task
+        
         // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3sync
         // The Swift compiler couldn't figure this out when it was given in-line in the call below.
         // So here we are defining its type explicitly.
@@ -663,6 +665,17 @@ extension Matrix {
                 }
             } else {
                 logger.debug("No account data")
+            }
+            
+            // Presence
+            if let presenceEvents = responseBody.presence?.events {
+                for event in presenceEvents {
+                    if let userId = event.sender,
+                       let presence = event.content as? PresenceContent
+                    {
+                        await self.users[userId]?.update(presence)
+                    }
+                }
             }
             
             // FIXME: Handle to-device messages
