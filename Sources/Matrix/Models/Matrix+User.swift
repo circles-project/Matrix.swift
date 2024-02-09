@@ -90,18 +90,28 @@ extension Matrix {
         
         @MainActor
         public func update(_ presence: PresenceContent) {
-            Matrix.logger.debug("User \(self.userId.stringValue) updating presence")
+            
+            #if DEBUG
+            let encoder = JSONEncoder()
+            let data = try! encoder.encode(presence)
+            let string = String(data: data, encoding: .utf8)!
+            Matrix.logger.debug("User \(self.userId.stringValue) updating presence from event \(string)")
+            #endif
             
             if let newDisplayName = presence.displayname {
-                Matrix.logger.debug("User \(self.userId.stringValue) updating displayname")
+                Matrix.logger.debug("User \(self.userId.stringValue) updating displayname from presence")
                 self.displayName = newDisplayName
+            } else {
+                Matrix.logger.debug("User \(self.userId.stringValue) NOT updating displayname from presence")
             }
             
             if let newAvatarUrl = presence.avatarUrl
             {
-                Matrix.logger.debug("User \(self.userId.stringValue) updating avatar url")
+                Matrix.logger.debug("User \(self.userId.stringValue) updating avatar url from presence")
                 self.avatarUrl = newAvatarUrl
                 self.fetchAvatarImage()
+            } else {
+                Matrix.logger.debug("User \(self.userId.stringValue) NOT updating avatar url from presence")
             }
         }
         
