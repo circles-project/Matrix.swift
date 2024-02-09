@@ -26,10 +26,6 @@ extension Matrix {
             var s4KeyId: String
         }
         
-        @Published public private(set) var displayName: String?
-        @Published public private(set) var avatarUrl: MXC?
-        @Published public private(set) var avatar: Matrix.NativeImage?
-        @Published public private(set) var statusMessage: String?
         public var me: User {
             self.getUser(userId: self.creds.userId)
         }
@@ -126,10 +122,6 @@ extension Matrix {
             self.users = [:]
             self.accountData = [:]
             
-            self.displayName = displayname
-            self.avatarUrl = avatarUrl
-            self.statusMessage = statusMessage
-            
             self.syncToken = syncToken
             self.keepSyncing = startSyncing
             self.initialSyncFilter = initialSyncFilter
@@ -167,20 +159,6 @@ extension Matrix {
             // --------------------------------------------------------------------------------------------------------
             // Phase 1 init is done -- Now we can reference `self`
             // Ok now we're initialized as a valid Matrix.Client (super class)
-
-            // Initialize our user profile stuff, in case we weren't given initial values
-            if self.avatarUrl == nil {
-                if let newUrl = try? await getAvatarUrl(userId: self.creds.userId) {
-                    self.avatarUrl = newUrl
-                    if let data = try? await downloadData(mxc: newUrl) {
-                        #if !os(macOS)
-                        self.avatar = UIImage(data: data)
-                        #else
-                        self.avatar = NSImage(data: data)
-                        #endif
-                    }
-                }
-            }
             
             // Set up crypto stuff
             // Secret storage
@@ -261,55 +239,42 @@ extension Matrix {
             if startSyncing {
                 try await startBackgroundSync()
             }
-            
-            let updateProfileTask = Task {
-                
-                if let url = self.avatarUrl,
-                   let data = try? await self.downloadData(mxc: url),
-                   let image = Matrix.NativeImage(data: data)
-                {
-                    await MainActor.run {
-                        self.avatar = image
-                    }
-                }
-                
-                if let newName = try await getDisplayName(userId: self.creds.userId) {
-                    await MainActor.run {
-                        self.displayName = newName
-                    }
-                }
-            }
+
         }
         
         // MARK: Profile management
         
         override public func setMyDisplayName(_ name: String) async throws {
             try await super.setMyDisplayName(name)
-            await MainActor.run {
-                self.displayName = name
-            }
+            
+            // FIXME: Until we can make Synapse conform to the spec and send m.presence events, we're just going to fake them ourselves
+            await self.me.update(PresenceContent(displayname: name))
         }
         
         override public func setMyAvatarUrl(_ mxc: MXC) async throws {
             try await super.setMyAvatarUrl(mxc)
-            await MainActor.run {
-                self.avatarUrl = mxc
-            }
+            
+            // FIXME: Until we can make Synapse conform to the spec and send m.presence events, we're just going to fake them ourselves
+            await self.me.update(PresenceContent(avatarUrl: mxc))
         }
         
-        override public func setMyAvatarImage(_ image: Matrix.NativeImage) async throws {
-            try await super.setMyAvatarImage(image)
-            await MainActor.run {
-                self.avatar = image
-            }
+        override public func setMyAvatarImage(_ image: Matrix.NativeImage) async throws -> MXC {
+            let mxc = try await super.setMyAvatarImage(image)
+            
+            // FIXME: Until we can make Synapse conform to the spec and send m.presence events, we're just going to fake them ourselves
+            await self.me.update(PresenceContent(avatarUrl: mxc))
+            
+            return mxc
         }
         
         override public func setMyStatus(message: String) async throws {
             try await super.setMyStatus(message: message)
-            await MainActor.run {
-                self.statusMessage = message
-            }
+
+            // FIXME: Until we can make Synapse conform to the spec and send m.presence events, we're just going to fake them ourselves
+            await self.me.update(PresenceContent(statusMessage: message))
         }
+
+
         
         // MARK: Sync
         
@@ -374,6 +339,8 @@ extension Matrix {
                 }
             }
         }
+        
+        // MARK: Sync request task
         
         // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3sync
         // The Swift compiler couldn't figure this out when it was given in-line in the call below.
@@ -663,6 +630,21 @@ extension Matrix {
                 }
             } else {
                 logger.debug("No account data")
+            }
+            
+            // Presence
+            if let presenceEvents = responseBody.presence?.events {
+                logger.debug("Updating presence - \(presenceEvents.count) events")
+                for event in presenceEvents {
+                    if let userId = event.sender,
+                       let presence = event.content as? PresenceContent
+                    {
+                        logger.debug("Updating presence for user \(userId.stringValue)")
+                        await self.users[userId]?.update(presence)
+                    } else {
+                        logger.error("Could not parse presence event")
+                    }
+                }
             }
             
             // FIXME: Handle to-device messages

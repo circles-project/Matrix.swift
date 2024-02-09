@@ -88,6 +88,33 @@ extension Matrix {
             }
         }
         
+        @MainActor
+        public func update(_ presence: PresenceContent) {
+            
+            #if DEBUG
+            let encoder = JSONEncoder()
+            let data = try! encoder.encode(presence)
+            let string = String(data: data, encoding: .utf8)!
+            Matrix.logger.debug("User \(self.userId.stringValue) updating presence from event \(string)")
+            #endif
+            
+            if let newDisplayName = presence.displayname {
+                Matrix.logger.debug("User \(self.userId.stringValue) updating displayname from presence")
+                self.displayName = newDisplayName
+            } else {
+                Matrix.logger.debug("User \(self.userId.stringValue) NOT updating displayname from presence")
+            }
+            
+            if let newAvatarUrl = presence.avatarUrl
+            {
+                Matrix.logger.debug("User \(self.userId.stringValue) updating avatar url from presence")
+                self.avatarUrl = newAvatarUrl
+                self.fetchAvatarImage()
+            } else {
+                Matrix.logger.debug("User \(self.userId.stringValue) NOT updating avatar url from presence")
+            }
+        }
+        
         public var isVerified: Bool {
             // FIXME: Query the crypto module and/or the server to find out whether we've verified this user
             false
