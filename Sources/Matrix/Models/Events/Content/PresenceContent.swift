@@ -23,8 +23,12 @@ public struct PresenceContent: Codable {
     public let presence: Presence
     public let statusMessage: String?
     
-    public init(avatarUrl: MXC?, currentlyActive: Bool?, displayname: String?,
-                lastActiveAgo: Int?, presence: Presence, statusMessage: String?) {
+    public init(avatarUrl: MXC? = nil,
+                currentlyActive: Bool? = nil,
+                displayname: String? = nil,
+                lastActiveAgo: Int? = nil,
+                presence: Presence = .online,
+                statusMessage: String? = nil) {
         self.avatarUrl = avatarUrl
         self.currentlyActive = currentlyActive
         self.displayname = displayname

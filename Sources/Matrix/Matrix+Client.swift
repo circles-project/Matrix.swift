@@ -374,11 +374,13 @@ public class Client {
                                     ])
     }
     
-    public func setMyAvatarImage(_ image: NativeImage) async throws {
+    public func setMyAvatarImage(_ image: NativeImage) async throws -> MXC {
         // First upload the image
         let mxc = try await uploadImage(image, maxSize: CGSize(width: 256, height: 256))
         // Then set that as our avatar
         try await setMyAvatarUrl(mxc)
+        // And return the mxc:// URL to the caller
+        return mxc
     }
 
     

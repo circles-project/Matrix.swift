@@ -241,6 +241,39 @@ extension Matrix {
             }
 
         }
+        
+        // MARK: Profile management
+        
+        override public func setMyDisplayName(_ name: String) async throws {
+            try await super.setMyDisplayName(name)
+            
+            // FIXME: Until we can make Synapse conform to the spec and send m.presence events, we're just going to fake them ourselves
+            await self.me.update(PresenceContent(displayname: name))
+        }
+        
+        override public func setMyAvatarUrl(_ mxc: MXC) async throws {
+            try await super.setMyAvatarUrl(mxc)
+            
+            // FIXME: Until we can make Synapse conform to the spec and send m.presence events, we're just going to fake them ourselves
+            await self.me.update(PresenceContent(avatarUrl: mxc))
+        }
+        
+        override public func setMyAvatarImage(_ image: Matrix.NativeImage) async throws -> MXC {
+            let mxc = try await super.setMyAvatarImage(image)
+            
+            // FIXME: Until we can make Synapse conform to the spec and send m.presence events, we're just going to fake them ourselves
+            await self.me.update(PresenceContent(avatarUrl: mxc))
+            
+            return mxc
+        }
+        
+        override public func setMyStatus(message: String) async throws {
+            try await super.setMyStatus(message: message)
+
+            // FIXME: Until we can make Synapse conform to the spec and send m.presence events, we're just going to fake them ourselves
+            await self.me.update(PresenceContent(statusMessage: message))
+        }
+
 
         
         // MARK: Sync
