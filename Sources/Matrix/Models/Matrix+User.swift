@@ -90,11 +90,16 @@ extension Matrix {
         
         @MainActor
         public func update(_ presence: PresenceContent) {
+            Matrix.logger.debug("User \(self.userId.stringValue) updating presence")
+            
             if let newDisplayName = presence.displayname {
+                Matrix.logger.debug("User \(self.userId.stringValue) updating displayname")
                 self.displayName = newDisplayName
             }
+            
             if let newAvatarUrl = presence.avatarUrl
             {
+                Matrix.logger.debug("User \(self.userId.stringValue) updating avatar url")
                 self.avatarUrl = newAvatarUrl
                 self.fetchAvatarImage()
             }
