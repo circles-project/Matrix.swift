@@ -26,10 +26,6 @@ extension Matrix {
             var s4KeyId: String
         }
         
-        @Published public private(set) var displayName: String?
-        @Published public private(set) var avatarUrl: MXC?
-        @Published public private(set) var avatar: Matrix.NativeImage?
-        @Published public private(set) var statusMessage: String?
         public var me: User {
             self.getUser(userId: self.creds.userId)
         }
@@ -126,10 +122,6 @@ extension Matrix {
             self.users = [:]
             self.accountData = [:]
             
-            self.displayName = displayname
-            self.avatarUrl = avatarUrl
-            self.statusMessage = statusMessage
-            
             self.syncToken = syncToken
             self.keepSyncing = startSyncing
             self.initialSyncFilter = initialSyncFilter
@@ -167,20 +159,6 @@ extension Matrix {
             // --------------------------------------------------------------------------------------------------------
             // Phase 1 init is done -- Now we can reference `self`
             // Ok now we're initialized as a valid Matrix.Client (super class)
-
-            // Initialize our user profile stuff, in case we weren't given initial values
-            if self.avatarUrl == nil {
-                if let newUrl = try? await getAvatarUrl(userId: self.creds.userId) {
-                    self.avatarUrl = newUrl
-                    if let data = try? await downloadData(mxc: newUrl) {
-                        #if !os(macOS)
-                        self.avatar = UIImage(data: data)
-                        #else
-                        self.avatar = NSImage(data: data)
-                        #endif
-                    }
-                }
-            }
             
             // Set up crypto stuff
             // Secret storage
@@ -261,55 +239,9 @@ extension Matrix {
             if startSyncing {
                 try await startBackgroundSync()
             }
-            
-            let updateProfileTask = Task {
-                
-                if let url = self.avatarUrl,
-                   let data = try? await self.downloadData(mxc: url),
-                   let image = Matrix.NativeImage(data: data)
-                {
-                    await MainActor.run {
-                        self.avatar = image
-                    }
-                }
-                
-                if let newName = try await getDisplayName(userId: self.creds.userId) {
-                    await MainActor.run {
-                        self.displayName = newName
-                    }
-                }
-            }
+
         }
-        
-        // MARK: Profile management
-        
-        override public func setMyDisplayName(_ name: String) async throws {
-            try await super.setMyDisplayName(name)
-            await MainActor.run {
-                self.displayName = name
-            }
-        }
-        
-        override public func setMyAvatarUrl(_ mxc: MXC) async throws {
-            try await super.setMyAvatarUrl(mxc)
-            await MainActor.run {
-                self.avatarUrl = mxc
-            }
-        }
-        
-        override public func setMyAvatarImage(_ image: Matrix.NativeImage) async throws {
-            try await super.setMyAvatarImage(image)
-            await MainActor.run {
-                self.avatar = image
-            }
-        }
-        
-        override public func setMyStatus(message: String) async throws {
-            try await super.setMyStatus(message: message)
-            await MainActor.run {
-                self.statusMessage = message
-            }
-        }
+
         
         // MARK: Sync
         
