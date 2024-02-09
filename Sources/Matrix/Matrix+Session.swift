@@ -669,11 +669,15 @@ extension Matrix {
             
             // Presence
             if let presenceEvents = responseBody.presence?.events {
+                logger.debug("Updating presence - \(presenceEvents.count) events")
                 for event in presenceEvents {
                     if let userId = event.sender,
                        let presence = event.content as? PresenceContent
                     {
+                        logger.debug("Updating presence for user \(userId.stringValue)")
                         await self.users[userId]?.update(presence)
+                    } else {
+                        logger.error("Could not parse presence event")
                     }
                 }
             }
