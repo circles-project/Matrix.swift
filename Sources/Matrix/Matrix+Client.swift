@@ -309,8 +309,14 @@ public class Client {
     ) async throws -> (Data, HTTPURLResponse) {
         logger.debug("CALL \(method, privacy: .public) \(path, privacy: .public)")
 
-        //let url = URL(string: path, relativeTo: baseUrl)!.appending(queryItems: queryItems)
-        var components = URLComponents(url: URL(string: path, relativeTo: self.baseUrl)!, resolvingAgainstBaseURL: true)!
+        guard let safePath = path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let initialUrl = URL(string: safePath, relativeTo: self.baseUrl),
+              var components = URLComponents(url: initialUrl, resolvingAgainstBaseURL: true)
+        else {
+            logger.error("Failed to construct safe URL path from \(path)")
+            throw Matrix.Error("Failed to construct safe URL path")
+        }
+        
         if let urlParams = params {
             let queryItems: [URLQueryItem] = urlParams.map { (key,value) -> URLQueryItem in
                 URLQueryItem(name: key, value: value)
@@ -1029,7 +1035,7 @@ public class Client {
     public func getEvent(_ eventId: EventId,
                          in roomId: RoomId
     ) async throws -> ClientEvent {
-        let path = " /_matrix/client/v3/rooms/\(roomId)/event/\(eventId)"
+        let path = " /_matrix/client/v3/rooms/\(roomId)/event/\(eventId)".
         let (data, response) = try await call(method: "GET", path: path)
         
         let decoder = JSONDecoder()
