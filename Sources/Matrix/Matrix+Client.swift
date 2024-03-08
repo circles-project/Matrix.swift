@@ -1017,6 +1017,23 @@ public class Client {
         return content.name
     }
     
+    // MARK: Events
+    public func getEvent(_ eventId: EventId,
+                         in roomId: RoomId
+    ) async throws -> ClientEvent {
+        let path = " /_matrix/client/v3/rooms/\(roomId)/event/\(eventId)"
+        let (data, response) = try await call(method: "GET", path: path)
+        
+        let decoder = JSONDecoder()
+        guard let event = try? decoder.decode(ClientEvent.self, from: data)
+        else {
+            logger.error("Failed to decode event \(eventId) in room \(roomId)")
+            throw Matrix.Error("Failed to decode event")
+        }
+        
+        return event
+    }
+    
     // MARK: Room Messages
     
     // https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3roomsroomidmessages
