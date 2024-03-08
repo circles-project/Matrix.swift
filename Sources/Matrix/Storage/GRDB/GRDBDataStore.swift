@@ -326,10 +326,10 @@ public struct GRDBDataStore: DataStore {
         let request = table.filter(sql: query)
         */
         let request = StateEventRecord.filter(roomIdColumn == roomId)
-        let events = try await database.read { db in
+        let records = try await database.read { db in
             try request.fetchAll(db)
         }
-        return events.compactMap {
+        return records.compactMap {
             try? ClientEventWithoutRoomId(content: $0.content,
                                           eventId: $0.eventId,
                                           originServerTS: $0.originServerTS,
@@ -338,6 +338,49 @@ public struct GRDBDataStore: DataStore {
                                           type: $0.type)
         }
     }
+    
+    public func loadState(for roomId: RoomId, type: String) async throws -> [ClientEventWithoutRoomId] {
+        let roomIdColumn = StateEventRecord.Columns.roomId
+        let typeColumn = StateEventRecord.Columns.type
+        
+        let request = StateEventRecord.filter(roomIdColumn == roomId)
+                                      .filter(typeColumn == type)
+        let records = try await database.read { db in
+            try request.fetchAll(db)
+        }
+        return records.compactMap {
+            try? ClientEventWithoutRoomId(content: $0.content,
+                                          eventId: $0.eventId,
+                                          originServerTS: $0.originServerTS,
+                                          sender: $0.sender,
+                                          stateKey: $0.stateKey,
+                                          type: $0.type)
+        }
+    }
+    
+    public func loadState(for roomId: RoomId, type: String, stateKey: String) async throws -> ClientEventWithoutRoomId? {
+        let roomIdColumn = StateEventRecord.Columns.roomId
+        let typeColumn = StateEventRecord.Columns.type
+        let stateKeyColumn = StateEventRecord.Columns.stateKey
+        
+        let request = StateEventRecord.filter(roomIdColumn == roomId)
+                                      .filter(typeColumn == type)
+                                      .filter(stateKeyColumn == stateKey)
+        guard let record = try await database.read( { db in
+            try request.fetchOne(db)
+        })
+        else {
+            return nil
+        }
+        
+        return try? ClientEventWithoutRoomId(content: record.content,
+                                             eventId: record.eventId,
+                                             originServerTS: record.originServerTS,
+                                             sender: record.sender,
+                                             stateKey: record.stateKey,
+                                             type: record.type)
+    }
+    
     
     public func saveState(events: [ClientEventWithoutRoomId], in roomId: RoomId) async throws {
         let stateEvents = events.compactMap { event in

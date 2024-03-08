@@ -32,6 +32,8 @@ public protocol DataStore {
     func loadTimeline(for roomId: RoomId, limit: Int, offset: Int?) async throws -> [ClientEventWithoutRoomId]
     
     func loadState(for roomId: RoomId, limit: Int, offset: Int?) async throws -> [ClientEventWithoutRoomId]
+    func loadState(for roomId: RoomId, type: String) async throws -> [ClientEventWithoutRoomId]
+    func loadState(for roomId: RoomId, type: String, stateKey: String) async throws -> ClientEventWithoutRoomId?
     func loadEssentialState(for roomId: RoomId) async throws -> [ClientEventWithoutRoomId]
     func loadStrippedState(for roomId: RoomId) async throws -> [StrippedStateEvent]
     func loadRelatedEvents(for eventId: EventId, in roomId: RoomId, relType: String, type: String?) async throws -> [ClientEventWithoutRoomId]
