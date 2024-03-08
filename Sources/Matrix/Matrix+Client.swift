@@ -323,7 +323,12 @@ public class Client {
             }
             components.queryItems = queryItems
         }
-        let url = components.url!
+        
+        guard let url = components.url
+        else {
+            logger.error("Failed to construct URL from components")
+            throw Matrix.Error("Failed to construct URL from components")
+        }
                
         var keepTrying = false
         var count = 0
@@ -339,11 +344,11 @@ public class Client {
             
             guard let httpResponse = response as? HTTPURLResponse
             else {
-                logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) Couldn't handle HTTP response")
+                logger.error("CALL \(method, privacy: .public) \(url, privacy: .public) Couldn't handle HTTP response")
                 throw Matrix.Error("Couldn't handle HTTP response")
             }
             
-            logger.debug("CALL \(method, privacy: .public) \(path, privacy: .public) Got response with status \(httpResponse.statusCode, privacy: .public)")
+            logger.debug("CALL \(method, privacy: .public) \(url, privacy: .public) Got response with status \(httpResponse.statusCode, privacy: .public)")
 
             // Was this response something that we expected?
             if expectedStatuses.contains(httpResponse.statusCode) {
@@ -359,7 +364,7 @@ public class Client {
             // The caller didn't expect this response, and we don't know how to handle it
             else {
                 // Nothing left to do but throw an error
-                logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) failed with HTTP \(httpResponse.statusCode, privacy: .public)")
+                logger.error("CALL \(method, privacy: .public) \(url, privacy: .public) failed with HTTP \(httpResponse.statusCode, privacy: .public)")
                 throw Matrix.Error("API call failed")
             }
             
@@ -373,7 +378,7 @@ public class Client {
             
         } while keepTrying && count <= MAX_RETRIES
         
-        logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) ran out of retries")
+        logger.error("CALL \(method, privacy: .public) \(url, privacy: .public) ran out of retries")
         throw Matrix.Error("API call failed")
     }
     
