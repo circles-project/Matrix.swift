@@ -1258,6 +1258,25 @@ public class Client {
         return events
     }
     
+    public func getRoomStateEvent(roomId: RoomId, eventType: String, with stateKey: String = "") async throws -> ClientEventWithoutRoomId {
+        let path = "/_matrix/client/v3/rooms/\(roomId)/state/\(eventType)/\(stateKey)"
+        // Use the unofficial Synapse support for fetching the full event
+        let params = [
+            "format": "event"
+        ]
+        let (data, response) = try await call(method: "GET", path: path, params: params)
+        
+        let decoder = JSONDecoder()
+
+        guard let event = try? decoder.decode(ClientEventWithoutRoomId.self, from: data)
+        else {
+            logger.error("ROOMSTATE Couldn't decode event for event type \(eventType, privacy: .public)")
+            throw Matrix.Error("Couldn't decode room state")
+        }
+        
+        return event
+    }
+    
     public func getRoomState(roomId: RoomId, eventType: String, with stateKey: String = "") async throws -> Codable {
         let path = "/_matrix/client/v3/rooms/\(roomId)/state/\(eventType)/\(stateKey)"
         let (data, response) = try await call(method: "GET", path: path)
@@ -1273,6 +1292,8 @@ public class Client {
         
         return content
     }
+
+    // MARK: Invite
     
     public func inviteUser(roomId: RoomId, userId: UserId, reason: String? = nil) async throws {
         let path = "/_matrix/client/v3/rooms/\(roomId)/invite"
