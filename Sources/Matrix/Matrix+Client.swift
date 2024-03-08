@@ -1278,7 +1278,12 @@ public class Client {
     }
     
     public func getRoomStateEvent(roomId: RoomId, eventType: String, with stateKey: String = "") async throws -> ClientEventWithoutRoomId {
-        let path = "/_matrix/client/v3/rooms/\(roomId)/state/\(eventType)/\(stateKey)"
+        let path: String
+        if stateKey.isEmpty {
+            path = "/_matrix/client/v3/rooms/\(roomId)/state/\(eventType)"
+        } else {
+            path = "/_matrix/client/v3/rooms/\(roomId)/state/\(eventType)/\(stateKey)"
+        }
         // Use the unofficial Synapse support for fetching the full event
         let params = [
             "format": "event"
@@ -1297,7 +1302,12 @@ public class Client {
     }
     
     public func getRoomState(roomId: RoomId, eventType: String, with stateKey: String = "") async throws -> Codable {
-        let path = "/_matrix/client/v3/rooms/\(roomId)/state/\(eventType)/\(stateKey)"
+        let path: String
+        if stateKey.isEmpty {
+            path = "/_matrix/client/v3/rooms/\(roomId)/state/\(eventType)"
+        } else {
+            path = "/_matrix/client/v3/rooms/\(roomId)/state/\(eventType)/\(stateKey)"
+        }
         let (data, response) = try await call(method: "GET", path: path)
         
         let decoder = JSONDecoder()
