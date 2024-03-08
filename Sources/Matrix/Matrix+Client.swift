@@ -1295,6 +1295,9 @@ public class Client {
         guard let event = try? decoder.decode(ClientEventWithoutRoomId.self, from: data)
         else {
             logger.error("ROOMSTATE Couldn't decode event for event type \(eventType, privacy: .public)")
+            if let raw = String(data: data, encoding: .utf8) {
+                logger.error("ROOMSTATE Got raw response: \(raw)")
+            }
             throw Matrix.Error("Couldn't decode room state")
         }
         
