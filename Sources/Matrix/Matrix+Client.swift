@@ -1035,7 +1035,7 @@ public class Client {
     public func getEvent(_ eventId: EventId,
                          in roomId: RoomId
     ) async throws -> ClientEvent {
-        let path = " /_matrix/client/v3/rooms/\(roomId)/event/\(eventId)".
+        let path = " /_matrix/client/v3/rooms/\(roomId)/event/\(eventId)"
         let (data, response) = try await call(method: "GET", path: path)
         
         let decoder = JSONDecoder()
