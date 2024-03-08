@@ -104,6 +104,7 @@ extension Matrix {
         // MARK: init
         
         public init(creds: Credentials,
+                    defaults: UserDefaults = UserDefaults.standard,
                     syncToken: String? = nil, startSyncing: Bool = true, initialSyncFilter: SyncFilter? = nil,
                     displayname: String? = nil, avatarUrl: MXC? = nil, statusMessage: String? = nil,
                     recoverySecretKey: Data? = nil, recoveryTimestamp: Data? = nil,
@@ -154,7 +155,7 @@ extension Matrix {
             
             self.downloadAndDecryptTasks = [:]
             
-            try await super.init(creds: creds)
+            try await super.init(creds: creds, defaults: defaults)
             
             // --------------------------------------------------------------------------------------------------------
             // Phase 1 init is done -- Now we can reference `self`

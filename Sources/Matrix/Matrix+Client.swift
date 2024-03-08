@@ -31,6 +31,7 @@ public class Client {
 
     private var refreshTask: Task<Void,Swift.Error>?
     
+    var defaults: UserDefaults
     private var logger: os.Logger
         
     public typealias APIErrorHandler = (Data) async throws -> Bool
@@ -39,8 +40,11 @@ public class Client {
     
     // MARK: Init
     
-    public init(creds: Matrix.Credentials) async throws {
+    public init(creds: Matrix.Credentials,
+                defaults: UserDefaults = UserDefaults.standard
+    ) async throws {
         let logger = os.Logger(subsystem: "matrix", category: "\(creds.userId.stringValue) client")
+        self.defaults = defaults
         self.logger = logger
         
         logger.debug("Creating a new Matrix Client for user \(creds.userId)")
@@ -121,6 +125,10 @@ public class Client {
     
     public func registerErrorHandler(statusCode: Int, handler: @escaping APIErrorHandler) {
         self.errorHandlers[statusCode] = handler
+    }
+    
+    public func removeErrorHandler(statusCode: Int) {
+        self.errorHandlers[statusCode] = nil
     }
     
     public func handleSlowDown(data: Data) async throws -> Bool {
@@ -260,7 +268,7 @@ public class Client {
             logger.debug("/refresh got new credentials")
             self.creds = newCreds
             // Save the credentials so we can reconnect in the future
-            try? self.creds.save()
+            try? self.creds.save(defaults: self.defaults)
             logger.debug("/refresh done")
             
             self.refreshTask = nil

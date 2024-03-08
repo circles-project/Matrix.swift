@@ -75,39 +75,15 @@ extension Matrix {
             try container.encodeIfPresent(self.wellKnown, forKey: .wellKnown)
         }
         
-        public func save(suiteName: String? = nil) throws {
-            let defaults: UserDefaults
-            
-            if let suite = suiteName {
-                guard let d = UserDefaults(suiteName: suite)
-                else {
-                    Matrix.logger.error("Failed to initialize UserDefaults for suite \(suite)")
-                    throw Matrix.Error("Failed to initialize UserDefaults")
-                }
-                defaults = d
-            } else {
-                defaults = UserDefaults.standard
-            }
-
+        public func save(defaults: UserDefaults = UserDefaults.standard) throws {
             let encoder = JSONEncoder()
             let data = try encoder.encode(self)
             // Save the creds data in a single blob
             defaults.set(data, forKey: "credentials[\(userId)]")
         }
         
-        public static func load(for userId: UserId, suiteName: String? = nil) throws -> Credentials? {
-            let defaults: UserDefaults
-            
-            if let suite = suiteName {
-                guard let d = UserDefaults(suiteName: suite)
-                else {
-                    Matrix.logger.error("Failed to initialize UserDefaults for suite \(suite)")
-                    throw Matrix.Error("Failed to initialize UserDefaults")
-                }
-                defaults = d
-            } else {
-                defaults = UserDefaults.standard
-            }
+        public static func load(for userId: UserId, defaults: UserDefaults = UserDefaults.standard) throws -> Credentials? {
+
             // First check to see if we have saved our creds in the new format
             let decoder = JSONDecoder()
             if let data = defaults.data(forKey: "credentials[\(userId)]"),
