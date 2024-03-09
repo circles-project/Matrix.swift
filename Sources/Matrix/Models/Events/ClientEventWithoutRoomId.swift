@@ -8,17 +8,10 @@
 import Foundation
 import AnyCodable
 
-public class ClientEventWithoutRoomId: Matrix.Event, Codable {
+public class ClientEventWithoutRoomId: ClientEventWithoutEventIdOrRoomId {
     public let eventId: String
-    public let originServerTS: UInt64
-    //public let roomId: String
-    public let sender: UserId
-    public let stateKey: String?
-    public let type: String
-    public let content: Codable
-    public let unsigned: UnsignedData?
     
-    public var description: String {
+    public override var description: String {
         return """
                ClientEventWithoutRoomId: {eventId: \(eventId), originServerTS:\(originServerTS), \
                sender: \(sender), stateKey: \(String(describing: stateKey)), type: \(type), \
@@ -37,16 +30,15 @@ public class ClientEventWithoutRoomId: Matrix.Event, Codable {
         case unsigned
     }
     
+    public convenience init(_ event: ClientEventWithoutEventIdOrRoomId, eventId: EventId) throws {
+        try self.init(content: event.content, eventId: eventId, originServerTS: event.originServerTS, sender: event.sender, stateKey: event.stateKey, type: event.type, unsigned: event.unsigned)
+    }
+    
     public init(content: Codable, eventId: String, originServerTS: UInt64, sender: UserId,
                 stateKey: String? = nil, type: String,
                 unsigned: UnsignedData? = nil) throws {
-        self.content = content
         self.eventId = eventId
-        self.originServerTS = originServerTS
-        self.sender = sender
-        self.stateKey = stateKey
-        self.type = type
-        self.unsigned = unsigned
+        try super.init(content: content, originServerTS: originServerTS, sender: sender, stateKey: stateKey, type: type, unsigned: unsigned)
     }
     
     required public init(from decoder: Decoder) throws {
@@ -57,36 +49,16 @@ public class ClientEventWithoutRoomId: Matrix.Event, Codable {
         Matrix.logger.debug("  eventId = \(eventId)")
         self.eventId = eventId
         
-        self.originServerTS = try container.decode(UInt64.self, forKey: .originServerTS)
-        //self.roomId = try container.decode(String.self, forKey: .roomId)
-        self.sender = try container.decode(UserId.self, forKey: .sender)
-        self.stateKey = try container.decodeIfPresent(String.self, forKey: .stateKey)
-        
-        let type = try container.decode(String.self, forKey: .type)
-        Matrix.logger.debug("  type = \(type)")
-        self.type = type
-        
-        self.unsigned = try container.decodeIfPresent(UnsignedData.self, forKey: .unsigned)
-         
-        self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
+        try super.init(from: decoder)
+
         Matrix.logger.debug("  done with event \(eventId)")
     }
     
-    public func encode(to encoder: Encoder) throws {
+    public override func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(eventId, forKey: .eventId)
-        try container.encode(originServerTS, forKey: .originServerTS)
-        try container.encode(sender, forKey: .sender)
-        try container.encodeIfPresent(stateKey, forKey: .stateKey)
-        try container.encode(type, forKey: .type)
-        try container.encodeIfPresent(unsigned, forKey: .unsigned)
-        try container.encode(AnyCodable(content), forKey: .content)
+        try super.encode(to: encoder)
     }
-    
-    public lazy var timestamp: Date = {
-        let seconds: TimeInterval = Double(self.originServerTS) / 1000.0
-        return Date(timeIntervalSince1970: seconds)
-    }()
 }
 
 extension ClientEventWithoutRoomId: Equatable {

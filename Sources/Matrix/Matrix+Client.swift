@@ -1292,7 +1292,7 @@ public class Client {
         
         let decoder = JSONDecoder()
 
-        guard let event = try? decoder.decode(ClientEventWithoutRoomId.self, from: data)
+        guard let event = try? decoder.decode(ClientEventWithoutEventIdOrRoomId.self, from: data)
         else {
             logger.error("ROOMSTATE Couldn't decode event for event type \(eventType, privacy: .public)")
             if let raw = String(data: data, encoding: .utf8) {
@@ -1301,7 +1301,7 @@ public class Client {
             throw Matrix.Error("Couldn't decode room state")
         }
         
-        return event
+        return try? ClientEventWithoutRoomId(event, eventId: eventId)
     }
     
     public func getRoomState(roomId: RoomId, eventType: String, with stateKey: String = "") async throws -> Codable {
