@@ -849,6 +849,19 @@ public class Client {
         return RoomId(responseBody.roomId)!
     }
     
+    public func getRoomSummary(roomId: RoomId) async throws -> Room.Summary {
+        let (data, response) = try await call(method: "GET",
+                                              path: "/_matrix/client/unstable/im.nheko.summary/summary/\(roomId)")
+        let decoder = JSONDecoder()
+        guard let summary = try? decoder.decode(Room.Summary.self, from: data)
+        else {
+            logger.error("ROOMSUMMARY Failed to decode room summary for \(roomId)")
+            throw Matrix.Error("Failed to decode room summary")
+        }
+        
+        return summary
+    }
+    
     public func sendStateEvent(to roomId: RoomId,
                         type: String,
                         content: Codable,

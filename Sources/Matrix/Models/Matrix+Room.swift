@@ -62,6 +62,22 @@ extension Matrix {
         
         private var logger: os.Logger
         
+        // For MSC3266
+        public struct Summary: Codable {
+            var roomId: RoomId
+            var avatarUrl: MXC?
+            var guestCanJoin: Bool
+            var name: String?
+            var numJoinedMembers: UInt
+            var topic: String?
+            var worldReadable: Bool
+            var joinRule: JoinRule?
+            var roomType: String?
+            var roomVersion: String?
+            var membership: Membership?
+            var encryption: EncryptionAlgorithm
+        }
+        
         // MARK: init
         
         public required init(roomId: RoomId, session: Session,
