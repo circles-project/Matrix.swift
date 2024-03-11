@@ -64,18 +64,18 @@ extension Matrix {
         
         // For MSC3266
         public struct Summary: Codable {
-            var roomId: RoomId
-            var avatarUrl: MXC?
-            var guestCanJoin: Bool
-            var name: String?
-            var numJoinedMembers: UInt
-            var topic: String?
-            var worldReadable: Bool
-            var joinRule: JoinRule?
-            var roomType: String?
-            var roomVersion: String?
-            var membership: Membership?
-            var encryption: EncryptionAlgorithm
+            public var roomId: RoomId
+            public var avatarUrl: MXC?
+            public var guestCanJoin: Bool
+            public var name: String?
+            public var numJoinedMembers: UInt
+            public var topic: String?
+            public var worldReadable: Bool
+            public var joinRule: JoinRule?
+            public var roomType: String?
+            public var roomVersion: String?
+            public var membership: Membership?
+            public var encryption: EncryptionAlgorithm
         }
         
         // MARK: init
