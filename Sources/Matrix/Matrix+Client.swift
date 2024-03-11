@@ -710,6 +710,7 @@ public class Client {
                     encrypted: Bool = true,
                     invite userIds: [UserId] = [],
                     direct: Bool = false,
+                    historyVisibility: Room.HistoryVisibility? = nil,
                     joinRule: RoomJoinRuleContent.JoinRule? = nil,
                     powerLevelContentOverride: RoomPowerLevelsContent? = nil
     ) async throws -> RoomId {
@@ -776,6 +777,7 @@ public class Client {
                  type: String? = nil, 
                  version: String? = nil,
                  encrypted: Bool,
+                 historyVisibility: Room.HistoryVisibility? = nil,
                  joinRule: RoomJoinRuleContent.JoinRule? = nil,
                  powerLevelContentOverride: RoomPowerLevelsContent? = nil
             ) {
@@ -796,6 +798,14 @@ public class Client {
                         content: RoomEncryptionContent()
                     )
                     stateEvents.append(encryptionEvent)
+                }
+                if let historyVisibility = historyVisibility {
+                    let event = StateEvent(
+                        type: M_ROOM_HISTORY_VISIBILITY,
+                        stateKey: "",
+                        content: RoomHistoryVisibilityContent(historyVisibility: historyVisibility)
+                    )
+                    stateEvents.append(event)
                 }
                 if !stateEvents.isEmpty {
                     self.initial_state = stateEvents
@@ -1277,6 +1287,7 @@ public class Client {
         return events
     }
     
+    // FIXME: Currently this fails because the event returned by `?format=event` does not include an eventId 😡
     public func getRoomStateEvent(roomId: RoomId, eventType: String, with stateKey: String = "") async throws -> ClientEventWithoutRoomId {
         let path: String
         if stateKey.isEmpty {
