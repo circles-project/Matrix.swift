@@ -851,7 +851,7 @@ public class Client {
     
     public func getRoomSummary(roomId: RoomId) async throws -> Room.Summary {
         let (data, response) = try await call(method: "GET",
-                                              path: "/_matrix/client/unstable/im.nheko.summary/summary/\(roomId)")
+                                              path: "/_matrix/client/unstable/im.nheko.summary/rooms/\(roomId)/summary")
         let decoder = JSONDecoder()
         guard let summary = try? decoder.decode(Room.Summary.self, from: data)
         else {
