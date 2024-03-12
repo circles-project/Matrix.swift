@@ -852,6 +852,13 @@ public class Client {
     public func getRoomSummary(roomId: RoomId) async throws -> Room.Summary {
         let (data, response) = try await call(method: "GET",
                                               path: "/_matrix/client/unstable/im.nheko.summary/rooms/\(roomId)/summary")
+
+        #if DEBUG
+        if let raw = String(data: data, encoding: .utf8) {
+            logger.debug("ROOMSUMMARY Got raw response \(raw)")
+        }
+        #endif
+
         let decoder = JSONDecoder()
         guard let summary = try? decoder.decode(Room.Summary.self, from: data)
         else {
