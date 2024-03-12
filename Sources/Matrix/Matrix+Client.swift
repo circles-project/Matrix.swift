@@ -850,23 +850,35 @@ public class Client {
     }
     
     public func getRoomSummary(roomId: RoomId) async throws -> Room.Summary {
-        let (data, response) = try await call(method: "GET",
-                                              path: "/_matrix/client/unstable/im.nheko.summary/rooms/\(roomId)/summary")
-
-        #if DEBUG
-        if let raw = String(data: data, encoding: .utf8) {
-            logger.debug("ROOMSUMMARY Got raw response \(raw)")
-        }
-        #endif
-
+        let (data1, response1) = try await call(method: "GET",
+                                                path: "/_matrix/client/unstable/im.nheko.summary/\(roomId)",
+                                                expectedStatuses: [200,404])
         let decoder = JSONDecoder()
-        guard let summary = try? decoder.decode(Room.Summary.self, from: data)
-        else {
-            logger.error("ROOMSUMMARY Failed to decode room summary for \(roomId)")
-            throw Matrix.Error("Failed to decode room summary")
+
+        if response1.statusCode == 200 {
+            guard let summary = try? decoder.decode(Room.Summary.self, from: data1)
+            else {
+                logger.error("ROOMSUMMARY Failed to decode room summary for \(roomId)")
+                throw Matrix.Error("Failed to decode room summary")
+            }
+            return summary
+        } else if response1.statusCode == 404 {
+            // Maybe the server implements MSC3266 on the wrong endpoint (*cough* Synapse *cough*)
+            let (data2, response2) = try await call(method: "GET",
+                                                    path: "/_matrix/client/unstable/im.nheko.summary/rooms/\(roomId)/summary")
+            
+            guard let summary = try? decoder.decode(Room.Summary.self, from: data2)
+            else {
+                logger.error("ROOMSUMMARY Failed to decode room summary for \(roomId)")
+                throw Matrix.Error("Failed to decode room summary")
+            }
+            
+            return summary
+        } else {
+            // Not sure what happened..  Maybe we were denied access to the room.
+            logger.error("ROOMSUMMARY Failed to get summary for room \(roomId)")
+            throw Matrix.Error("Failed to get room summary")
         }
-        
-        return summary
     }
     
     public func sendStateEvent(to roomId: RoomId,

@@ -87,9 +87,9 @@ extension Matrix {
                 case worldReadable = "world_readable"
                 case joinRule = "join_rule"
                 case roomType = "room_type"
-                case roomVersion = "room_version"
+                case roomVersion = "im.nheko.summary.version"
                 case membership
-                case encryption
+                case encryption = "im.nheko.summary.encryption"
             }
         }
         
