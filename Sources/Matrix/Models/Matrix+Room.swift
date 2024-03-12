@@ -76,6 +76,21 @@ extension Matrix {
             public var roomVersion: String?
             public var membership: Membership?
             public var encryption: EncryptionAlgorithm
+            
+            public enum CodingKeys: String, CodingKey {
+                case roomId = "room_id"
+                case avatarUrl = "avatar_url"
+                case guestCanJoin = "guest_can_join"
+                case name
+                case numJoinedMembers = "num_joined_members"
+                case topic
+                case worldReadable = "world_readable"
+                case joinRule = "join_rule"
+                case roomType = "room_type"
+                case roomVersion = "room_version"
+                case membership
+                case encryption
+            }
         }
         
         // MARK: init
