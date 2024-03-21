@@ -18,6 +18,11 @@ extension Matrix {
             case setHighlightTweak(highlight: Bool)
             case setGenericTweak(tweak:String, value:String)
             
+            enum TweakCodingKeys: String, CodingKey {
+                case setTweak = "set_tweak"
+                case value
+            }
+            
             public init(from decoder: Decoder) throws {
                 //Matrix.logger.debug("Decoding push rule action")
                                 
@@ -42,11 +47,6 @@ extension Matrix {
                     }
                 }
 
-                enum TweakCodingKeys: String, CodingKey {
-                    case setTweak = "set_tweak"
-                    case value
-                }
-                
                 let container = try decoder.container(keyedBy: TweakCodingKeys.self)
 
                 let tweak = try container.decode(String.self, forKey: .setTweak)
@@ -65,9 +65,31 @@ extension Matrix {
                     self = .setGenericTweak(tweak: tweak, value: value)
                 }
 
-                
                 Matrix.logger.error("Invalid action: Doesn't match either type (string or set_tweak)")
                 throw ActionDecodingError(msg: "Doesn't match either type of action (string or set_tweak)")
+            }
+            
+            public func encode(to encoder: Encoder) throws {
+                switch self {
+                case .notify:
+                    try "notify".encode(to: encoder)
+                case .dontNotify:
+                    try "dont_notify".encode(to: encoder)
+                case .coalesce:
+                    try "coalesce".encode(to: encoder)
+                case .setSoundTweak(let sound):
+                    var container = encoder.container(keyedBy: TweakCodingKeys.self)
+                    try container.encode("sound", forKey: .setTweak)
+                    try container.encode(sound, forKey: .value)
+                case .setHighlightTweak(let highlight):
+                    var container = encoder.container(keyedBy: TweakCodingKeys.self)
+                    try container.encode("highlight", forKey: .setTweak)
+                    try container.encode(highlight, forKey: .value)
+                case .setGenericTweak(let tweak, let value):
+                    var container = encoder.container(keyedBy: TweakCodingKeys.self)
+                    try container.encode(tweak, forKey: .setTweak)
+                    try container.encode(value, forKey: .value)
+                }
             }
         }
         
