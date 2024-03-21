@@ -1860,10 +1860,32 @@ extension Matrix {
             let logger: os.Logger = Logger(subsystem: "matrix", category: "XSIGN")
             logger.debug("Setting up")
             
+            func ensureMyDeviceIsVerified() async throws {
+                logger.debug("Looking for crypto device \(self.creds.deviceId)")
+                if let device = try? self.crypto.getDevice(userId: self.creds.userId.stringValue, deviceId: self.creds.deviceId, timeout: 0),
+                   device.crossSigningTrusted
+                {
+                    logger.debug("Device \(self.creds.deviceId, privacy: .public) is already cross-signed")
+                    return
+                } else {
+                    logger.debug("Generating signature upload request for device \(self.creds.deviceId)")
+                    let signatureUploadRequest: SignatureUploadRequest = try self.crypto.verifyDevice(userId: self.creds.userId.stringValue, deviceId: self.creds.deviceId)
+                    // Why is this type different from the normal crypto Request?
+                    // Turns out that this one doesn't need to be marked as sent after we're done, and that's why it's not a normal .signatureUpload request with a request id
+                    // But poljar says it's OK if we just make up a request id and mark it as sent like anything else
+                    // So that is what we are going to do
+                    let request: MatrixSDKCrypto.Request = .signatureUpload(requestId: "xsign-\(self.creds.deviceId)", body: signatureUploadRequest.body)
+                    logger.debug("Sending signature upload request for device \(self.creds.deviceId)")
+                    try await sendCryptoRequest(request: request)
+                    logger.debug("Successfully uploaded signature for device \(self.creds.deviceId)")
+                }
+            }
+            
             // First thing to check: Do we already have all of our cross-signing keys?
             let status = self.crypto.crossSigningStatus()
             if status.hasMaster && status.hasSelfSigning && status.hasUserSigning {
-                // FIXME: Also ensure that our current device key is signed
+                // Also ensure that our current device key is signed
+                try await ensureMyDeviceIsVerified()
 
                 // Nothing more to be done here
                 logger.debug("Already all set up.  Done.")
@@ -1888,7 +1910,9 @@ extension Matrix {
                 logger.debug("Found keys on the server")
                 let export = CrossSigningKeyExport(masterKey: privateMSK, selfSigningKey: privateSSK, userSigningKey: privateUSK)
                 try self.crypto.importCrossSigningKeys(export: export)
-                // FIXME: Also ensure that our current device key is signed
+                
+                // Also ensure that our current device key is signed
+                try await ensureMyDeviceIsVerified()
                 
                 // Success!  And no need to do UIA!
                 return nil
