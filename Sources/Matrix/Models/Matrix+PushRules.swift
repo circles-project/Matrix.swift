@@ -10,7 +10,7 @@ import Foundation
 extension Matrix {
     public enum PushRules {
         
-        public enum Action: Codable {
+        public enum Action: Codable, Equatable {
             case notify
             case dontNotify
             case coalesce
@@ -104,7 +104,7 @@ extension Matrix {
             }
         }
         
-        public enum Kind: String, Codable {
+        public enum Kind: String, Codable, Equatable {
             case override
             case underride
             case sender
