@@ -1804,7 +1804,7 @@ public class Client {
     
     // MARK: Push rules
     
-    public func getPushRuleActions(scope: String = "global", kind: PushRules.Kind, ruleId: String, actions: [PushRules.Action]) async throws -> [PushRules.Action] {
+    public func getPushRuleActions(scope: String = "global", kind: PushRules.Kind, ruleId: String) async throws -> [PushRules.Action] {
         let path = "/_matrix/client/v3/pushrules/\(scope)/\(kind)/\(ruleId)/actions"
 
         struct ResponseBody: Codable {
