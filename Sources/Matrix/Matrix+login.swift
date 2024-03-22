@@ -51,13 +51,31 @@ extension Matrix {
         var type: String
     }
     
-    struct StandardGetLoginResponseBody: Codable {
-        var flows: [StandardLoginFlow]
+  
+    
+    // This thing may contain a mix of old/standard Matrix flows and UIA flows
+    struct GetLoginResponseBody: Decodable {
+        var uiaFlows: [UIAA.Flow]
+        var oldFlows: [StandardLoginFlow]
+        
+        enum CodingKeys: String, CodingKey {
+            case flows
+        }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            
+            // First let's see which of the flows are decodable as UIA flows
+            let lossyUIA = try container.decode(LossyCodableList<UIAA.Flow>.self, forKey: .flows)
+            self.uiaFlows = lossyUIA.elements
+            
+            // Next let's see which of the flows are decodable as standard/old/legacy Matrix flows
+            let lossyOld = try container.decode(LossyCodableList<StandardLoginFlow>.self, forKey: .flows)
+            self.oldFlows = lossyOld.elements
+        }
+        
     }
     
-    struct UiaGetLoginResponseBody: Codable {
-        var flows: [UIAA.Flow]
-    }
     
     // MARK: Check for UIA login
     
@@ -68,14 +86,21 @@ extension Matrix {
             Matrix.logger.error("Couldn't construct /login URL")
             throw Matrix.Error("Couldn't construct /login URL")
         }
+        Matrix.logger.debug("Checking for UIA login at \(url)")
         
         // Query the supported login types
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         let (data, response) = try await URLSession.shared.data(for: request)
         
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200
+        guard let httpResponse = response as? HTTPURLResponse
+        else {
+            Matrix.logger.error("Invalid URL response for GET \(url)")
+            throw Matrix.Error("Invalid URL response")
+        }
+        Matrix.logger.debug("GET \(url) got response with status \(httpResponse.statusCode)")
+        
+        guard httpResponse.statusCode == 200
         else {
             Matrix.logger.error("Failed to get supported login flows")
             throw Matrix.Error("Failed to get supported login flows")
@@ -84,9 +109,18 @@ extension Matrix {
         let decoder = JSONDecoder()
         
         // Does this server support UIA for /login ?
-        if let responseBody = try? decoder.decode(UiaGetLoginResponseBody.self, from: data) {
+        guard let responseBody = try? decoder.decode(GetLoginResponseBody.self, from: data)
+        else {
+            Matrix.logger.error("Failed to parse GET /login response")
+            throw Matrix.Error("Failed to parse GET /login response")
+        }
+        
+        Matrix.logger.debug("GET /login response includes \(responseBody.uiaFlows.count) UIA flows and \(responseBody.oldFlows.count) legacy Matrix flows")
+        
+        if responseBody.uiaFlows.count > 0 {
             return true
         } else {
+            Matrix.logger.debug("GET /login response does not support UIA")
             return false
         }
         
