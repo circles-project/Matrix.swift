@@ -1802,6 +1802,37 @@ public class Client {
         try await purgeMedia(mxc)
     }
     
+    // MARK: Push rules
+    
+    public func getPushRuleActions(scope: String = "global", kind: PushRules.Kind, ruleId: String) async throws -> [PushRules.Action] {
+        let path = "/_matrix/client/v3/pushrules/\(scope)/\(kind)/\(ruleId)/actions"
+
+        struct ResponseBody: Codable {
+            var actions: [PushRules.Action]
+        }
+        
+        let (data, response) = try await call(method: "GET", path: path)
+        
+        let decoder = JSONDecoder()
+        let body = try decoder.decode(ResponseBody.self, from: data)
+        
+        return body.actions
+    }
+    
+    public func setPushRuleActions(scope: String = "global", kind: PushRules.Kind, ruleId: String, actions: [PushRules.Action]) async throws {
+        
+        let path = "/_matrix/client/v3/pushrules/\(scope)/\(kind)/\(ruleId)/actions"
+        
+        struct RequestBody: Codable {
+            var actions: [PushRules.Action]
+        }
+        
+        let body = RequestBody(actions: actions)
+        
+        let (data, response) = try await call(method: "PUT", path: path, body: body)
+        
+    }
+    
     // MARK: logout
     
     public func logout() async throws {
