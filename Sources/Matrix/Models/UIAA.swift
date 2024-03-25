@@ -10,9 +10,11 @@
 import Foundation
 import AnyCodable
 
+public protocol AuthFlow {}
+
 public enum UIAA {
     
-    public struct Flow: Codable {
+    public struct Flow: AuthFlow, Codable {
         public var stages: [String]
         
         public func isSatisfiedBy(completed: [String]) -> Bool {

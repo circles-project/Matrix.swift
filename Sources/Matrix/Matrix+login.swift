@@ -47,11 +47,11 @@ extension Matrix {
         }
     }
     
-    struct StandardLoginFlow: Codable {
+    public struct StandardLoginFlow: AuthFlow, Codable {
         var type: String
     }
     
-  
+    public typealias AuthFlowFilter = (AuthFlow) -> Bool
     
     // This thing may contain a mix of old/standard Matrix flows and UIA flows
     struct GetLoginResponseBody: Decodable {
