@@ -48,7 +48,7 @@ extension Matrix {
     }
     
     public struct StandardLoginFlow: AuthFlow, Codable {
-        var type: String
+        public var type: String
     }
     
     public typealias AuthFlowFilter = (AuthFlow) -> Bool
