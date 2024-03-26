@@ -78,6 +78,8 @@ extension Matrix {
             let keyBytes = bytes[2...34]
             let key = Data(keyBytes)
             
+            Matrix.logger.debug("Generated key bytes \(key.base64EncodedString())")
+            
             if description.iv != nil && description.mac != nil {
                 guard try description.validate(key: key)
                 else {
