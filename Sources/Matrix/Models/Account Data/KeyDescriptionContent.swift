@@ -50,6 +50,8 @@ extension Matrix {
                 throw Matrix.Error("Key description is invalid")
             }
             
+            logger.debug("Validating SSSS key with IV=\(oldIVString) MAC=\(oldMacString)")
+            
             // Keygen - Use HKDF to derive encryption key and MAC key from master key
             let salt = Array<UInt8>(repeating: 0, count: 32)
                         
@@ -107,7 +109,7 @@ extension Matrix {
             else {
                 let old = Data(oldMac).base64EncodedString()
                 let new = Data(mac).base64EncodedString()
-                logger.warning("MAC doesn't match - \(old) vs \(new)")
+                logger.warning("MAC doesn't match - \(old) vs \(new)  (orig = \(oldMacString))")
                 return false
             }
             
