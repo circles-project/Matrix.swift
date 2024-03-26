@@ -75,7 +75,7 @@ extension Matrix {
                 throw Matrix.Error("Invalid raw string for secret storage key \(keyId)")
             }
             
-            let keyBytes = bytes[2...34]
+            let keyBytes = bytes[2...33]
             let key = Data(keyBytes)
             
             Matrix.logger.debug("Generated key bytes \(key.base64EncodedString())")
