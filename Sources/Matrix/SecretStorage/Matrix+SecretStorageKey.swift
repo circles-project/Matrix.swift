@@ -76,7 +76,15 @@ extension Matrix {
             }
             
             let keyBytes = bytes[2...34]
-            self.key = Data(keyBytes)
+            let key = Data(keyBytes)
+            
+            guard try description.validate(key: key)
+            else {
+                Matrix.logger.error("Failed to validate raw SSSS key \(keyId, privacy: .public)")
+                throw Matrix.Error("Failed to validate raw SSSS key")
+            }
+            
+            self.key = key
             self.keyId = keyId
             self.description = description
         }
