@@ -98,23 +98,15 @@ extension Matrix {
                 curr ^ next
             }
             let bytes = [0x8b, 0x01] + keyBytes + [parity]
-            let noSpaces = Base58.base58Encode(bytes)
-            var spaced = ""
             
-            var start = noSpaces.startIndex
-            var stop = min(noSpaces.index(start, offsetBy: 4), noSpaces.endIndex)
+            // This should be easier but Swift makes String kind of a pain
+            let base58String = Base58.base58Encode(bytes)
+            let base58Data = base58String.data(using: .utf8)!
+            let base58Bytes = [UInt8](base58Data)
 
-            while start < noSpaces.endIndex {
-                
-                let chunk = noSpaces[start...stop]
-                
-                spaced += String(chunk) + " "
-                
-                start = stop
-                stop = min(noSpaces.index(stop, offsetBy: 4), noSpaces.endIndex)
-            }
-            
-            return spaced.trimmingCharacters(in: .whitespaces)
+            let chunks = base58Bytes.chunked(into: 4)
+            let strings: [String] = chunks.compactMap { String(bytes: $0, encoding: .utf8) }
+            return strings.joined(separator: " ")
         }
     }
 }
