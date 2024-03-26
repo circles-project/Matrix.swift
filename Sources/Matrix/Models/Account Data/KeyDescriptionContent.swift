@@ -80,6 +80,7 @@ extension Matrix {
                 logger.error("Failed to encrypt")
                 throw Matrix.Error("Failed to encrypt")
             }
+            logger.debug("Got ciphertext [0x\(Data(ciphertext).hexString)]")
             
             // MAC ciphertext with MAC key
             guard let mac = HMAC(algorithm: .sha256, key: macKey).update(ciphertext)?.final()
@@ -87,6 +88,7 @@ extension Matrix {
                 logger.error("Couldn't compute HMAC")
                 throw Matrix.Error("Couldn't compute HMAC")
             }
+            logger.debug("Got mac [0x\(Data(mac).hexString)]")
             
             // Now validate the new MAC vs the old MAC
             let oldMac = [UInt8](oldMacData)
@@ -107,9 +109,9 @@ extension Matrix {
             
             guard macIsValid
             else {
-                let old = Data(oldMac).base64EncodedString()
-                let new = Data(mac).base64EncodedString()
-                logger.warning("MAC doesn't match - \(old) vs \(new)  (orig = \(oldMacString))")
+                let old = Data(oldMac).hexString
+                let new = Data(mac).hexString
+                logger.warning("MAC doesn't match - 0x\(old) vs 0x\(new))")
                 return false
             }
             
