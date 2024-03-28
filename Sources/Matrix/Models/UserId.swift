@@ -215,6 +215,12 @@ public struct UserId: LosslessStringConvertible, Codable, Identifiable, Equatabl
     }
 }
 
+extension UserId: Comparable {
+    public static func < (lhs: UserId, rhs: UserId) -> Bool {
+        lhs.stringValue < rhs.stringValue
+    }
+}
+
 extension KeyedDecodingContainer {
         
     func decodeIfPresent<T:Decodable>(_ type: Dictionary<UserId,T>.Type, forKey key: KeyedDecodingContainer<K>.Key) throws -> Dictionary<UserId,T>? {
