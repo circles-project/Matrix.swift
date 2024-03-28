@@ -103,6 +103,12 @@ public struct RoomId: LosslessStringConvertible, Codable, Identifiable, Equatabl
     }
 }
 
+extension RoomId: Comparable {
+    public static func < (lhs: RoomId, rhs: RoomId) -> Bool {
+        lhs.stringValue < rhs.stringValue
+    }
+}
+
 extension KeyedDecodingContainer {
         
     func decodeIfPresent<T:Decodable>(_ type: Dictionary<RoomId,T>.Type, forKey key: KeyedDecodingContainer<K>.Key) throws -> Dictionary<RoomId,T>? {
