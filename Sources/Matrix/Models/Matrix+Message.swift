@@ -8,6 +8,7 @@
 import Foundation
 import os
 import Combine
+import OrderedCollections
 
 extension Matrix {
     public class Message: ObservableObject, Identifiable {
@@ -18,7 +19,7 @@ extension Matrix {
         
         @Published public var thumbnail: NativeImage?
         @Published private(set) public var reactions: [String:Set<UserId>]
-        @Published private(set) public var replies: [Message]?
+        @Published private(set) public var replies: OrderedDictionary<EventId,Message>
         @Published private(set) public var replacement: Message?
         private var replacementPublisher: Cancellable?
         
@@ -34,7 +35,7 @@ extension Matrix {
             self.room = room
             self.sender = room.session.getUser(userId: event.sender)
             self.reactions = [:]
-            self.replies = nil
+            self.replies = [:]
             
             self.logger = os.Logger(subsystem: "matrix", category: "message \(event.eventId)")
             
@@ -286,28 +287,19 @@ extension Matrix {
         
         public func addReply(message: Message) async {
             logger.debug("Adding reply message \(message.eventId)")
-            if message.replyToEventId == self.eventId || message.relatedEventId == self.eventId {
-                if let replies = self.replies,
-                   replies.contains(message)
-                {
-                    logger.debug("We already have this one; Not adding \(message.eventId) as a reply")
-                    return
-                }
-                await MainActor.run {
-                    if self.replies == nil {
-                        self.replies = []
-                    }
-                    self.replies!.append(message)
-                }
+            await MainActor.run {
+                self.replies[message.eventId] = message
             }
-            logger.debug("Now we have \(self.replies?.count ?? 0) replies")
+            logger.debug("Now we have \(self.replies.count, privacy: .public) replies")
         }
         
+        @MainActor
         public func removeReply(message: Message) async {
             logger.debug("Removing reply message \(message.eventId)")
             await MainActor.run {
-                self.replies?.removeAll(where: { $0.eventId == message.eventId })
+                self.replies.removeValue(forKey: message.eventId)
             }
+            logger.debug("Now we have \(self.replies.count, privacy: .public) replies")
         }
         
         // MARK: Replacements
