@@ -1037,13 +1037,15 @@ extension Matrix {
                                         })
         }
         
-        public func deactivateAccount(completion handler: UiaCompletionHandler? = nil) async throws {
+        public func deactivateAccount(erase: Bool = false, completion handler: UiaCompletionHandler? = nil) async throws {
             logger.debug("Deactivating account for user \(self.creds.userId.stringValue)")
                         
             let path = "/_matrix/client/v3/account/deactivate"
             let uia = try await uiaCall(method: "POST",
                                         path: path,
-                                        requestDict: [:],
+                                        requestDict: [
+                                            "erase": erase
+                                        ],
                                         filter: { _ in true },
                                         completion: { (us,data) in
                                             logger.debug("Successfully deactivated account")
