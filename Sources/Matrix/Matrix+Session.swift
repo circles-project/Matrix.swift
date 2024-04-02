@@ -1118,7 +1118,8 @@ extension Matrix {
         
         
         public func getRoom<T: Matrix.Room>(roomId: RoomId,
-                                            as type: T.Type = Matrix.Room.self
+                                            as type: T.Type = Matrix.Room.self,
+                                            onLeave: (()->Void)? = nil
         ) async throws -> T? {
             logger.debug("getRoom Starting")
             if let existingRoom = self.rooms[roomId] as? T {
@@ -1152,7 +1153,8 @@ extension Matrix {
                                          initialState: stateEvents,
                                          initialTimeline: timelineEvents,
                                          initialAccountData: accountDataEvents,
-                                         initialReadReceipt: readReceipt
+                                         initialReadReceipt: readReceipt,
+                                         onLeave: onLeave
                     ) {
                         logger.debug("getRoom \(roomId) Adding new room to the cache")
                         await MainActor.run {
@@ -1174,7 +1176,12 @@ extension Matrix {
             }
             logger.debug("getRoom \(roomId) Got \(events.count, privacy: .public) events from the server")
             
-            if let room = try? T(roomId: roomId, session: self, initialState: events, initialTimeline: []) {
+            if let room = try? T(roomId: roomId,
+                                 session: self,
+                                 initialState: events,
+                                 initialTimeline: [],
+                                 onLeave: onLeave
+            ) {
                 logger.debug("getRoom \(roomId) Created room.  Adding to cache.")
                 await MainActor.run {
                     self.rooms[roomId] = room
