@@ -1119,7 +1119,7 @@ extension Matrix {
         
         public func getRoom<T: Matrix.Room>(roomId: RoomId,
                                             as type: T.Type = Matrix.Room.self,
-                                            onLeave: (()->Void)? = nil
+                                            onLeave: (() async throws ->Void)? = nil
         ) async throws -> T? {
             logger.debug("getRoom Starting")
             if let existingRoom = self.rooms[roomId] as? T {
