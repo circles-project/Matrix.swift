@@ -1035,11 +1035,11 @@ extension Matrix {
                         }
    
                         // Send out room keys to invitee's devices
-                        let _ = try self.session.crypto.shareRoomHistoryKeys(roomId: self.roomId.description,
-                                                                             users: users)
-                        cryptoRequests = try self.session.crypto.outgoingRequests()
-                        self.logger.debug("Sending \(cryptoRequests.count, privacy: .public) crypto requests")
-                        for request in cryptoRequests {
+                        let keyShareRequests = try self.session.crypto.shareRoomHistoryKeys(roomId: self.roomId.description,
+                                                                                            users: users)
+                        //cryptoRequests = try self.session.crypto.outgoingRequests()
+                        self.logger.debug("Sending \(keyShareRequests.count, privacy: .public) crypto requests")
+                        for request in keyShareRequests {
                             try await self.session.sendCryptoRequest(request: request)
                         }
                     }
