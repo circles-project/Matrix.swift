@@ -434,7 +434,7 @@ extension Matrix {
             // Send any requests from the crypto module
             try await self.sendOutgoingCryptoRequests()
             
-            // Save any new keys to our current backup (if any)f
+            // Save any new keys to our current backup (if any)
             try await self.saveKeysToBackup()
             
             // Handle invites
@@ -590,8 +590,28 @@ extension Matrix {
                 for (roomId, info) in leftRoomsDict {
                     logger.debug("Found left room \(roomId)")
                     
+                    let stateEvents = info.state?.events ?? []
+                    let timelineEvents = info.timeline?.events ?? []
+                    let timelineStateEvents = timelineEvents.filter { $0.stateKey != nil }
+                    let allStateEvents = stateEvents + timelineStateEvents
+                    
+                    // Save state events into the data store - In particular this will save our m.room.member event in the "left" state
                     if let store = self.dataStore {
-                        let _ = try await store.deleteRoom(roomId)
+                        if !allStateEvents.isEmpty {
+                            try await store.saveState(events: allStateEvents, in: roomId)
+                        }
+                        if !timelineEvents.isEmpty {
+                            try await store.saveTimeline(events: timelineEvents, in: roomId)
+                        }
+                    }
+                    
+                    if let room = self.rooms[roomId] {
+                        await room.updateState(from: stateEvents)
+                        try await room.updateTimeline(from: timelineEvents)
+                        
+                        if let callback = room.onLeave {
+                            try await callback()
+                        }
                     }
                     
                     // TODO: What should we do here?

@@ -28,7 +28,7 @@ extension Matrix {
         public typealias Membership = RoomMemberContent.Membership
         public typealias PowerLevels = RoomPowerLevelsContent
         public typealias JoinRule = RoomJoinRuleContent.JoinRule
-
+        
         public let roomId: RoomId
         public let session: Session
         private var dataStore: DataStore?
@@ -42,9 +42,9 @@ extension Matrix {
         //private(set) public var reactions: [EventId: Message]
         private(set) public var relations: [String: [EventId: Set<Message>]]
         private(set) public var replies: [EventId: Set<Message>]
-
+        
         @Published private(set) public var state: [String: [String: ClientEventWithoutRoomId]]  // Tuples are not Hashable so we can't do [(EventType,String): ClientEventWithoutRoomId]
-                
+        
         @Published private(set) public var highlightCount: Int = 0
         @Published private(set) public var notificationCount: Int = 0
         
@@ -59,6 +59,8 @@ extension Matrix {
         private var forwardToken: String?
         
         private var fetchAvatarImageTask: Task<Void,Swift.Error>?
+        
+        private(set) public var onLeave: (() async throws -> Void)? = nil
         
         private var logger: os.Logger
         
@@ -99,7 +101,8 @@ extension Matrix {
                              initialState: [ClientEventWithoutRoomId],
                              initialTimeline: [ClientEventWithoutRoomId] = [],
                              initialAccountData: [AccountDataEvent] = [],
-                             initialReadReceipt: EventId? = nil
+                             initialReadReceipt: EventId? = nil,
+                             onLeave: (() async throws -> Void)? = nil
         ) throws {
             self.roomId = roomId
             self.session = session
@@ -115,12 +118,13 @@ extension Matrix {
             self.state = [:]
             self.accountData = [:]
             self.myReadReceipt = initialReadReceipt
+            self.onLeave = onLeave
             
             let logger = os.Logger(subsystem: "matrix", category: "room \(roomId)")
             self.logger = logger
             
             logger.debug("Creating Room from \(initialState.count, privacy: .public) state events and \(initialTimeline.count, privacy: .public) timeline events")
-
+            
             // Ugh, sometimes all of our state is actually in the timeline.
             // This can happen especially for an initial sync when there are new rooms and very few messages.
             // See https://spec.matrix.org/v1.5/client-server-api/#syncing
@@ -172,26 +176,26 @@ extension Matrix {
             }
             
             /*
-            // FIXME: CRAZY DEBUGGING
-            // For some reason, SwiftUI isn't updating views in Circles when we change our (published) avatar image
-            // Let's test this to see what's going on
-            Task(priority: .background) {
-                while true {
-                    let sec = Int.random(in: 10...30)
-                    try await Task.sleep(for: .seconds(sec))
-                    let imageName = ["diamond.fill", "circle.fill", "square.fill", "seal.fill", "shield.fill"].randomElement()!
-                    #if os(macOS)
-                    let newImage = NSImage(systemSymbolName: imageName, accessibilityDescription: nil)
-                    #else
-                    let newImage = UIImage(systemName: imageName)
-                    #endif
-                    await MainActor.run {
-                        print("Setting avatar for room \(self.roomId)")
-                        self.avatar = newImage
-                    }
-                }
-            }
-            */
+             // FIXME: CRAZY DEBUGGING
+             // For some reason, SwiftUI isn't updating views in Circles when we change our (published) avatar image
+             // Let's test this to see what's going on
+             Task(priority: .background) {
+             while true {
+             let sec = Int.random(in: 10...30)
+             try await Task.sleep(for: .seconds(sec))
+             let imageName = ["diamond.fill", "circle.fill", "square.fill", "seal.fill", "shield.fill"].randomElement()!
+             #if os(macOS)
+             let newImage = NSImage(systemSymbolName: imageName, accessibilityDescription: nil)
+             #else
+             let newImage = UIImage(systemName: imageName)
+             #endif
+             await MainActor.run {
+             print("Setting avatar for room \(self.roomId)")
+             self.avatar = newImage
+             }
+             }
+             }
+             */
             
             logger.debug("Done with init()")
         }
@@ -211,7 +215,7 @@ extension Matrix {
         
         open func updateTimeline(from events: [ClientEventWithoutRoomId]) async throws {
             logger.debug("Updating timeline: \(self.timeline.count) existing events vs \(events.count) new events")
-
+            
             guard !events.isEmpty
             else {
                 // No new events.  All done!
@@ -222,7 +226,7 @@ extension Matrix {
             // It's possible that we can get some state events in our timeline, especially when the room is new
             let stateEvents = events.filter({$0.stateKey != nil})
             await self.updateState(from: stateEvents)
-                        
+            
             guard !self.timeline.isEmpty
             else {
                 logger.debug("No existing events.  Starting from scratch with the new events")
@@ -239,7 +243,7 @@ extension Matrix {
             }
             
             logger.debug("Merging old and new events")
-
+            
             var tmpTimeline = self.timeline
             for event in events {
                 let eventId = event.eventId
@@ -297,8 +301,8 @@ extension Matrix {
                         if let relatedMessage = self.timeline[relatedEventId]
                         {
                             if relType == M_ANNOTATION && event.type == M_REACTION /*,
-                               let reactionContent = event.content as? ReactionContent,
-                               let key = reactionContent.relatesTo.key */
+                                                                                    let reactionContent = event.content as? ReactionContent,
+                                                                                    let key = reactionContent.relatesTo.key */
                             {
                                 logger.debug("Adding event \(event.eventId) as a reaction to message \(relatedEventId)")
                                 await relatedMessage.addReaction(event: event)
@@ -368,7 +372,7 @@ extension Matrix {
                         
                     case M_REACTION:
                         logger.debug("Redacted message \(messageToRedact.eventId) is a reaction")
-
+                        
                         if let parentEventId = messageToRedact.relatedEventId {
                             if let parent = self.timeline[parentEventId] {
                                 logger.debug("Found redacted reaction message's parent \(parent.eventId)")
@@ -433,7 +437,7 @@ extension Matrix {
                     // Don't override current state dict with an older event
                     continue
                 }
-
+                
                 d[stateKey] = event
                 tmpState[event.type] = d
             }
@@ -467,7 +471,7 @@ extension Matrix {
                 if let read = info.read {
                     for (userId, timestamp) in read {
                         let threadId = timestamp.threadId ?? "main"
-
+                        
                         var dict = self.readMarkers[userId] ?? [:]
                         dict[threadId] = eventId
                         let newDict = dict
@@ -512,7 +516,7 @@ extension Matrix {
                 return oldEventId
             }
         }
-
+        
         
         // MARK: State
         
@@ -537,11 +541,11 @@ extension Matrix {
                 state[M_ROOM_TOPIC]?[""],
                 state[M_ROOM_TOMBSTONE]?[""],
             ]
-            .compactMap{ $0 }
+                .compactMap{ $0 }
         }
         
         // MARK: Account Data
-
+        
         public func updateAccountData(events: [AccountDataEvent]) async {
             await MainActor.run {
                 for event in events {
@@ -549,7 +553,7 @@ extension Matrix {
                 }
             }
         }
-
+        
         // MARK: Computed properties
         
         public var version: String {
@@ -717,7 +721,7 @@ extension Matrix {
         public var knockingMembers: [UserId] {
             self.getKnownMembers(status: .knock)
         }
-                
+        
         public func getJoinedMembers() async throws -> [UserId] {
             try await self.session.getJoinedMembers(roomId: roomId)
         }
@@ -792,11 +796,11 @@ extension Matrix {
                 return nil
             }
             
-            #if os(macOS)
+#if os(macOS)
             let img = Matrix.NativeImage(cgImage: cgImg, size: NSSize(width: cgImg.width, height: cgImg.height))
-            #else
+#else
             let img = Matrix.NativeImage(cgImage: cgImg)
-            #endif
+#endif
             logger.debug("QR code image is \(img.size.height) x \(img.size.width)")
             return img
         }
@@ -821,13 +825,13 @@ extension Matrix {
             let (scaledImage, mxc) = try await self.session.setAvatarImage(roomId: self.roomId, image: image)
             /* Actually don't do this - Our model is that we update local state when we receive it from the server
              
-            // When the server is lagging, the client can get really janky if we wait on the m.room.avatar to come down the /sync pipeline
-            // So instead we'll automatically update the in-memory data right now, since we know that the event was accepted by the server in the call above
-            await MainActor.run {
-                self.avatar = scaledImage
-                self.currentAvatarUrl = mxc
-            }
-            */
+             // When the server is lagging, the client can get really janky if we wait on the m.room.avatar to come down the /sync pipeline
+             // So instead we'll automatically update the in-memory data right now, since we know that the event was accepted by the server in the call above
+             await MainActor.run {
+             self.avatar = scaledImage
+             self.currentAvatarUrl = mxc
+             }
+             */
         }
         
         public func setTopic(newTopic: String) async throws {
@@ -858,7 +862,7 @@ extension Matrix {
                         self.avatar = image
                     }
                 }
-
+                
             }
         }
         
@@ -871,7 +875,7 @@ extension Matrix {
                     return
                 }
                 logger.debug("Room \(self.roomId) fetching avatar for from \(mxc)")
-
+                
                 self.fetchAvatarImageTask = self.fetchAvatarImageTask ?? .init(priority: .background, operation: {
                     logger.debug("Room \(self.roomId) starting a new fetch task")
                     
@@ -914,7 +918,7 @@ extension Matrix {
             else {
                 throw Matrix.Error("Couldn't get current power levels")
             }
-
+            
             var dict = content.users ?? [:]
             dict[userId] = power
             content.users = dict
@@ -1015,12 +1019,12 @@ extension Matrix {
                 else {
                     throw Matrix.Error("Not sharing histoical keys for room \(roomId) because we cannot determine history visibility ")
                 }
-
+                
                 if roomHistoryVisibility == .shared || roomHistoryVisibility == .worldReadable {
                     let users: [String] = [userId.description]
                     let requestId = UInt16.random(in: 0...UInt16.max)
                     let keysQuery = MatrixSDKCrypto.Request.keysQuery(requestId: "\(requestId)", users: users)
-
+                    
                     // Crypto SDK cannot send http requests, so we need to send outgoing requests
                     // in two batches:
                     //   1. Get the latest device list for the person we are inviting
@@ -1033,7 +1037,7 @@ extension Matrix {
                         for request in cryptoRequests {
                             try await self.session.sendCryptoRequest(request: request)
                         }
-   
+                        
                         // Send out room keys to invitee's devices
                         let keyShareRequests = try self.session.crypto.shareRoomHistoryKeys(roomId: self.roomId.description,
                                                                                             users: users)
@@ -1064,9 +1068,9 @@ extension Matrix {
         }
         
         // MARK: Pagination
-
+        
         private(set) public var canPaginate: Bool = true
-                
+        
         public func paginate(limit: UInt?=nil) async throws {
             let response = try await self.session.getMessages(roomId: roomId, forward: false, from: self.backwardToken, limit: limit)
             // The timeline messages are in the "chunk" piece of the response
@@ -1207,14 +1211,14 @@ extension Matrix {
         }
         
         private func sendText(text: String,
-                             relatesTo: mRelatesTo? = nil
+                              relatesTo: mRelatesTo? = nil
         ) async throws -> EventId {
             
             let content = mTextContent(body: text,
                                        relatesTo: relatesTo)
             
             let eventId = try await self.sendMessage(content: content)
-
+            
             return eventId
         }
         
@@ -1226,7 +1230,7 @@ extension Matrix {
                               withBlurhash: Bool=true,
                               withThumbhash: Bool=true
         ) async throws -> EventId {
-
+            
             return try await sendImage(image: image,
                                        thumbnailSize: thumbnailSize,
                                        caption: caption,
@@ -1248,7 +1252,7 @@ extension Matrix {
                 logger.error("Can't reply to a message \(parentMessage.eventId) that is itself related to another message")
                 throw Matrix.Error("Attempted an invalid threaded reply")
             }
-
+            
             return try await sendImage(image: image,
                                        thumbnailSize: thumbnailSize,
                                        caption: caption,
@@ -1276,7 +1280,7 @@ extension Matrix {
                 logger.error("Can't replace message \(oldMessage.eventId) with a new image message")
                 throw Matrix.Error("Attempted an invalid message replacment (type m.image)")
             }
-
+            
             return try await sendImage(image: image,
                                        thumbnailSize: thumbnailSize,
                                        caption: caption,
@@ -1286,11 +1290,11 @@ extension Matrix {
         }
         
         private func sendImage(image: NativeImage,
-                              thumbnailSize: (Int,Int)?=(800,600),
-                              caption: String?=nil,
-                              withBlurhash: Bool=true,
-                              withThumbhash: Bool=true,
-                              relatesTo: mRelatesTo? = nil
+                               thumbnailSize: (Int,Int)?=(800,600),
+                               caption: String?=nil,
+                               withBlurhash: Bool=true,
+                               withThumbhash: Bool=true,
+                               relatesTo: mRelatesTo? = nil
         ) async throws -> EventId {
             
             let jpegStart = Date()
@@ -1406,9 +1410,9 @@ extension Matrix {
                 return eventId
             }
         }
-
+        
         // MARK: sendVideo
-
+        
         public func sendVideo(url: URL,
                               thumbnail: NativeImage,
                               caption: String? = nil
@@ -1442,7 +1446,7 @@ extension Matrix {
                               caption: String? = nil,
                               replacing oldMessage: Message
         ) async throws -> EventId {
-
+            
             // Check - Is this a valid way to replace the old message?
             guard oldMessage.roomId == self.roomId,
                   oldMessage.sender.userId == self.session.creds.userId,
@@ -1462,9 +1466,9 @@ extension Matrix {
         }
         
         private func sendVideo(url: URL,
-                              thumbnail: NativeImage,
-                              caption: String? = nil,
-                              relatesTo: mRelatesTo? = nil
+                               thumbnail: NativeImage,
+                               caption: String? = nil,
+                               relatesTo: mRelatesTo? = nil
         ) async throws -> EventId {
             
             guard url.isFileURL
@@ -1487,7 +1491,7 @@ extension Matrix {
             let resolution = try await track.load(.naturalSize)
             let height = UInt(abs(resolution.height))
             let width = UInt(abs(resolution.width))
-
+            
             // https://developer.apple.com/documentation/avfoundation/media_reading_and_writing/exporting_video_to_alternative_formats
             let preset: String = AVAssetExportPresetMediumQuality
             let fileType: AVFileType = .mp4
@@ -1539,7 +1543,7 @@ extension Matrix {
             if !self.isEncrypted {
                 let mxc = try await session.uploadData(data: data, contentType: "video/mp4")
                 let thumbMXC = try await session.uploadData(data: thumbData, contentType: "image/jpeg")
-
+                
                 let info = mVideoInfo(duration: duration,
                                       h: height,
                                       w: width,
@@ -1583,11 +1587,11 @@ extension Matrix {
                    let threadId = relatedContent.relatedEventId
                 {
                     relatesTo = .threadedReply(to: threadId)
-
+                    
                 } else {
                     relatesTo = .threadedReply(to: event.eventId)
                 }
-            
+                
             } else {
                 relatesTo = .richReply(to: event.eventId)
             }
