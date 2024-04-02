@@ -434,7 +434,7 @@ extension Matrix {
             // Send any requests from the crypto module
             try await self.sendOutgoingCryptoRequests()
             
-            // Save any new keys to our current backup (if any)f
+            // Save any new keys to our current backup (if any)
             try await self.saveKeysToBackup()
             
             // Handle invites
@@ -590,8 +590,28 @@ extension Matrix {
                 for (roomId, info) in leftRoomsDict {
                     logger.debug("Found left room \(roomId)")
                     
+                    let stateEvents = info.state?.events ?? []
+                    let timelineEvents = info.timeline?.events ?? []
+                    let timelineStateEvents = timelineEvents.filter { $0.stateKey != nil }
+                    let allStateEvents = stateEvents + timelineStateEvents
+                    
+                    // Save state events into the data store - In particular this will save our m.room.member event in the "left" state
                     if let store = self.dataStore {
-                        let _ = try await store.deleteRoom(roomId)
+                        if !allStateEvents.isEmpty {
+                            try await store.saveState(events: allStateEvents, in: roomId)
+                        }
+                        if !timelineEvents.isEmpty {
+                            try await store.saveTimeline(events: timelineEvents, in: roomId)
+                        }
+                    }
+                    
+                    if let room = self.rooms[roomId] {
+                        await room.updateState(from: stateEvents)
+                        try await room.updateTimeline(from: timelineEvents)
+                        
+                        if let callback = room.onLeave {
+                            try await callback()
+                        }
                     }
                     
                     // TODO: What should we do here?
@@ -1098,7 +1118,8 @@ extension Matrix {
         
         
         public func getRoom<T: Matrix.Room>(roomId: RoomId,
-                                            as type: T.Type = Matrix.Room.self
+                                            as type: T.Type = Matrix.Room.self,
+                                            onLeave: (() async throws ->Void)? = nil
         ) async throws -> T? {
             logger.debug("getRoom Starting")
             if let existingRoom = self.rooms[roomId] as? T {
@@ -1132,7 +1153,8 @@ extension Matrix {
                                          initialState: stateEvents,
                                          initialTimeline: timelineEvents,
                                          initialAccountData: accountDataEvents,
-                                         initialReadReceipt: readReceipt
+                                         initialReadReceipt: readReceipt,
+                                         onLeave: onLeave
                     ) {
                         logger.debug("getRoom \(roomId) Adding new room to the cache")
                         await MainActor.run {
@@ -1154,7 +1176,12 @@ extension Matrix {
             }
             logger.debug("getRoom \(roomId) Got \(events.count, privacy: .public) events from the server")
             
-            if let room = try? T(roomId: roomId, session: self, initialState: events, initialTimeline: []) {
+            if let room = try? T(roomId: roomId,
+                                 session: self,
+                                 initialState: events,
+                                 initialTimeline: [],
+                                 onLeave: onLeave
+            ) {
                 logger.debug("getRoom \(roomId) Created room.  Adding to cache.")
                 await MainActor.run {
                     self.rooms[roomId] = room

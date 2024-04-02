@@ -14,7 +14,8 @@ extension Matrix {
                              initialState: [ClientEventWithoutRoomId],
                              initialTimeline: [ClientEventWithoutRoomId] = [],
                              initialAccountData: [AccountDataEvent] = [],
-                             initialReadReceipt: EventId? = nil
+                             initialReadReceipt: EventId? = nil,
+                             onLeave: (() async throws -> Void)? = nil
         ) throws {
 
             try super.init(roomId: roomId,
@@ -22,7 +23,8 @@ extension Matrix {
                            initialState: initialState,
                            initialTimeline: initialTimeline,
                            initialAccountData: initialAccountData,
-                           initialReadReceipt: initialReadReceipt
+                           initialReadReceipt: initialReadReceipt,
+                           onLeave: onLeave
             )
             
             guard self.type == M_SPACE
