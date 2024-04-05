@@ -755,14 +755,13 @@ extension Matrix {
         
         // Send one request from the crypto crate
         func sendCryptoRequest(request: Request) async throws {
-            var logger = self.cryptoLogger
+            let logger = self.cryptoLogger
             switch request {
                 
             case .toDevice(requestId: let requestId, eventType: let eventType, body: let messagesString):
                 logger.debug("Handling to-device request")
                 let bodyString = "{\"messages\": \(messagesString)}"         // Redneck JSON encoding 🤘
                 let txnId = "\(UInt16.random(in: UInt16.min...UInt16.max))"
-                //let txnId = "\(UInt8.random(in: UInt8.min...UInt8.max))"
                 let (data, response) = try await self.call(method: "PUT",
                                                            //path: "/_/matrix/client/v3/sendToDevice/\(eventType)/\(txnId)",
                                                            path: "/_matrix/client/v3/sendToDevice/\(eventType)/\(txnId)",
@@ -949,6 +948,23 @@ extension Matrix {
             try await self.sendCryptoRequest(request: keysQueryRequest)
         }
 
+        public func requestRoomKey(for message: Message) async throws {
+            logger.debug("Requesting room key for \(message.eventId) in room \(message.roomId.stringValue)")
+            let encoder = JSONEncoder()
+            guard let data = try? encoder.encode(message.event),
+                  let string = String(data: data, encoding: .utf8)
+            else {
+                logger.error("Failed to encode event \(message.eventId)")
+                throw Matrix.Error("Failed to encode event")
+            }
+            
+            let requestPair = try self.crypto.requestRoomKey(event: string, roomId: message.room.roomId.stringValue)
+            
+            try await self.cryptoQueue.run {
+                try await self.sendCryptoRequest(request: requestPair.keyRequest)
+            }
+        }
+        
         // MARK: Session state management
         
         public func pause() async throws {

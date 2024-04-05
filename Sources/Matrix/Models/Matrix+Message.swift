@@ -406,8 +406,9 @@ extension Matrix {
                 try await fetchThumbnail()
             } else {
                 // Decryption failed!
+                logger.warning("Failed to decrypt message event \(self.eventId, privacy: .public) in room \(self.roomId.stringValue, privacy: .public)")
                 // Request keys
-                // FIXME: TODO: Add this
+                try await self.room.session.requestRoomKey(for: self)
             }
         }
         
