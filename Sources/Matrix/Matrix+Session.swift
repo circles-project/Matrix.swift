@@ -101,6 +101,9 @@ extension Matrix {
         // Encrypted Media
         private var downloadAndDecryptTasks: [MXC: Task<URL,Swift.Error>]
         
+        // When did we last query for users' devices / keys ?
+        private var userDeviceKeysTimestamps: [UserId: Date]
+        
         // MARK: init
         
         public init(creds: Credentials,
@@ -130,6 +133,8 @@ extension Matrix {
             self.syncRequestTask = nil
             self.backgroundSyncTask = nil
             //self.backgroundSyncDelayMS = 1_000
+            
+            self.userDeviceKeysTimestamps = [:]
             
             self.uiaSession = nil
             
@@ -818,6 +823,34 @@ extension Matrix {
                 try self.crypto.markRequestAsSent(requestId: requestId,
                                                   requestType: .keysQuery,
                                                   responseBody: responseBodyString)
+                // ------ Now all the important work is done -----------
+                // From here on out, we're only working to update our local timestamps
+                struct KeysQueryResponseBody: Decodable {
+                    var deviceKeys: [UserId: [String:DeviceKeysInfo]]
+                    struct DeviceKeysInfo: Decodable {
+                        // We're ignoring everything in here :shrug:
+                    }
+                    
+                    enum CodingKeys: String, CodingKey {
+                        case deviceKeys = "device_keys"
+                    }
+                }
+                let decoder = JSONDecoder()
+                guard let responseBody = try? decoder.decode(KeysQueryResponseBody.self, from: data)
+                else {
+                    logger.error("Failed to decode /keys/query response body.  Unable to update device keys timestamps.")
+                    // Don't throw an error!
+                    // We've already done all the important bits, now just move on with life.
+                    // The only thing we're missing out on here is updating our timestamps for the queried users.
+                    return
+                }
+                // Now update our local timestamps
+                let updatedUserIds = Array(responseBody.deviceKeys.keys)
+                let timestamp = Date()
+                for userId in updatedUserIds {
+                    self.userDeviceKeysTimestamps[userId] = timestamp
+                }
+                
                 
             case .keysClaim(requestId: let requestId, oneTimeKeys: let oneTimeKeys):
                 logger.debug("Handling keys claim request")
@@ -895,6 +928,26 @@ extension Matrix {
                                                   responseBody: responseBodyString)
             } // end case request
         } // end sendCryptoRequests()
+        
+        // Query the server for the latest devices and keys for the given users
+        public func queryKeys(for userIds: [UserId]) async throws {
+            let now = Date()
+            let threshold: TimeInterval = .minutes(30)
+            // Which users have we not updated lately?
+            let users = userIds
+                .filter {
+                    if let ts = self.userDeviceKeysTimestamps[$0] {
+                        return now.timeIntervalSince(ts) > threshold
+                    } else {
+                        return true
+                    }
+                }
+                .map { $0.stringValue }
+            let requestId = UInt16.random(in: 0...UInt16.max)
+            let keysQueryRequest = MatrixSDKCrypto.Request.keysQuery(requestId: "kq\(requestId)", users: users)
+
+            try await self.sendCryptoRequest(request: keysQueryRequest)
+        }
 
         // MARK: Session state management
         
@@ -1349,6 +1402,12 @@ extension Matrix {
             // -------------------------------------------------------------------------------------------------------
             // If we're still here, then we need to encrypt the message before we can send it
             
+            return try await self.sendEncryptedMessageEvent(room: room, type: type, content: content)
+        }
+        
+        // Internal elper function for sending encrypted messages
+        func sendEncryptedMessageEvent(room: Room, type: String, content: Codable) async throws -> EventId {
+            
             // cvw: I found a nice comment on the encrypt() function in the Matrix Rust SDK
             // https://github.com/matrix-org/matrix-rust-sdk/blob/main/bindings/matrix-sdk-crypto-ffi/src/machine.rs
             /// **Note**: A room key needs to be shared with the group of users that are
@@ -1375,9 +1434,17 @@ extension Matrix {
             /// member has.
 
             let logger = self.cryptoLogger
+            let roomId = room.roomId
+            
+            guard let params = room.encryptionParams
+            else {
+                logger.error("Can't send an encrypted message to unencrypted room \(roomId, privacy: .public)")
+                throw Matrix.Error("Can't send encrypted message to an unencrypted room")
+            }
             
             guard let roomHistoryVisibility = try await room.getHistoryVisibility()
             else {
+                logger.error("Cannot encrypt because we cannot determine history visibility for room \(roomId, privacy: .public)")
                 throw Matrix.Error("Cannot encrypt because we cannot determine history visibility for room \(roomId)")
             }
 
@@ -1397,6 +1464,8 @@ extension Matrix {
             logger.debug("Found \(users.count) users in the room: \(users)")
             
             try await cryptoQueue.run {
+                try await self.queryKeys(for: userIds)
+                
                 if let missingSessionsRequest = try self.crypto.getMissingSessions(users: users) {
                     // Send the missing sessions request
                     logger.debug("Sending missing sessions request")
