@@ -1021,9 +1021,6 @@ extension Matrix {
                 }
                 
                 if roomHistoryVisibility == .shared || roomHistoryVisibility == .worldReadable {
-                    let users: [String] = [userId.description]
-                    let requestId = UInt16.random(in: 0...UInt16.max)
-                    let keysQuery = MatrixSDKCrypto.Request.keysQuery(requestId: "\(requestId)", users: users)
                     
                     // Crypto SDK cannot send http requests, so we need to send outgoing requests
                     // in two batches:
@@ -1031,18 +1028,14 @@ extension Matrix {
                     //   2. Send out room keys to all devices in the list
                     try await self.session.cryptoQueue.run {
                         // Get the most up-to-date device list before forwarding room keys
-                        var cryptoRequests = try self.session.crypto.outgoingRequests()
-                        cryptoRequests.append(keysQuery)
-                        self.logger.debug("Sending \(cryptoRequests.count, privacy: .public) crypto requests")
-                        for request in cryptoRequests {
-                            try await self.session.sendCryptoRequest(request: request)
-                        }
+                        self.logger.debug("Querying keys for user \(userId.stringValue)")
+                        try await self.session.queryKeys(for: [userId])
                         
                         // Send out room keys to invitee's devices
-                        let keyShareRequests = try self.session.crypto.shareRoomHistoryKeys(roomId: self.roomId.description,
-                                                                                            users: users)
+                        let keyShareRequests = try self.session.crypto.shareRoomHistoryKeys(roomId: self.roomId.stringValue,
+                                                                                            users: [userId.stringValue])
                         //cryptoRequests = try self.session.crypto.outgoingRequests()
-                        self.logger.debug("Sending \(keyShareRequests.count, privacy: .public) crypto requests")
+                        self.logger.debug("Sending \(keyShareRequests.count, privacy: .public) key share requests")
                         for request in keyShareRequests {
                             try await self.session.sendCryptoRequest(request: request)
                         }
