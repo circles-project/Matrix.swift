@@ -934,6 +934,102 @@ extension Matrix {
             return content.users?[userId] ?? content.usersDefault ?? 0
         }
         
+        public func setPowerLevel(usersDefault: Int) async throws {
+            guard var content = try await session.getRoomState(roomId: roomId, eventType: M_ROOM_POWER_LEVELS) as? PowerLevels
+            else {
+                logger.error("Couldn't get current power levels for room \(self.roomId.stringValue)")
+                throw Matrix.Error("Couldn't get current power levels")
+            }
+
+            content.usersDefault = usersDefault
+            
+            let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
+        }
+      
+        public func setPowerLevel(eventsDefault: Int) async throws {
+            guard var content = try await session.getRoomState(roomId: roomId, eventType: M_ROOM_POWER_LEVELS) as? PowerLevels
+            else {
+                logger.error("Couldn't get current power levels for room \(self.roomId.stringValue)")
+                throw Matrix.Error("Couldn't get current power levels")
+            }
+
+            content.eventsDefault = eventsDefault
+            
+            let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
+        }
+        
+        public func setPowerLevel(stateDefault: Int) async throws {
+            guard var content = try await session.getRoomState(roomId: roomId, eventType: M_ROOM_POWER_LEVELS) as? PowerLevels
+            else {
+                logger.error("Couldn't get current power levels for room \(self.roomId.stringValue)")
+                throw Matrix.Error("Couldn't get current power levels")
+            }
+
+            content.stateDefault = stateDefault
+            
+            let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
+        }
+        
+        public func setPowerLevel(invite: Int) async throws {
+            guard var content = try await session.getRoomState(roomId: roomId, eventType: M_ROOM_POWER_LEVELS) as? PowerLevels
+            else {
+                logger.error("Couldn't get current power levels for room \(self.roomId.stringValue)")
+                throw Matrix.Error("Couldn't get current power levels")
+            }
+
+            content.invite = invite
+            
+            let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
+        }
+        
+        public func setPowerLevel(kick: Int) async throws {
+            guard var content = try await session.getRoomState(roomId: roomId, eventType: M_ROOM_POWER_LEVELS) as? PowerLevels
+            else {
+                logger.error("Couldn't get current power levels for room \(self.roomId.stringValue)")
+                throw Matrix.Error("Couldn't get current power levels")
+            }
+
+            content.kick = kick
+            
+            let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
+        }
+        
+        public func setPowerLevel(ban: Int) async throws {
+            guard var content = try await session.getRoomState(roomId: roomId, eventType: M_ROOM_POWER_LEVELS) as? PowerLevels
+            else {
+                logger.error("Couldn't get current power levels for room \(self.roomId.stringValue)")
+                throw Matrix.Error("Couldn't get current power levels")
+            }
+
+            content.ban = ban
+            
+            let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
+        }
+        
+        public func setPowerLevel(redact: Int) async throws {
+            guard var content = try await session.getRoomState(roomId: roomId, eventType: M_ROOM_POWER_LEVELS) as? PowerLevels
+            else {
+                logger.error("Couldn't get current power levels for room \(self.roomId.stringValue)")
+                throw Matrix.Error("Couldn't get current power levels")
+            }
+
+            content.redact = redact
+            
+            let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
+        }
+        
+        public func setPowerLevel(eventType: String, power: Int) async throws {
+            guard var content = try await session.getRoomState(roomId: roomId, eventType: M_ROOM_POWER_LEVELS) as? PowerLevels
+            else {
+                throw Matrix.Error("Couldn't get current power levels")
+            }
+            
+            var dict = content.events ?? [:]
+            dict[eventType] = power
+            content.events = dict
+            let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
+        }
+        
         public var myPowerLevel: Int {
             let me = session.creds.userId
             return powerLevels?.users?[me] ?? powerLevels?.usersDefault ?? 0
