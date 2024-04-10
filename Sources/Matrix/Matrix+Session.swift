@@ -648,6 +648,11 @@ extension Matrix {
                     logger.debug("Got account data with type = \(event.type, privacy: .public)")
                     updates[event.type] = event.content
                 }
+                
+                if let store = self.dataStore {
+                    try await store.saveAccountData(events: newAccountDataEvents, in: nil)
+                }
+                
                 // Do the merge before we move to the main thread
                 let updatedAccountData = self.accountData.merging(updates, uniquingKeysWith: { (current,new) in new } )
                 // On the main thread, update account data in one swoop
