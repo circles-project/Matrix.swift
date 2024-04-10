@@ -8,10 +8,10 @@
 import Foundation
 
 public struct RoomKeyWithheldContent: Codable {
-    enum Algorithm: String, Codable {
+    public enum Algorithm: String, Codable {
         case megolmV1AesSha2 = "m.megolm.v1.aes-sha2"
     }
-    enum Code: String, Codable {
+    public enum Code: String, Codable {
         case blacklisted = "m.blacklisted"
         case unverified = "m.unverified"
         case unauthorized = "m.unauthorized"
@@ -19,12 +19,12 @@ public struct RoomKeyWithheldContent: Codable {
         case noOlm = "m.no_olm"
     }
     
-    var algorithm: Algorithm
-    var code: Code
-    var reason: String?
-    var roomId: RoomId?
-    var senderKey: String
-    var sessionId: String?
+    public var algorithm: Algorithm
+    public var code: Code
+    public var reason: String?
+    public var roomId: RoomId?
+    public var senderKey: String
+    public var sessionId: String?
     
     enum CodingKeys: String, CodingKey {
         case algorithm
