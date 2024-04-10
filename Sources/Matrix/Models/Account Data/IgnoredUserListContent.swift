@@ -15,11 +15,11 @@ import Foundation
 //       implementation that only looks at the keys and ignores the values.
 public struct IgnoredUserListContent: Codable {
     //public var ignoredUsers: [UserId: [String:String]]
-    struct UserInfo: Codable {
+    public struct UserInfo: Codable {
         // Empty for now because the Matrix spec doesn't say what it should contain
     }
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case ignoredUsers = "ignored_users"
     }
     
@@ -32,13 +32,14 @@ public struct IgnoredUserListContent: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let fakeDictionary = try container.decode([UserId: UserInfo].self, forKey: .ignoredUsers)
+        Matrix.logger.debug("IgnoredUserListContent: Loaded fake dictionary with \(fakeDictionary.count) entries")
         self.ignoredUsers = Array(fakeDictionary.keys)
     }
     
     public func encode(to encoder: Encoder) throws {
         var fakeDictionary: [UserId: UserInfo] = [:]
         for ignoredUser in ignoredUsers {
-            fakeDictionary[ignoredUser] = .init()
+            fakeDictionary[ignoredUser] = UserInfo()
         }
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(fakeDictionary, forKey: .ignoredUsers)
