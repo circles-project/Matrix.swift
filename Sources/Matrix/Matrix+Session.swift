@@ -650,7 +650,9 @@ extension Matrix {
                 }
                 
                 if let store = self.dataStore {
+                    logger.debug("Saving account data")
                     try await store.saveAccountData(events: newAccountDataEvents, in: nil)
+                    logger.debug("Done saving account data")
                 }
                 
                 // Do the merge before we move to the main thread
