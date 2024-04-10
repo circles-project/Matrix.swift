@@ -388,9 +388,9 @@ extension Matrix {
             let (data, response) = try await self.call(method: "GET", path: url, params: params)
             logger.debug("User \(self.creds.userId) got sync response with status \(response.statusCode, privacy: .public)")
             
-            let rawDataString = String(data: data, encoding: .utf8)
-            print("\n\n\(rawDataString!)\n\n")
-            
+            //let rawDataString = String(data: data, encoding: .utf8)
+            //print("\n\n\(rawDataString!)\n\n")
+
             guard response.statusCode == 200 else {
                 logger.error("\(self.creds.userId) Error: got HTTP \(response.statusCode, privacy: .public) \(response.description, privacy: .public)")
                 self.syncRequestTask = nil
