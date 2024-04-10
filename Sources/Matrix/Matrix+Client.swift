@@ -555,8 +555,6 @@ public class Client {
         // Look at the data that we received, decode it, and return the result
         
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        
         let content = try decoder.decode(dataType, from: data)
         
         return content
