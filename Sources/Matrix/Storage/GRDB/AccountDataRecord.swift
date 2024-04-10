@@ -51,7 +51,8 @@ struct AccountDataRecord: Codable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         
-        try container.encodeIfPresent(self.roomId, forKey: .roomId)
+        let stringRoomId = roomId?.stringValue ?? ""
+        try container.encodeIfPresent(stringRoomId, forKey: .roomId)
         try container.encode(self.type, forKey: .type)
         try container.encode(self.content, forKey: .content)
     }
