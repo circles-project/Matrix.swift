@@ -133,7 +133,6 @@ public class Client {
     
     public func handleSlowDown(data: Data) async throws -> Bool {
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         if let rateLimitError = try? decoder.decode(Matrix.RateLimitError.self, from: data),
            rateLimitError.errcode == M_LIMIT_EXCEEDED,
            let delayMs = rateLimitError.retryAfterMs
@@ -430,7 +429,6 @@ public class Client {
         }
         
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         
         guard let responseBody = try? decoder.decode(ResponseBody.self, from: data)
         else {
@@ -447,10 +445,13 @@ public class Client {
         
         struct ResponseBody: Codable {
             var avatarUrl: MXC?
+
+            enum CodingKeys: String, CodingKey {
+                case avatarUrl = "avatar_url"
+            }
         }
         
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         
         guard let responseBody = try? decoder.decode(ResponseBody.self, from: data)
         else {
@@ -568,19 +569,25 @@ public class Client {
     
     // MARK: Devices
     
+    struct DeviceInfo: Codable {
+        var deviceId: String
+        var displayName: String?
+        var lastSeenIp: String?
+        var lastSeenTs: Int?
+        
+        enum CodingKeys: String, CodingKey {
+            case deviceId = "device_id"
+            case displayName = "display_name"
+            case lastSeenIp = "last_seen_ip"
+            case lastSeenTs = "last_seen_ts"
+        }
+    }
+    
     public func getDevices() async throws -> [Matrix.MyDevice] {
         let path = "/_matrix/client/v3/devices"
         let (data, response) = try await call(method: "GET", path: path)
         
-        struct DeviceInfo: Codable {
-            var deviceId: String
-            var displayName: String?
-            var lastSeenIp: String?
-            var lastSeenTs: Int?
-        }
-        
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let infos = try? decoder.decode([DeviceInfo].self, from: data)
         else {
             let msg = "Couldn't decode device info"
@@ -599,15 +606,7 @@ public class Client {
         let path = "/_matrix/client/v3/devices/\(deviceId)"
         let (data, response) = try await call(method: "GET", path: path)
         
-        struct DeviceInfo: Codable {
-            var deviceId: String
-            var displayName: String?
-            var lastSeenIp: String?
-            var lastSeenTs: Int?
-        }
-        
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let info = try? decoder.decode(DeviceInfo.self, from: data)
         else {
             logger.error("DEVICES Couldn't decode info for device \(deviceId, privacy: .public)")
@@ -643,7 +642,6 @@ public class Client {
         case 401:
             // We need to auth
             let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
             guard let uiaState = try? decoder.decode(UIAA.SessionState.self, from: data)
             else {
                 logger.error("DEVICES Failed to decode UIA info")
@@ -687,10 +685,13 @@ public class Client {
         
         struct ResponseBody: Codable {
             var joinedRooms: [RoomId]
+            
+            enum CodingKeys: String, CodingKey {
+                case joinedRooms = "joined_rooms"
+            }
         }
         
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
 
         guard let responseBody = try? decoder.decode(ResponseBody.self, from: data)
         else {
@@ -835,9 +836,12 @@ public class Client {
         
         struct CreateRoomResponseBody: Codable {
             var roomId: String
+            
+            enum CodingKeys: String, CodingKey {
+                case roomId = "room_id"
+            }
         }
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let responseBody = try? decoder.decode(CreateRoomResponseBody.self, from: data)
         else {
             logger.error("CREATEROOM Failed to decode response")
@@ -891,9 +895,12 @@ public class Client {
                                               body: content)
         struct ResponseBody: Codable {
             var eventId: EventId
+            
+            enum CodingKeys: String, CodingKey {
+                case eventId = "event_id"
+            }
         }
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let responseBody = try? decoder.decode(ResponseBody.self, from: data)
         else {
             logger.error("SENDSTATE Failed to decode state event response")
@@ -917,9 +924,12 @@ public class Client {
         
         struct ResponseBody: Codable {
             var eventId: EventId
+            
+            enum CodingKeys: String, CodingKey {
+                case eventId = "event_id"
+            }
         }
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let responseBody = try? decoder.decode(ResponseBody.self, from: data)
         else {
             logger.error("SENDMESSAGE Failed to decode message event response")
@@ -952,9 +962,12 @@ public class Client {
         
         struct ResponseBody: Codable {
             var eventId: EventId
+            
+            enum CodingKeys: String, CodingKey {
+                case eventId = "event_id"
+            }
         }
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let responseBody = try? decoder.decode(ResponseBody.self, from: data)
         else {
             logger.error("REDACT Failed to decode response")
@@ -994,7 +1007,6 @@ public class Client {
         let (data, response) = try await call(method: "GET", path: path, body: nil)
         
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let tagContent = try? decoder.decode(TagContent.self, from: data)
         else {
             logger.error("TAG Failed to decode room tag content")
@@ -1731,9 +1743,12 @@ public class Client {
         
         struct UploadResponse: Codable {
             var contentUri: String
+            
+            enum CodingKeys: String, CodingKey {
+                case contentUri = "content_uri"
+            }
         }
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let responseBody = try? decoder.decode(UploadResponse.self, from: responseData)
         else {
             logger.error("UPLOAD Failed to decode response")
