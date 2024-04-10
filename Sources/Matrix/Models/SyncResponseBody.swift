@@ -6,10 +6,18 @@
 //
 
 import Foundation
+import os
 
 extension Matrix {
     
     public struct SyncResponseBody: Decodable {
+        
+        private(set) public static var logger: os.Logger?
+        
+        public static func setLogger(_ logger: os.Logger?) {
+            Self.logger = logger
+        }
+        
         public struct MinimalEventsContainer: Decodable {
             public var events: [MinimalEvent]?
             
@@ -63,15 +71,15 @@ extension Matrix {
             }
             
             public init(from decoder: Decoder) throws {
-                logger.debug("Decoding Rooms")
+                logger?.debug("Decoding Rooms")
                 let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
-                logger.debug("invite")
+                logger?.debug("invite")
                 self.invite = try container.decodeIfPresent([RoomId : InvitedRoomSyncInfo].self, forKey: .invite)
-                logger.debug("join")
+                logger?.debug("join")
                 self.join = try container.decodeIfPresent([RoomId : JoinedRoomSyncInfo].self, forKey: .join)
-                logger.debug("knock")
+                logger?.debug("knock")
                 self.knock = try container.decodeIfPresent([RoomId : KnockedRoomSyncInfo].self, forKey: .knock)
-                logger.debug("leave")
+                logger?.debug("leave")
                 self.leave = try container.decodeIfPresent([RoomId : LeftRoomSyncInfo].self, forKey: .leave)
             }
         }
@@ -178,28 +186,28 @@ extension Matrix {
             }
             
             public init(from decoder: Decoder) throws {
-                logger.debug("Decoding JoinedRoomSyncInfo")
+                logger?.debug("Decoding JoinedRoomSyncInfo")
                 let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
 
-                logger.debug("Account Data")
+                logger?.debug("Account Data")
                 self.accountData = try container.decodeIfPresent(Matrix.SyncResponseBody.AccountData.self, forKey: .accountData)
 
-                logger.debug("Ephemeral")
+                logger?.debug("Ephemeral")
                 self.ephemeral = try container.decodeIfPresent(Matrix.SyncResponseBody.Ephemeral.self, forKey: .ephemeral)
 
-                logger.debug("State")
+                logger?.debug("State")
                 self.state = try container.decodeIfPresent(Matrix.SyncResponseBody.StateEventsContainer.self, forKey: .state)
 
-                logger.debug("Summary")
+                logger?.debug("Summary")
                 self.summary = try container.decodeIfPresent(Matrix.SyncResponseBody.JoinedRoomSyncInfo.RoomSummary.self, forKey: .summary)
 
-                logger.debug("Timeline")
+                logger?.debug("Timeline")
                 self.timeline = try container.decodeIfPresent(Matrix.SyncResponseBody.Timeline.self, forKey: .timeline)
 
-                logger.debug("Unread Notifications")
+                logger?.debug("Unread Notifications")
                 self.unreadNotifications = try container.decodeIfPresent(Matrix.SyncResponseBody.JoinedRoomSyncInfo.UnreadNotificationCounts.self, forKey: .unreadNotifications)
 
-                logger.debug("Unread Thread Notifications")
+                logger?.debug("Unread Thread Notifications")
                 self.unreadThreadNotifications = try container.decodeIfPresent([EventId : Matrix.SyncResponseBody.JoinedRoomSyncInfo.UnreadNotificationCounts].self, forKey: .unreadThreadNotifications)
             }
         }
@@ -267,31 +275,31 @@ extension Matrix {
         }
         
         public init(from decoder: Decoder) throws {
-            logger.debug("Decoding /sync response")
+            Self.logger?.debug("Decoding /sync response")
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
-            logger.debug("\tAccount data")
+            Self.logger?.debug("\tAccount data")
             self.accountData = try container.decodeIfPresent(AccountData.self, forKey: .accountData)
             
-            logger.debug("\tDevice lists")
+            Self.logger?.debug("\tDevice lists")
             self.deviceLists = try container.decodeIfPresent(DeviceLists.self, forKey: .deviceLists)
             
-            logger.debug("\tDevice one-time keys count")
+            Self.logger?.debug("\tDevice one-time keys count")
             self.deviceOneTimeKeysCount = try container.decodeIfPresent(OneTimeKeysCount.self, forKey: .deviceOneTimeKeysCount)
             
-            logger.debug("\tDevice unused fallback key types")
+            Self.logger?.debug("\tDevice unused fallback key types")
             self.deviceUnusedFallbackKeyTypes = try container.decodeIfPresent([String].self, forKey: .deviceUnusedFallbackKeyTypes)
             
-            logger.debug("\tNext batch")
+            Self.logger?.debug("\tNext batch")
             self.nextBatch = try container.decode(String.self, forKey: .nextBatch)
             
-            logger.debug("\tPresence")
+            Self.logger?.debug("\tPresence")
             self.presence = try container.decodeIfPresent(Presence.self, forKey: .presence)
             
-            logger.debug("\tRooms")
+            Self.logger?.debug("\tRooms")
             self.rooms = try container.decodeIfPresent(Rooms.self, forKey: .rooms)
             
-            logger.debug("\tTo-Device")
+            Self.logger?.debug("\tTo-Device")
             self.toDevice = try container.decodeIfPresent(ToDevice.self, forKey: .toDevice)
         }
     }
