@@ -1374,8 +1374,10 @@ extension Matrix {
         public func ignoreUser(userId: UserId) async throws {
             let existingIgnoreList = try await self.getAccountData(for: M_IGNORED_USER_LIST, of: IgnoredUserListContent.self)?.ignoredUsers ?? []
             if !existingIgnoreList.contains(userId) {
+                logger.debug("Adding user \(userId) to the ignore list")
                 let newContent = IgnoredUserListContent(ignoring: existingIgnoreList + [userId])
                 try await self.putAccountData(newContent, for: M_IGNORED_USER_LIST)
+                logger.debug("Ignore list is now \(newContent.ignoredUsers)")
             } else {
                 logger.debug("Already ignoring user \(userId.stringValue) - No further action is necessary")
             }
@@ -1384,8 +1386,10 @@ extension Matrix {
         public func unignoreUser(userId: UserId) async throws {
             let existingIgnoreList = try await self.getAccountData(for: M_IGNORED_USER_LIST, of: IgnoredUserListContent.self)?.ignoredUsers ?? []
             if existingIgnoreList.contains(userId) {
+                logger.debug("Removing user \(userId) from the ignore list")
                 let newContent = IgnoredUserListContent(ignoring: existingIgnoreList.filter { $0 != userId })
                 try await self.putAccountData(newContent, for: M_IGNORED_USER_LIST)
+                logger.debug("Ignore list is now \(newContent.ignoredUsers)")
             } else {
                 logger.debug("Already not ignoring user \(userId.stringValue) - No further action is necessary")
             }
