@@ -8,22 +8,22 @@
 import Foundation
 
 public struct ForwardedRoomKeyContent: Codable {
-    var algorithm: String
-    var forwardingCurve25519KeyChain: [String]
-    var roomId: RoomId
-    var senderClaimedEd25519Key: String
-    var senderKey: String
-    var sessionId: String
-    var sessionKey: String
-    var withheld: Withheld
+    public var algorithm: String
+    public var forwardingCurve25519KeyChain: [String]
+    public var roomId: RoomId
+    public var senderClaimedEd25519Key: String
+    public var senderKey: String
+    public var sessionId: String
+    public var sessionKey: String
+    public var withheld: Withheld
     
-    struct Withheld: Codable {
+    public struct Withheld: Codable {
         var reason: String
         var code: RoomKeyWithheldContent.Code
     }
     
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case algorithm
         case forwardingCurve25519KeyChain = "forwarding_curve25519_key_chain"
         case roomId = "room_id"
