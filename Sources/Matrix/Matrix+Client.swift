@@ -1540,6 +1540,36 @@ public class Client {
     
     // MARK: Media API
     
+    // https://spec.matrix.org/v1.10/client-server-api/#get_matrixmediav3config
+    // https://github.com/matrix-org/matrix-spec-proposals/pull/4034
+    public func getMediaConfig() async throws -> MediaConfigInfo {
+        let path = "/_matrix/media/v3/config"
+        let (data, response) = try await call(method: "GET", path: path)
+        
+        let decoder = JSONDecoder()
+        
+        let info = try decoder.decode(MediaConfigInfo.self, from: data)
+        
+        return info
+    }
+    
+    // https://github.com/matrix-org/matrix-spec-proposals/pull/4034
+    public func getMediaUsage() async throws -> MediaUsageInfo? {
+        let path = "/_matrix/media/v3/usage"
+        let (data, response) = try await call(method: "GET", path: path, expectedStatuses: [200, 404])
+        
+        if response.statusCode == 404 {
+            logger.info("Server does not provide media usage info")
+            return nil
+        }
+        
+        let decoder = JSONDecoder()
+        
+        let info = try decoder.decode(MediaUsageInfo.self, from: data)
+        
+        return info
+    }
+    
     private func getMediaHttpUrl(mxc: MXC, allowRedirect: Bool = true) -> URL? {
         let path = "/_matrix/media/v3/download/\(mxc.serverName)/\(mxc.mediaId)"
         let url = URL(string: path, relativeTo: baseUrl)
