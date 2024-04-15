@@ -1119,7 +1119,7 @@ extension Matrix {
         public func deleteDevice(deviceId: String,
                                  completion handler: UiaCompletionHandler? = nil
         ) async throws {
-            logger.debug("Updating authentication for user \(self.creds.userId.stringValue)")
+            logger.debug("Deleting device for user \(self.creds.userId.stringValue)")
             let path =  "/_matrix/client/v3/devices/\(deviceId)"
             let uia = try await uiaCall(method: "DELETE",
                                         path: path,
