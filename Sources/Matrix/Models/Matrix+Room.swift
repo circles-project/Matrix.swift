@@ -1074,6 +1074,28 @@ extension Matrix {
             return myPowerLevel >= banLevel
         }
         
+        public func iCanUnban(userId: UserId) -> Bool {
+            guard let levels = powerLevels
+            else {
+                return false
+            }
+
+            let kickLevel = levels.kick ?? levels.stateDefault ?? 50
+            let banLevel = levels.ban ?? levels.stateDefault ?? 50
+            let theirLevel = levels.users?[userId] ?? levels.usersDefault ?? 0
+            
+            guard myPowerLevel >= kickLevel,
+                  myPowerLevel >= banLevel,
+                  myPowerLevel > theirLevel
+            else {
+                // I can't do it cap'n. Haven't got the power!
+                return false
+            }
+            
+            // I've got the power!
+            return true
+        }
+        
         public var iCanRedact: Bool {
             guard let levels = powerLevels
             else {
