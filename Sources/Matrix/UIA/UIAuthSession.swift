@@ -132,7 +132,7 @@ public class UIAuthSession: UIASession, ObservableObject {
     
     public func connect() async throws {
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = self.method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let accessToken = self.creds?.accessToken {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
@@ -172,7 +172,7 @@ public class UIAuthSession: UIASession, ObservableObject {
         
         guard httpResponse.statusCode == 401 else {
             let error = Matrix.Error("Got unexpected HTTP response code (\(httpResponse.statusCode))")
-            logger.error("Got unexpected HTTP response code (\(httpResponse.statusCode, privacy: .public))")
+            logger.error("UIAuthSession Got unexpected HTTP response code (\(httpResponse.statusCode, privacy: .public)) for \(self.method) \(self.url)")
             await MainActor.run {
                 self.state = .failed(error)
             }
