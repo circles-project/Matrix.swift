@@ -940,19 +940,19 @@ extension Matrix {
                 logger.error("Couldn't get current power levels for room \(self.roomId.stringValue)")
                 throw Matrix.Error("Couldn't get current power levels")
             }
-
+            
             content.usersDefault = usersDefault
             
             let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
         }
-      
+        
         public func setPowerLevel(eventsDefault: Int) async throws {
             guard var content = try await session.getRoomState(roomId: roomId, eventType: M_ROOM_POWER_LEVELS) as? PowerLevels
             else {
                 logger.error("Couldn't get current power levels for room \(self.roomId.stringValue)")
                 throw Matrix.Error("Couldn't get current power levels")
             }
-
+            
             content.eventsDefault = eventsDefault
             
             let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
@@ -964,7 +964,7 @@ extension Matrix {
                 logger.error("Couldn't get current power levels for room \(self.roomId.stringValue)")
                 throw Matrix.Error("Couldn't get current power levels")
             }
-
+            
             content.stateDefault = stateDefault
             
             let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
@@ -976,7 +976,7 @@ extension Matrix {
                 logger.error("Couldn't get current power levels for room \(self.roomId.stringValue)")
                 throw Matrix.Error("Couldn't get current power levels")
             }
-
+            
             content.invite = invite
             
             let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
@@ -988,7 +988,7 @@ extension Matrix {
                 logger.error("Couldn't get current power levels for room \(self.roomId.stringValue)")
                 throw Matrix.Error("Couldn't get current power levels")
             }
-
+            
             content.kick = kick
             
             let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
@@ -1000,7 +1000,7 @@ extension Matrix {
                 logger.error("Couldn't get current power levels for room \(self.roomId.stringValue)")
                 throw Matrix.Error("Couldn't get current power levels")
             }
-
+            
             content.ban = ban
             
             let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
@@ -1012,7 +1012,7 @@ extension Matrix {
                 logger.error("Couldn't get current power levels for room \(self.roomId.stringValue)")
                 throw Matrix.Error("Couldn't get current power levels")
             }
-
+            
             content.redact = redact
             
             let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
@@ -1028,6 +1028,10 @@ extension Matrix {
             dict[eventType] = power
             content.events = dict
             let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: content)
+        }
+        
+        public func setPowerLevels(_ levels: PowerLevels) async throws {
+            let eventId = try await self.session.sendStateEvent(to: self.roomId, type: M_ROOM_POWER_LEVELS, content: levels)
         }
         
         public var myPowerLevel: Int {
@@ -1079,7 +1083,7 @@ extension Matrix {
             else {
                 return false
             }
-
+            
             let kickLevel = levels.kick ?? levels.stateDefault ?? 50
             let banLevel = levels.ban ?? levels.stateDefault ?? 50
             let theirLevel = levels.users?[userId] ?? levels.usersDefault ?? 0
@@ -1785,6 +1789,80 @@ extension Matrix {
         public func setPrivateReadReceipt(eventId: EventId) async throws {
             try await self.session.setReadMarkers(roomId: roomId, readPrivate: eventId)
         }
+    
+        // MARK: Closing rooms
+        
+        public func close(reason: String? = nil, kickEveryone: Bool) async throws {
+            guard self.iCanChangeState(type: M_ROOM_POWER_LEVELS),
+                  self.iCanSendEvent(type: M_ROOM_TOMBSTONE)
+            else {
+                logger.error("Insufficient power to archive room \(self.roomId)")
+                throw Matrix.Error("Insufficent power to archive room")
+            }
+            
+            // Also need to ensure that we have the highest power level in the room
+            guard let powerLevels = self.powerLevels
+            else {
+                logger.error("Can't get power levels for room \(self.roomId)")
+                throw Matrix.Error("No power levels for room")
+            }
+
+            // Can't nuke everyone else's power level
+            if let maxPowerLevel = powerLevels.users?.values.max(),
+               myPowerLevel < maxPowerLevel
+            {
+                logger.error("Must be highest power user to archive room \(self.roomId)")
+                throw Matrix.Error("Must be highest power user to archive room")
+            }
+            
+            func toTheMoon(_ input: Int?) -> Int? {
+                guard let int = input
+                else { return nil }
+                
+                if int < 9000 {
+                    return int + 9000
+                } else {
+                    return int
+                }
+            }
+            
+            if let reason = reason {
+                let notice = mNoticeContent(body: reason)
+                try await sendMessage(content: notice)
+            }
+            
+            if kickEveryone {
+                for userId in joinedMembers {
+                    if userId != self.session.creds.userId {
+                        try await kick(userId: userId, reason: reason)
+                    }
+                }
+                for userId in invitedMembers {
+                    try await kick(userId: userId, reason: reason)
+                }
+                
+                try await leave(reason: reason)
+
+            } else {
+                // Don't remove everyone, just send all event power levels to the moon
+                
+                let newPowerLevels = PowerLevels(invite: toTheMoon(powerLevels.invite),
+                                                 kick: toTheMoon(powerLevels.kick),
+                                                 ban: toTheMoon(powerLevels.ban),
+                                                 redact: powerLevels.redact,                                 // Allow for redacting old events
+                                                 events: powerLevels.events?.mapValues { toTheMoon($0)! },
+                                                 eventsDefault:toTheMoon(powerLevels.eventsDefault),
+                                                 notifications: powerLevels.notifications?.mapValues { toTheMoon($0)! },
+                                                 stateDefault: toTheMoon(powerLevels.stateDefault),
+                                                 users: powerLevels.users,
+                                                 usersDefault: powerLevels.usersDefault
+                )
+                
+                try await self.setPowerLevels(newPowerLevels)
+            }
+
+        }
+        
     }
 }
 
