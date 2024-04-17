@@ -69,7 +69,15 @@ extension Matrix {
         private var backgroundSyncTask: Task<UInt,Swift.Error>? // FIXME use a TaskGroup
         private var backgroundSyncDelayMS: UInt64?
                 
-        var syncLogger: os.Logger
+        private(set) public var syncLogger: os.Logger?
+        
+        public func enableSyncLogging() {
+            self.syncLogger = os.Logger(subsystem: "Session", category: "sync \(creds.userId)")
+        }
+        
+        public func disableSyncLogging() {
+            self.syncLogger = nil
+        }
         
         public var ignoredUserIds: [UserId] {
             guard let content = self.accountData[M_IGNORED_USER_LIST] as? IgnoredUserListContent
@@ -117,7 +125,7 @@ extension Matrix {
                     enableKeyBackup: Bool = true
         ) async throws {
             
-            self.syncLogger = os.Logger(subsystem: "matrix", category: "sync \(creds.userId)")
+            //self.syncLogger = os.Logger(subsystem: "matrix", category: "sync \(creds.userId)")
             self.cryptoLogger = os.Logger(subsystem: "matrix", category: "crypto \(creds.userId)")
             
             self.rooms = [:]
@@ -293,14 +301,14 @@ extension Matrix {
                 return
             }
             self.backgroundSyncTask = self.backgroundSyncTask ?? .init(priority: .background) {
-                syncLogger.debug("Starting background sync")
+                syncLogger?.debug("Starting background sync")
                 var count: UInt = 0
                 while self.keepSyncing {
-                    syncLogger.debug("Keeping on syncing...")
+                    syncLogger?.debug("Keeping on syncing...")
                     guard let token = try? await sync()
                     else {
                         self.syncFailureCount += 1
-                        syncLogger.warning("Sync failed with token \(self.syncToken ?? "(none)") -- \(self.syncFailureCount) failures")
+                        syncLogger?.warning("Sync failed with token \(self.syncToken ?? "(none)") -- \(self.syncFailureCount) failures")
                         /* // Update: Never stop never stopping :)
                            //         Lots of bad stuff happens if we stop syncing.  So keep going!
                         if failureCount > 3 {
@@ -315,7 +323,7 @@ extension Matrix {
                     self.syncFailureCount = 0
                     self.syncSuccessCount += 1
                 
-                    syncLogger.debug("Got new sync token \(token)")
+                    syncLogger?.debug("Got new sync token \(token)")
                     /*
                     if let delay = self.backgroundSyncDelayMS {
                         syncLogger.debug("Sleeping for \(delay) ms before next sync")
@@ -333,7 +341,7 @@ extension Matrix {
             //print("/sync:\t\(creds.userId) Starting sync()  -- token is \(syncToken ?? "(none)")")
             // FIXME: Use a TaskGroup
             if let task = syncRequestTask {
-                syncLogger.debug("Already syncing..  awaiting on the result")
+                syncLogger?.debug("Already syncing..  awaiting on the result")
                 return try await task.value
             } else {
                 do {
@@ -356,11 +364,11 @@ extension Matrix {
             
             let logger = self.syncLogger
             
-            logger.debug("Doing a sync")
+            logger?.debug("Doing a sync")
             
             // Following the Rust Crypto SDK example https://github.com/matrix-org/matrix-rust-sdk/blob/8ac7f88d22e2fa0ca96eba7239ba7ec08658552c/crates/matrix-sdk-crypto/src/lib.rs#L540
             // We first send any outbound messages from the crypto module before we actually call /sync
-            logger.debug("Sending outbound crypto requests")
+            logger?.debug("Sending outbound crypto requests")
             try await sendOutgoingCryptoRequests()
             
             let url = "/_matrix/client/v3/sync"
@@ -368,31 +376,31 @@ extension Matrix {
                 "timeout": "\(syncRequestTimeout)",
             ]
             if let token = syncToken {
-                logger.debug("User \(self.creds.userId) syncing with token \(token)")
+                logger?.debug("User \(self.creds.userId) syncing with token \(token)")
 
                 params["since"] = token
                 if let filterId = self.syncFilterId {
                     params["filter"] = filterId
                 }
             } else {
-                logger.debug("User \(self.creds.userId) doing initial sync")
+                logger?.debug("User \(self.creds.userId) doing initial sync")
                 
                 if let filter = self.initialSyncFilter {
-                    logger.debug("Setting initial sync filter before we can sync")
+                    logger?.debug("Setting initial sync filter before we can sync")
                     let filterId = try await self.uploadFilter(filter)
                     params["filter"] = filterId
                 } else {
-                    logger.debug("No initial sync filter")
+                    logger?.debug("No initial sync filter")
                 }
             }
             let (data, response) = try await self.call(method: "GET", path: url, params: params)
-            logger.debug("User \(self.creds.userId) got sync response with status \(response.statusCode, privacy: .public)")
+            logger?.debug("User \(self.creds.userId) got sync response with status \(response.statusCode, privacy: .public)")
             
             //let rawDataString = String(data: data, encoding: .utf8)
             //print("\n\n\(rawDataString!)\n\n")
 
             guard response.statusCode == 200 else {
-                logger.error("\(self.creds.userId) Error: got HTTP \(response.statusCode, privacy: .public) \(response.description, privacy: .public)")
+                logger?.error("\(self.creds.userId) Error: got HTTP \(response.statusCode, privacy: .public) \(response.description, privacy: .public)")
                 self.syncRequestTask = nil
                 //return self.syncToken
                 return nil
@@ -403,7 +411,7 @@ extension Matrix {
             guard let responseBody = try? decoder.decode(SyncResponseBody.self, from: data)
             else {
                 self.syncRequestTask = nil
-                logger.error("Failed to decode /sync response")
+                logger?.error("Failed to decode /sync response")
                 throw Matrix.Error("Failed to decode /sync response")
             }
             
@@ -412,11 +420,11 @@ extension Matrix {
             // First thing to check: Did our sync token actually change?
             // Because if not, then we've already seen everything in this update
             if responseBody.nextBatch == self.syncToken {
-                logger.debug("Token didn't change; Therefore no updates; Doing nothing")
+                logger?.debug("Token didn't change; Therefore no updates; Doing nothing")
                 self.syncRequestTask = nil
                 return syncToken
             } else {
-                logger.debug("Got new sync token \(responseBody.nextBatch)")
+                logger?.debug("Got new sync token \(responseBody.nextBatch)")
             }
             
             // Track whether this sync was successful.  If not, we shouldn't advance the token.
@@ -424,11 +432,11 @@ extension Matrix {
             
             try await cryptoQueue.run {
                 // Send updates to the Rust crypto module
-                logger.debug("Updating Rust crypto module")
+                logger?.debug("Updating Rust crypto module")
                 guard let decryptedToDeviceEventsString = try? self.updateCryptoAfterSync(responseBody: responseBody)
                 else {
                     success = false
-                    logger.error("Crypto update failed")
+                    logger?.error("Crypto update failed")
                     return
                 }
                 // NOTE: If we want to track the Olm or Megolm sessions ourselves for debugging purposes,
@@ -444,9 +452,9 @@ extension Matrix {
             
             // Handle invites
             if let invitedRoomsDict = responseBody.rooms?.invite {
-                logger.debug("Found \(invitedRoomsDict.count, privacy: .public) invited rooms")
+                logger?.debug("Found \(invitedRoomsDict.count, privacy: .public) invited rooms")
                 for (roomId, info) in invitedRoomsDict {
-                    logger.debug("Found invited room \(roomId)")
+                    logger?.debug("Found invited room \(roomId)")
                     guard let events = info.inviteState?.events
                     else {
                         continue
@@ -464,14 +472,14 @@ extension Matrix {
                     //}
                 }
             } else {
-                logger.debug("No invited rooms")
+                logger?.debug("No invited rooms")
             }
             
             // Handle rooms where we're already joined
             if let joinedRoomsDict = responseBody.rooms?.join {
-                logger.debug("Found \(joinedRoomsDict.count, privacy: .public) joined rooms")
+                logger?.debug("Found \(joinedRoomsDict.count, privacy: .public) joined rooms")
                 for (roomId, info) in joinedRoomsDict {
-                    logger.debug("Found joined room \(roomId)")
+                    logger?.debug("Found joined room \(roomId)")
                     let stateEvents = info.state?.events ?? []
                     let timelineEvents = info.timeline?.events ?? []
                     let timelineStateEvents = timelineEvents.filter {
@@ -586,14 +594,14 @@ extension Matrix {
                     }
                 }
             } else {
-                logger.debug("No joined rooms")
+                logger?.debug("No joined rooms")
             }
             
             // Handle rooms that we've left
             if let leftRoomsDict = responseBody.rooms?.leave {
-                logger.debug("Found \(leftRoomsDict.count, privacy: .public) left rooms")
+                logger?.debug("Found \(leftRoomsDict.count, privacy: .public) left rooms")
                 for (roomId, info) in leftRoomsDict {
-                    logger.debug("Found left room \(roomId)")
+                    logger?.debug("Found left room \(roomId)")
                     
                     let stateEvents = info.state?.events ?? []
                     let timelineEvents = info.timeline?.events ?? []
@@ -627,11 +635,11 @@ extension Matrix {
                     }
                 }
             } else {
-                logger.debug("No left rooms")
+                logger?.debug("No left rooms")
             }
             
             if let newAccountDataEvents = responseBody.accountData?.events {
-                logger.debug("Found \(newAccountDataEvents.count, privacy: .public) account data events")
+                logger?.debug("Found \(newAccountDataEvents.count, privacy: .public) account data events")
                 
                 // Call any registered account data handler callbacks
                 for (filter,handler) in self.accountDataHandlers {
@@ -645,14 +653,14 @@ extension Matrix {
                 // Update our own local copy
                 var updates = [String: Codable]()
                 for event in newAccountDataEvents {
-                    logger.debug("Got account data with type = \(event.type, privacy: .public)")
+                    logger?.debug("Got account data with type = \(event.type, privacy: .public)")
                     updates[event.type] = event.content
                 }
                 
                 if let store = self.dataStore {
-                    logger.debug("Saving account data")
+                    logger?.debug("Saving account data")
                     try await store.saveAccountData(events: newAccountDataEvents, in: nil)
-                    logger.debug("Done saving account data")
+                    logger?.debug("Done saving account data")
                 }
                 
                 // Do the merge before we move to the main thread
@@ -662,30 +670,30 @@ extension Matrix {
                     self.accountData = updatedAccountData
                 }
             } else {
-                logger.debug("No account data")
+                logger?.debug("No account data")
             }
             
             // Presence
             if let presenceEvents = responseBody.presence?.events {
-                logger.debug("Updating presence - \(presenceEvents.count) events")
+                logger?.debug("Updating presence - \(presenceEvents.count) events")
                 for event in presenceEvents {
                     if let userId = event.sender,
                        let presence = event.content as? PresenceContent
                     {
-                        logger.debug("Updating presence for user \(userId.stringValue)")
+                        logger?.debug("Updating presence for user \(userId.stringValue)")
                         await self.users[userId]?.update(presence)
                     } else {
-                        logger.error("Could not parse presence event")
+                        logger?.error("Could not parse presence event")
                     }
                 }
             }
             
             // FIXME: Handle to-device messages
-            logger.debug("Skipping to-device messages for now")
+            logger?.debug("Skipping to-device messages for now")
 
 
             if success {
-                logger.debug("Updating sync token...  awaiting MainActor")
+                logger?.debug("Updating sync token...  awaiting MainActor")
                 await MainActor.run {
                     //print("/sync:\tMainActor updating sync token to \(responseBody.nextBatch)")
                     self.syncToken = responseBody.nextBatch
@@ -693,11 +701,11 @@ extension Matrix {
                 UserDefaults.standard.set(self.syncToken, forKey: "sync_token[\(creds.userId)::\(creds.deviceId)]")
                 
                 //print("/sync:\t\(creds.userId) Done!")
-                logger.debug("sync successful!")
+                logger?.debug("sync successful!")
                 self.syncRequestTask = nil
                 return responseBody.nextBatch
             } else {
-                logger.error("sync failed")
+                logger?.error("sync failed")
                 return self.syncToken
             }
         }
@@ -720,7 +728,7 @@ extension Matrix {
                 let encoder = JSONEncoder()
                 let eventsData = try encoder.encode(events)
                 eventsListString = String(data: eventsData, encoding: .utf8)!
-                logger.debug("Sending \(events.count, privacy: .public) to-device event to Rust crypto module:   \(eventsListString)")
+                logger?.debug("Sending \(events.count, privacy: .public) to-device event to Rust crypto module:   \(eventsListString)")
             }
             let eventsString = "{\"events\": \(eventsListString)}"
             // Ugh we have to translate the device lists back to raw String's
@@ -728,13 +736,13 @@ extension Matrix {
                 changed: responseBody.deviceLists?.changed?.map { $0.description } ?? [],
                 left: responseBody.deviceLists?.left?.map { $0.description } ?? []
             )
-            logger.debug("\(deviceLists.changed.count, privacy: .public) Changed devices")
-            logger.debug("\(deviceLists.left.count, privacy: .public) Left devices")
-            logger.debug("\(responseBody.deviceOneTimeKeysCount?.keys.count ?? 0, privacy: .public) device one-time keys")
+            logger?.debug("\(deviceLists.changed.count, privacy: .public) Changed devices")
+            logger?.debug("\(deviceLists.left.count, privacy: .public) Left devices")
+            logger?.debug("\(responseBody.deviceOneTimeKeysCount?.keys.count ?? 0, privacy: .public) device one-time keys")
             if let dotkc = responseBody.deviceOneTimeKeysCount {
-                logger.debug("\(dotkc)")
+                logger?.debug("\(dotkc)")
             }
-            logger.debug("\(responseBody.deviceUnusedFallbackKeyTypes?.count ?? 0, privacy: .public) unused fallback keys")
+            logger?.debug("\(responseBody.deviceUnusedFallbackKeyTypes?.count ?? 0, privacy: .public) unused fallback keys")
 
             guard let result = try? self.crypto.receiveSyncChanges(events: eventsString,
                                                                    deviceChanges: deviceLists,
@@ -742,10 +750,10 @@ extension Matrix {
                                                                    unusedFallbackKeys: responseBody.deviceUnusedFallbackKeyTypes ?? [],
                                                                    nextBatchToken: responseBody.nextBatch)
             else {
-                logger.error("Crypto update failed")
+                logger?.error("Crypto update failed")
                 throw Matrix.Error("Crypto update failed")
             }
-            logger.debug("Got response from Rust crypto: \(result.toDeviceEvents.count) to-device events, \(result.roomKeyInfos.count) room key info's")
+            logger?.debug("Got response from Rust crypto: \(result.toDeviceEvents.count) to-device events, \(result.roomKeyInfos.count) room key info's")
             return result
         }
 
@@ -977,7 +985,7 @@ extension Matrix {
         public func pause() async throws {
             // pause() doesn't actually make any API calls
             // It just tells our own local sync task to take a break
-            syncLogger.debug("Pausing session")
+            syncLogger?.debug("Pausing session")
             self.keepSyncing = false
         }
         
@@ -985,14 +993,14 @@ extension Matrix {
             // close() is like pause; it doesn't make any API calls
             // It just tells our local sync task to shut down
             
-            syncLogger.debug("Closing session")
+            syncLogger?.debug("Closing session")
             self.keepSyncing = false
             if let task = syncRequestTask {
-                syncLogger.debug("Canceling sync task")
+                syncLogger?.debug("Canceling sync task")
                 task.cancel()
             }
             
-            syncLogger.debug("Session closed")
+            syncLogger?.debug("Session closed")
         }
         
         // MARK: UIA
