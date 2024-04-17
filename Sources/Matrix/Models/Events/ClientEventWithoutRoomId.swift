@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 import AnyCodable
 
 public class ClientEventWithoutRoomId: Matrix.Event, Codable {
@@ -17,6 +18,20 @@ public class ClientEventWithoutRoomId: Matrix.Event, Codable {
     public let type: String
     public let content: Codable
     public let unsigned: UnsignedData?
+    
+    private(set) public static var logger: os.Logger?
+    
+    public static func setLogger(_ logger: os.Logger?) {
+        Self.logger = logger
+    }
+    
+    public static func enableLogging() {
+        Self.logger = os.Logger(subsystem: "Matrix", category: "ClientEventWithoutRoomId")
+    }
+    
+    public static func disableLogging() {
+        Self.logger = nil
+    }
     
     public var description: String {
         return """
@@ -50,11 +65,11 @@ public class ClientEventWithoutRoomId: Matrix.Event, Codable {
     }
     
     required public init(from decoder: Decoder) throws {
-        Matrix.logger.debug("Decoding ClientEventWithoutRoomId")
+        Self.logger?.debug("Decoding ClientEventWithoutRoomId")
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         let eventId = try container.decode(String.self, forKey: .eventId)
-        Matrix.logger.debug("  eventId = \(eventId)")
+        Self.logger?.debug("  eventId = \(eventId)")
         self.eventId = eventId
         
         self.originServerTS = try container.decode(UInt64.self, forKey: .originServerTS)
@@ -63,13 +78,13 @@ public class ClientEventWithoutRoomId: Matrix.Event, Codable {
         self.stateKey = try container.decodeIfPresent(String.self, forKey: .stateKey)
         
         let type = try container.decode(String.self, forKey: .type)
-        Matrix.logger.debug("  type = \(type)")
+        Self.logger?.debug("  type = \(type)")
         self.type = type
         
         self.unsigned = try container.decodeIfPresent(UnsignedData.self, forKey: .unsigned)
          
         self.content = try Matrix.decodeEventContent(of: self.type, from: decoder)
-        Matrix.logger.debug("  done with event \(eventId)")
+        Self.logger?.debug("  done with event \(eventId)")
     }
     
     public func encode(to encoder: Encoder) throws {

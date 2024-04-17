@@ -6,9 +6,25 @@
 //
 
 import Foundation
+import os
 
 extension Matrix {
     public struct AccountDataEvent: Codable {
+        
+        private(set) public static var logger: os.Logger?
+        
+        public static func setLogger(_ logger: os.Logger?) {
+            Self.logger = logger
+        }
+        
+        public static func enableLogging() {
+            Self.logger = os.Logger(subsystem: "Matrix", category: "AccountDataEvent")
+        }
+        
+        public static func disableLogging() {
+            Self.logger = nil
+        }
+        
         public var type: String
         public var content: Codable
         
@@ -27,12 +43,12 @@ extension Matrix {
         }
         
         public init(from decoder: Decoder) throws {
-            logger.debug("Decoding account data event")
+            Self.logger?.debug("Decoding account data event")
             let container = try decoder.container(keyedBy: CodingKeys.self)
             
             let type = try container.decode(String.self, forKey: .type)
             self.type = type
-            logger.debug("\tAccount data event type = \(type)")
+            Self.logger?.debug("\tAccount data event type = \(type)")
             self.content = try Matrix.decodeAccountData(of: self.type, from: decoder)
         }
         
