@@ -280,6 +280,13 @@ public class UIAuthSession: UIASession, ObservableObject {
     public func doUIAuthStage(auth: [String:Codable]) async throws {
         try await doUIAuthStage(auth: auth, onFail: nil)
     }
+    
+    static let allowedStageSubstitutions = [
+        AUTH_TYPE_ENROLL_BSSPEKE_SAVE: [AUTH_TYPE_ENROLL_BSSPEKE_OPRF],
+        AUTH_TYPE_LOGIN_BSSPEKE_VERIFY: [AUTH_TYPE_LOGIN_BSSPEKE_OPRF],
+        AUTH_TYPE_ENROLL_EMAIL_SUBMIT_TOKEN: [AUTH_TYPE_ENROLL_EMAIL_REQUEST_TOKEN],
+        AUTH_TYPE_LOGIN_EMAIL_SUBMIT_TOKEN: [AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN],
+    ]
 
     public func doUIAuthStage(auth: [String:Codable],
                               onFail: ((Int,Data) async -> Void)?
@@ -298,8 +305,18 @@ public class UIAuthSession: UIASession, ObservableObject {
             throw Matrix.Error(msg)
         }
         
-        // Check to make sure that AUTH_TYPE is the next one in our list of stages???
-        guard stages.first == AUTH_TYPE
+        guard let nextStage = stages.first
+        else {
+            logger.error("No next stage")
+            throw Matrix.Error("No next stage")
+        }
+        
+        // Check to make sure that AUTH_TYPE is the next one in our list of stages
+        // Or else that we are making a valid allowed substitution, for example:
+        //   * re-doing the BS-SPEKE OPRF when the user mis-types the password and fails the verify stage
+        //   * sending a new token to the user's email
+        let substitutionIsAllowed = Self.allowedStageSubstitutions[nextStage]?.contains(AUTH_TYPE) ?? false
+        guard nextStage == AUTH_TYPE || substitutionIsAllowed
         else {
             let msg = "Attempted stage \(AUTH_TYPE) but next required stage is [\(stages.first ?? "none")]"
             logger.error("\(tag, privacy: .public)\t\(msg, privacy: .public)")
