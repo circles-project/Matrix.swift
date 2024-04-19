@@ -421,10 +421,23 @@ public class UIAuthSession: UIASession, ObservableObject {
             "subscribe_to_list": subscribeToList,
         ]
         
+        // Save the user's email address in case we need to request a new token
+        self.storage[AUTH_TYPE_ENROLL_EMAIL_REQUEST_TOKEN+".email"] = email
+        
         // FIXME: We need to know if this succeeded or failed
         try await doUIAuthStage(auth: emailAuthDict)
         
         return clientSecret
+    }
+    
+    public func redoEmailEnrollRequestTokenStage() async throws -> String? {
+        guard let email = self.storage[AUTH_TYPE_ENROLL_EMAIL_REQUEST_TOKEN+".email"] as? String
+        else {
+            logger.error("Can't retry \(AUTH_TYPE_ENROLL_EMAIL_REQUEST_TOKEN) - No saved email address")
+            throw Matrix.Error("Can't re-request email enroll token")
+        }
+        
+        return try await doEmailEnrollRequestTokenStage(email: email)
     }
     
     public func doEmailEnrollSubmitTokenStage(token: String, secret: String) async throws {
@@ -454,10 +467,23 @@ public class UIAuthSession: UIASession, ObservableObject {
             "client_secret": clientSecret,
         ]
         
+        // Save the user's email address in case we need to request a new token
+        self.storage[AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN+".email"] = email
+        
         // FIXME: We need to know if this succeeded or failed
         try await doUIAuthStage(auth: emailAuthDict)
         
         return clientSecret
+    }
+    
+    public func redoEmailLoginRequestTokenStage() async throws -> String? {
+        guard let email = self.storage[AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN+".email"] as? String
+        else {
+            logger.error("Can't redo \(AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN) stage - No saved email address")
+            throw Matrix.Error("Can't re-request email token - No email address")
+        }
+        
+        return try await doEmailLoginRequestTokenStage(email: email)
     }
     
     public func doEmailLoginSubmitTokenStage(token: String, secret: String) async throws {
