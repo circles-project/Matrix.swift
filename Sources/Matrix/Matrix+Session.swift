@@ -2090,6 +2090,11 @@ extension Matrix {
                 // Completion handler that runs after the UIA completes successfully
                 logger.debug("UIA completed successfully")
                 
+                // Ensure that all device keys have been uploaded before uploading signatures
+                if let keyUploadRequest = result.uploadKeysRequest {
+                    try await self.sendCryptoRequest(request: keyUploadRequest)
+                }
+                
                 // Upload the new cross-signing keys to secret storage, so we can use them on other devices
                 logger.debug("Saving keys to secret storage")
                 try await store.saveSecretString(privateMSK, type: M_CROSS_SIGNING_MASTER)
@@ -2100,7 +2105,7 @@ extension Matrix {
                 logger.debug("Uploading signatures")
                 // WTF man, why do we have Request.signatureUpload AND SignatureUploadRequest ???
                 let requestId = UInt16.random(in: 0...UInt16.max)
-                let request: Request = .signatureUpload(requestId: "\(requestId)", body: result.signatureRequest.body)
+                let request: Request = .signatureUpload(requestId: "\(requestId)", body: result.uploadSignatureRequest.body)
                 try await self.sendCryptoRequest(request: request)
             }
             logger.debug("Waiting for UIA to connect")
