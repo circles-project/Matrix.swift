@@ -1000,7 +1000,6 @@ extension Matrix {
         // https://github.com/matrix-org/matrix-spec-proposals/pull/3814
         @Sendable
         public func dehydrateDeviceTaskOperation() async throws -> String? {
-            // change to spawn sync task
             cryptoLogger.debug("Dehydrating device \(self.creds.deviceId)")
             
             guard let ssKeyId = try await self.secretStore?.getDefaultKeyId(),
