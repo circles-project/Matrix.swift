@@ -1,6 +1,6 @@
 //
 //  Matrix+Session.swift
-//  
+//
 //
 //  Created by Charles Wright on 12/5/22.
 //
@@ -135,7 +135,7 @@ extension Matrix {
             self.accountData = [:]
             
             self.syncToken = syncToken
-            self.keepSyncing = startSyncing
+            self.keepSyncing = startSyncing// Tied to the sync background task
             self.initialSyncFilter = initialSyncFilter
             // Initialize the sync tasks to nil so we can run super.init()
             self.syncRequestTask = nil
@@ -331,6 +331,22 @@ extension Matrix {
                         try await Task.sleep(nanoseconds: nano)
                     }
                     */
+                    
+                    // Weekly device rehydration check
+                    let lastDeviceDehydration = self.defaults.object(forKey: "last_device_dehydration[\(self.creds.userId)]") as? Date
+                    
+                    // TODO: change to weekly interval after done testing
+                    if let interval = lastDeviceDehydration?.timeIntervalSinceNow,
+                       lastDeviceDehydration == nil || interval < 60 {
+                        // Dehydrated device timestamp is not old enough to refresh, no op
+                    }
+                    else {
+                        // Either we have not uploaded a dehydrated device or time has expired
+                        syncLogger?.debug("Last dehydration time is expired")
+                        
+                        try await self.dehydrateDevice()
+                        UserDefaults.standard.set(Date(), forKey: "last_device_dehydration[\(self.creds.userId)]")
+                    }
                 }
                 self.backgroundSyncTask = nil
                 return count
@@ -980,6 +996,106 @@ extension Matrix {
             }
         }
         
+        // https://github.com/matrix-org/matrix-spec-proposals/pull/3814
+        // TODO: Change to spawn new task instead of using sync background task for more robustness
+        public func dehydrateDevice() async throws {
+            cryptoLogger.debug("Dehydrating device \(self.creds.deviceId)")
+            
+            guard let ssKeyId = try await self.secretStore?.getDefaultKeyId(),
+                  let ssKey = try await self.secretStore?.getKey(keyId: ssKeyId)
+            else {
+                cryptoLogger.error("Could not access SS key for device dehydration")
+                throw Matrix.Error("Could not access SS key for device dehydration")
+            }
+            
+            struct dehydratedDeviceResponseBody: Codable {
+                var deviceId: String
+                var deviceData: [String: String]?
+                
+                enum CodingKeys: String, CodingKey {
+                    case deviceId = "device_id"
+                    case deviceData = "device_data"
+                }
+            }
+            let encoder = JSONEncoder()
+            let decoder = JSONDecoder()
+                        
+            // Before dehydrating, we need to check if a device already exists.
+            // If so, we'll want to rehydrate first since its possible the dehydrated
+            // device contains room keys we've not received.
+            var (data, response) = try await self.call(method: "GET",
+                                                       path: "/_matrix/client/unstable/org.matrix.msc3814.v1/dehydrated_device",
+                                                       body: nil,
+                                                       expectedStatuses: [200,404])
+            
+            if response.statusCode != 404 {
+                cryptoLogger.debug("Rehydrating device \(self.creds.deviceId)")
+                var deviceIdUrlCharacterSet = CharacterSet.urlPathAllowed
+                deviceIdUrlCharacterSet.remove("/")
+                
+                guard let responseBody = try? decoder.decode(dehydratedDeviceResponseBody.self, from: data),
+                      let deviceIdUrlEncoded = responseBody.deviceId.addingPercentEncoding(withAllowedCharacters: deviceIdUrlCharacterSet),
+                      let deviceDataJson = try? encoder.encode(responseBody.deviceData),
+                      let deviceDataString = String(data: deviceDataJson, encoding: .utf8)
+                else {
+                    cryptoLogger.error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device response")
+                    throw Matrix.Error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device response")
+                }
+                
+                let deviceId = responseBody.deviceId
+                let rehydrator = try crypto.dehydratedDevices().rehydrate(pickleKey: ssKey, deviceId: deviceId, deviceData: deviceDataString)
+                var next_batch = ""
+                
+                struct dehydratedDeviceEventsResponseBody: Codable {
+                    var events: [ToDeviceEvent]
+                    var nextBatch: String
+                    
+                    enum CodingKeys: String, CodingKey {
+                        case events = "events"
+                        case nextBatch = "next_batch"
+                    }
+                }
+                
+                while true {
+                    (data, response) = try await self.call(method: "POST",
+                                                           path: "/_matrix/client/unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events",
+                                                           body: "{\"next_batch\": \"\(next_batch)\"}")
+                    
+                    guard let responseBody = try? decoder.decode(dehydratedDeviceEventsResponseBody.self, from: data),
+                          let eventsJson = try? encoder.encode(responseBody.events),
+                          let eventsString = String(data: eventsJson, encoding: .utf8)
+                    else {
+                        cryptoLogger.error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events response")
+                        throw Matrix.Error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events response")
+                    }
+                    
+                    if responseBody.events.count == 0 {
+                        break
+                    }
+                    
+                    next_batch = responseBody.nextBatch
+                    cryptoLogger.debug("Device rehydration \(deviceId): Received event batch \(eventsString) for batch \(next_batch)")
+                    try rehydrator.receiveEvents(events: eventsString)
+                }
+            }
+            
+            // Device dehydration
+            let dehydrator = try crypto.dehydratedDevices().create()
+            let keysUploadRequest = try dehydrator.keysForUpload(deviceDisplayName: "\(self.creds.deviceId) (dehydrated)", pickleKey: ssKey)
+            
+            (data, response) = try await self.call(method: "PUT",
+                                                   path: "/_matrix/client/unstable/org.matrix.msc3814.v1/dehydrated_device",
+                                                   body: keysUploadRequest.body)
+            
+            guard let responseBody = try? decoder.decode(dehydratedDeviceResponseBody.self, from: data)
+            else {
+                cryptoLogger.error("Failed to read device_id from device dehydration request")
+                throw Matrix.Error("Failed to read device_id from device dehydration request")
+            }
+            
+            cryptoLogger.debug("Successfully dehydrated device \(responseBody.deviceId)")
+        }
+        
         // MARK: Session state management
         
         public func pause() async throws {
@@ -1531,7 +1647,7 @@ extension Matrix {
                                               rotationPeriodMsgs: params.rotationPeriodMsgs ?? RoomEncryptionContent.defaultRotationPeriodMsgs,
                                               historyVisibility: translate(roomHistoryVisibility),
                                               onlyAllowTrustedDevices: onlyTrusted)
-                    
+                      
             try await cryptoQueue.run {
                 logger.debug("Computing room key sharing")
                 let shareRoomKeyRequests = try self.crypto.shareRoomKey(roomId: roomId.description,
