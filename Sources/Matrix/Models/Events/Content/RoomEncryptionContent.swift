@@ -9,8 +9,8 @@ import Foundation
 
 /// m.room.encryption: https://spec.matrix.org/v1.5/client-server-api/#mroomencryption
 public struct RoomEncryptionContent: Codable {
-    static let defaultRotationPeriodMs: UInt64 = 604800000
-    static let defaultRotationPeriodMsgs: UInt64 = 100
+    public static let defaultRotationPeriodMs: UInt64 = 604800000
+    public static let defaultRotationPeriodMsgs: UInt64 = 100
     
     public enum Algorithm: String, Codable {
         case megolmV1AesSha2 = "m.megolm.v1.aes-sha2"
@@ -21,8 +21,8 @@ public struct RoomEncryptionContent: Codable {
     
     public init() {
         algorithm = .megolmV1AesSha2
-        rotationPeriodMs = 604800000  // FIXME: Does it really make sense to rotate this frequently?  We're just going to store all the keys on the server anyway, protected by a single symmetric backup key.  WTF?
-        rotationPeriodMsgs = 100
+        rotationPeriodMs = RoomEncryptionContent.defaultRotationPeriodMs  // FIXME: Does it really make sense to rotate this frequently?  We're just going to store all the keys on the server anyway, protected by a single symmetric backup key.  WTF?
+        rotationPeriodMsgs = RoomEncryptionContent.defaultRotationPeriodMsgs
     }
     
     public init(algorithm: Algorithm, rotationPeriodMs: UInt64, rotationPeriodMsgs: UInt64) {

@@ -51,6 +51,7 @@ extension Matrix {
         // Need some private stuff that outside callers can't see
         private var dataStore: DataStore?
         private var syncRequestTask: Task<String?,Swift.Error>? // FIXME Use a TaskGroup to make this subordinate to the backgroundSyncTask
+        private var dehydrateRequestTask: Task<String?, Swift.Error>?
         private var initialSyncFilter: SyncFilter?
         
         #if DEBUG
@@ -135,10 +136,11 @@ extension Matrix {
             self.accountData = [:]
             
             self.syncToken = syncToken
-            self.keepSyncing = startSyncing// Tied to the sync background task
+            self.keepSyncing = startSyncing
             self.initialSyncFilter = initialSyncFilter
             // Initialize the sync tasks to nil so we can run super.init()
             self.syncRequestTask = nil
+            self.dehydrateRequestTask = nil
             self.backgroundSyncTask = nil
             //self.backgroundSyncDelayMS = 1_000
             
@@ -335,9 +337,8 @@ extension Matrix {
                     // Weekly device rehydration check
                     let lastDeviceDehydration = self.defaults.object(forKey: "last_device_dehydration[\(self.creds.userId)]") as? Date
                     
-                    // TODO: change to weekly interval after done testing
                     if let interval = lastDeviceDehydration?.timeIntervalSinceNow,
-                       lastDeviceDehydration == nil || interval < 60 {
+                       abs(interval) < Double(RoomEncryptionContent.defaultRotationPeriodMs) {
                         // Dehydrated device timestamp is not old enough to refresh, no op
                     }
                     else {
@@ -345,7 +346,7 @@ extension Matrix {
                         syncLogger?.debug("Last dehydration time is expired")
                         
                         try await self.dehydrateDevice()
-                        UserDefaults.standard.set(Date(), forKey: "last_device_dehydration[\(self.creds.userId)]")
+                        self.defaults.set(Date(), forKey: "last_device_dehydration[\(self.creds.userId)]")
                     }
                 }
                 self.backgroundSyncTask = nil
@@ -997,13 +998,15 @@ extension Matrix {
         }
         
         // https://github.com/matrix-org/matrix-spec-proposals/pull/3814
-        // TODO: Change to spawn new task instead of using sync background task for more robustness
-        public func dehydrateDevice() async throws {
+        @Sendable
+        public func dehydrateDeviceTaskOperation() async throws -> String? {
+            // change to spawn sync task
             cryptoLogger.debug("Dehydrating device \(self.creds.deviceId)")
             
             guard let ssKeyId = try await self.secretStore?.getDefaultKeyId(),
                   let ssKey = try await self.secretStore?.getKey(keyId: ssKeyId)
             else {
+                self.dehydrateRequestTask = nil
                 cryptoLogger.error("Could not access SS key for device dehydration")
                 throw Matrix.Error("Could not access SS key for device dehydration")
             }
@@ -1030,14 +1033,17 @@ extension Matrix {
             
             if response.statusCode != 404 {
                 cryptoLogger.debug("Rehydrating device \(self.creds.deviceId)")
-                var deviceIdUrlCharacterSet = CharacterSet.urlPathAllowed
-                deviceIdUrlCharacterSet.remove("/")
+                
+                // Sigh... device ids may contain '/' characters which are also allowed in url paths
+                var deviceIdCharacterSet = CharacterSet.urlPathAllowed
+                deviceIdCharacterSet.remove("/")
                 
                 guard let responseBody = try? decoder.decode(dehydratedDeviceResponseBody.self, from: data),
-                      let deviceIdUrlEncoded = responseBody.deviceId.addingPercentEncoding(withAllowedCharacters: deviceIdUrlCharacterSet),
+                      var deviceIdUrlEncoded = responseBody.deviceId.addingPercentEncoding(withAllowedCharacters: deviceIdCharacterSet),
                       let deviceDataJson = try? encoder.encode(responseBody.deviceData),
                       let deviceDataString = String(data: deviceDataJson, encoding: .utf8)
                 else {
+                    self.dehydrateRequestTask = nil
                     cryptoLogger.error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device response")
                     throw Matrix.Error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device response")
                 }
@@ -1059,12 +1065,14 @@ extension Matrix {
                 while true {
                     (data, response) = try await self.call(method: "POST",
                                                            path: "/_matrix/client/unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events",
-                                                           body: "{\"next_batch\": \"\(next_batch)\"}")
+                                                           body: "{\"next_batch\": \"\(next_batch)\"}",
+                                                           disableUrlEncoding: true)
                     
                     guard let responseBody = try? decoder.decode(dehydratedDeviceEventsResponseBody.self, from: data),
                           let eventsJson = try? encoder.encode(responseBody.events),
                           let eventsString = String(data: eventsJson, encoding: .utf8)
                     else {
+                        self.dehydrateRequestTask = nil
                         cryptoLogger.error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events response")
                         throw Matrix.Error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events response")
                     }
@@ -1089,11 +1097,28 @@ extension Matrix {
             
             guard let responseBody = try? decoder.decode(dehydratedDeviceResponseBody.self, from: data)
             else {
+                self.dehydrateRequestTask = nil
                 cryptoLogger.error("Failed to read device_id from device dehydration request")
                 throw Matrix.Error("Failed to read device_id from device dehydration request")
             }
             
             cryptoLogger.debug("Successfully dehydrated device \(responseBody.deviceId)")
+            self.dehydrateRequestTask = nil
+            return nil
+        }
+        
+        public func dehydrateDevice() async throws {
+            // FIXME: Use a TaskGroup
+            if let task = dehydrateRequestTask {
+                syncLogger?.debug("Already dehydrating...  awaiting on the result")
+            } else {
+                do {
+                    dehydrateRequestTask = .init(priority: .background, operation: dehydrateDeviceTaskOperation)
+                    try await dehydrateRequestTask?.value
+                } catch {
+                    self.dehydrateRequestTask = nil
+                }
+            }
         }
         
         // MARK: Session state management
@@ -1114,6 +1139,10 @@ extension Matrix {
             if let task = syncRequestTask {
                 syncLogger?.debug("Canceling sync task")
                 task.cancel()
+            }
+            if let dehydrateDeviceTask = dehydrateRequestTask {
+                syncLogger?.debug("Canceling device dehydration task")
+                dehydrateDeviceTask.cancel()
             }
             
             syncLogger?.debug("Session closed")
@@ -2600,6 +2629,7 @@ extension Matrix {
         public override func logout() async throws {
             await MainActor.run {
                 self.syncRequestTask?.cancel()
+                self.dehydrateRequestTask?.cancel()
                 self.backgroundSyncTask?.cancel()
                 self.users = [:]
                 self.rooms = [:]
