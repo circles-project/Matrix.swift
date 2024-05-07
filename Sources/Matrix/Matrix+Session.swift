@@ -1010,7 +1010,7 @@ extension Matrix {
                 throw Matrix.Error("Could not access SS key for device dehydration")
             }
             
-            struct dehydratedDeviceResponseBody: Codable {
+            struct DehydratedDeviceResponseBody: Codable {
                 var deviceId: String
                 var deviceData: [String: String]?
                 
@@ -1037,7 +1037,7 @@ extension Matrix {
                 var deviceIdCharacterSet = CharacterSet.urlPathAllowed
                 deviceIdCharacterSet.remove("/")
                 
-                guard let responseBody = try? decoder.decode(dehydratedDeviceResponseBody.self, from: data),
+                guard let responseBody = try? decoder.decode(DehydratedDeviceResponseBody.self, from: data),
                       var deviceIdUrlEncoded = responseBody.deviceId.addingPercentEncoding(withAllowedCharacters: deviceIdCharacterSet),
                       let deviceDataJson = try? encoder.encode(responseBody.deviceData),
                       let deviceDataString = String(data: deviceDataJson, encoding: .utf8)
@@ -1051,7 +1051,7 @@ extension Matrix {
                 let rehydrator = try crypto.dehydratedDevices().rehydrate(pickleKey: ssKey, deviceId: deviceId, deviceData: deviceDataString)
                 var next_batch = ""
                 
-                struct dehydratedDeviceEventsResponseBody: Codable {
+                struct DehydratedDeviceEventsResponseBody: Codable {
                     var events: [ToDeviceEvent]
                     var nextBatch: String
                     
@@ -1067,7 +1067,7 @@ extension Matrix {
                                                            body: "{\"next_batch\": \"\(next_batch)\"}",
                                                            disableUrlEncoding: true)
                     
-                    guard let responseBody = try? decoder.decode(dehydratedDeviceEventsResponseBody.self, from: data),
+                    guard let responseBody = try? decoder.decode(DehydratedDeviceEventsResponseBody.self, from: data),
                           let eventsJson = try? encoder.encode(responseBody.events),
                           let eventsString = String(data: eventsJson, encoding: .utf8)
                     else {
@@ -1094,7 +1094,7 @@ extension Matrix {
                                                    path: "/_matrix/client/unstable/org.matrix.msc3814.v1/dehydrated_device",
                                                    body: keysUploadRequest.body)
             
-            guard let responseBody = try? decoder.decode(dehydratedDeviceResponseBody.self, from: data)
+            guard let responseBody = try? decoder.decode(DehydratedDeviceResponseBody.self, from: data)
             else {
                 self.dehydrateRequestTask = nil
                 cryptoLogger.error("Failed to read device_id from device dehydration request")
