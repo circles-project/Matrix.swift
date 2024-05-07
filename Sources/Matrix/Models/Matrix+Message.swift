@@ -12,6 +12,13 @@ import OrderedCollections
 
 extension Matrix {
     public class Message: ObservableObject, Identifiable {
+        private enum DecryptionState {
+            case success
+            case roomKeyRequest
+            case dehydratingDevice
+            case failure
+        }
+        
         @Published private(set) public var event: ClientEventWithoutRoomId
         private(set) public var encryptedEvent: ClientEventWithoutRoomId?
         public var room: Room
@@ -24,6 +31,7 @@ extension Matrix {
         private var replacementPublisher: Cancellable?
         
         public var isEncrypted: Bool
+        private var decryptionState: DecryptionState?
         
         private var fetchThumbnailTask: Task<Void,Swift.Error>?
         private var loadReactionsTask: Task<Int,Swift.Error>?
@@ -68,7 +76,9 @@ extension Matrix {
                     
                     // Once we're decrypted, we may need to try again to update our relations to other events
                     // For example, event replacements are only allowed for messages of the same type, so we can't process those until we've decrypted
-                    await self.room.updateRelations(events: [self.event])
+                    if self.decryptionState == .success {
+                        await self.room.updateRelations(events: [self.event])
+                    }
                 }
             } else {
                 self.isEncrypted = false
@@ -369,10 +379,13 @@ extension Matrix {
             guard self.event.type == M_ROOM_ENCRYPTED
             else {
                 // Already decrypted!
+                self.decryptionState = .success
                 return
             }
             
             if let decryptedEvent = try? self.room.session.decryptMessageEvent(self.event, in: self.room.roomId) {
+                self.decryptionState = .success
+                
                 await MainActor.run {
                     self.event = decryptedEvent
                 }
@@ -406,9 +419,23 @@ extension Matrix {
                 try await fetchThumbnail()
             } else {
                 // Decryption failed!
-                logger.warning("Failed to decrypt message event \(self.eventId, privacy: .public) in room \(self.roomId.stringValue, privacy: .public)")
-                // Request keys
-                try await self.room.session.requestRoomKey(for: self)
+                if self.decryptionState == nil {
+                    self.decryptionState = .roomKeyRequest
+                    logger.warning("Failed to decrypt message event \(self.eventId, privacy: .public) in room \(self.roomId.stringValue, privacy: .public). Requesting room key from other devices.")
+                    // Request keys
+                    try await self.room.session.requestRoomKey(for: self)
+                }
+                else if self.decryptionState == .roomKeyRequest {
+                    self.decryptionState = .dehydratingDevice
+                    logger.warning("Failed to decrypt message event \(self.eventId, privacy: .public) in room \(self.roomId.stringValue, privacy: .public). Attempting to fetch keys from dehydrated device.")
+                    
+                    // Rehydrate device if exists to attempt to fetch missing keys
+                    try await self.room.session.dehydrateDevice()
+                }
+                else {
+                    self.decryptionState = .failure
+                    logger.error("Failed to decrypt message event \(self.eventId, privacy: .public) in room \(self.roomId.stringValue, privacy: .public). Failed all recovery attempts.")
+                }
             }
         }
         

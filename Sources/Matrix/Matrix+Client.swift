@@ -281,21 +281,22 @@ public class Client {
                      path: String,
                      params: [String:String]? = nil,
                      body: Codable? = nil,
-                     expectedStatuses: [Int] = [200]
+                     expectedStatuses: [Int] = [200],
+                     disableUrlEncoding: Bool = false
     ) async throws -> (Data, HTTPURLResponse) {
         if let stringBody = body as? String {
             logger.debug("CALL \(method, privacy: .public) \(path, privacy: .public) String request body = \(stringBody)")
             let data = stringBody.data(using: .utf8)!
-            return try await call(method: method, path: path, params: params, bodyData: data, expectedStatuses: expectedStatuses)
+            return try await call(method: method, path: path, params: params, bodyData: data, expectedStatuses: expectedStatuses, disableUrlEncoding: disableUrlEncoding)
         } else if let codableBody = body {
             let encoder = JSONEncoder()
             encoder.keyEncodingStrategy = .convertToSnakeCase
             let encodedBody = try encoder.encode(AnyCodable(codableBody))
             logger.debug("CALL \(method, privacy: .public) \(path, privacy: .public) Raw request body = \(String(decoding: encodedBody, as: UTF8.self))")
-            return try await call(method: method, path: path, params: params, bodyData: encodedBody, expectedStatuses: expectedStatuses)
+            return try await call(method: method, path: path, params: params, bodyData: encodedBody, expectedStatuses: expectedStatuses, disableUrlEncoding: disableUrlEncoding)
         } else {
             let noBody: Data? = nil
-            return try await call(method: method, path: path, params: params, bodyData: noBody, expectedStatuses: expectedStatuses)
+            return try await call(method: method, path: path, params: params, bodyData: noBody, expectedStatuses: expectedStatuses, disableUrlEncoding: disableUrlEncoding)
         }
 
     }
@@ -304,11 +305,12 @@ public class Client {
                      path: String,
                      params: [String:String]? = nil,
                      bodyData: Data?=nil,
-                     expectedStatuses: [Int] = [200]
+                     expectedStatuses: [Int] = [200],
+                     disableUrlEncoding: Bool = false
     ) async throws -> (Data, HTTPURLResponse) {
         logger.debug("CALL \(method, privacy: .public) \(path, privacy: .public)")
 
-        guard let safePath = path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+        guard let safePath = disableUrlEncoding ? path : path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
               let initialUrl = URL(string: safePath, relativeTo: self.baseUrl),
               var components = URLComponents(url: initialUrl, resolvingAgainstBaseURL: true)
         else {
@@ -773,7 +775,7 @@ public class Client {
             var visibility: Visibility = .priv
             
             init(name: String,
-                 type: String? = nil, 
+                 type: String? = nil,
                  version: String? = nil,
                  encrypted: Bool,
                  historyVisibility: Room.HistoryVisibility? = nil,
