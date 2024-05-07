@@ -1110,6 +1110,7 @@ extension Matrix {
             // FIXME: Use a TaskGroup
             if let task = dehydrateRequestTask {
                 syncLogger?.debug("Already dehydrating...  awaiting on the result")
+                try await task.value
             } else {
                 do {
                     dehydrateRequestTask = .init(priority: .background, operation: dehydrateDeviceTaskOperation)
