@@ -31,6 +31,16 @@ extension Matrix {
         public var error: String?
     }
     
+    public struct ApiError: LocalizedError {
+        public var status: Int
+        public var response: ErrorResponse
+        
+        public init(status: Int, response: ErrorResponse) {
+            self.status = status
+            self.response = response
+        }
+    }
+    
     public struct RateLimitError: Swift.Error, Codable {
         public var errcode: String
         public var error: String?
