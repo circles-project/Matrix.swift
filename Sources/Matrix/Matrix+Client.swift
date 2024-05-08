@@ -364,7 +364,15 @@ public class Client {
             else {
                 // Nothing left to do but throw an error
                 logger.error("CALL \(method, privacy: .public) \(url, privacy: .public) failed with HTTP \(httpResponse.statusCode, privacy: .public)")
-                throw Matrix.Error("API call failed")
+                let decoder = JSONDecoder()
+                if let errorResponse = try? decoder.decode(ErrorResponse.self, from: data) {
+                    logger.error("CALL \(method, privacy: .public) \(url, privacy: .public) got errcode = \(errorResponse.errcode) error = \(errorResponse.error ?? "n/a")")
+                    throw Matrix.ApiError(status: httpResponse.statusCode, response: errorResponse)
+                } else {
+                    //throw Matrix.Error("API call failed")
+                    logger.error("CALL \(method, privacy: .public) \(url, privacy: .public) failed to parse Matrix error response")
+                    throw Matrix.ApiError(status: httpResponse.statusCode, response: Matrix.ErrorResponse(errcode: M_UNKNOWN))
+                }
             }
             
             if httpResponse.statusCode != 429 {
