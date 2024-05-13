@@ -20,6 +20,7 @@ extension Matrix {
         
         public func reject(reason: String? = nil) async throws {
             try await session.leave(roomId: self.roomId, reason: reason)
+            try await session.deleteInvitedRoom(roomId: self.roomId)
         }
         
         public func ignore() async throws {
