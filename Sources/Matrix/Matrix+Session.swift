@@ -1047,41 +1047,46 @@ extension Matrix {
                 }
                 
                 let deviceId = responseBody.deviceId
-                let rehydrator = try crypto.dehydratedDevices().rehydrate(pickleKey: Data(pickleKey.utf8), deviceId: deviceId, deviceData: deviceDataString)
-                var next_batch = ""
-                
-                struct DehydratedDeviceEventsResponseBody: Codable {
-                    var events: [ToDeviceEvent]
-                    var nextBatch: String
+                do {
+                    let rehydrator = try crypto.dehydratedDevices().rehydrate(pickleKey: Data(pickleKey.utf8), deviceId: deviceId, deviceData: deviceDataString)
+                    var next_batch = ""
                     
-                    enum CodingKeys: String, CodingKey {
-                        case events = "events"
-                        case nextBatch = "next_batch"
+                    struct DehydratedDeviceEventsResponseBody: Codable {
+                        var events: [ToDeviceEvent]
+                        var nextBatch: String
+                        
+                        enum CodingKeys: String, CodingKey {
+                            case events = "events"
+                            case nextBatch = "next_batch"
+                        }
+                    }
+                    
+                    while true {
+                        (data, response) = try await self.call(method: "POST",
+                                                               path: "/_matrix/client/unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events",
+                                                               body: "{\"next_batch\": \"\(next_batch)\"}",
+                                                               disableUrlEncoding: true)
+                        
+                        guard let responseBody = try? decoder.decode(DehydratedDeviceEventsResponseBody.self, from: data),
+                              let eventsJson = try? encoder.encode(responseBody.events),
+                              let eventsString = String(data: eventsJson, encoding: .utf8)
+                        else {
+                            self.dehydrateRequestTask = nil
+                            cryptoLogger.error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events response")
+                            throw Matrix.Error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events response")
+                        }
+                        
+                        if responseBody.events.count == 0 {
+                            break
+                        }
+                        
+                        next_batch = responseBody.nextBatch
+                        cryptoLogger.debug("Device rehydration \(deviceId): Received event batch \(eventsString) for batch \(next_batch)")
+                        try rehydrator.receiveEvents(events: eventsString)
                     }
                 }
-                
-                while true {
-                    (data, response) = try await self.call(method: "POST",
-                                                           path: "/_matrix/client/unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events",
-                                                           body: "{\"next_batch\": \"\(next_batch)\"}",
-                                                           disableUrlEncoding: true)
-                    
-                    guard let responseBody = try? decoder.decode(DehydratedDeviceEventsResponseBody.self, from: data),
-                          let eventsJson = try? encoder.encode(responseBody.events),
-                          let eventsString = String(data: eventsJson, encoding: .utf8)
-                    else {
-                        self.dehydrateRequestTask = nil
-                        cryptoLogger.error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events response")
-                        throw Matrix.Error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events response")
-                    }
-                    
-                    if responseBody.events.count == 0 {
-                        break
-                    }
-                    
-                    next_batch = responseBody.nextBatch
-                    cryptoLogger.debug("Device rehydration \(deviceId): Received event batch \(eventsString) for batch \(next_batch)")
-                    try rehydrator.receiveEvents(events: eventsString)
+                catch {
+                    cryptoLogger.error("Failed to rehydrate device, discarding and creating new one...")
                 }
             }
             
