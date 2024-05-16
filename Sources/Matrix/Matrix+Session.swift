@@ -1002,12 +1002,11 @@ extension Matrix {
         public func dehydrateDeviceTaskOperation() async throws -> String? {
             cryptoLogger.debug("Dehydrating device \(self.creds.deviceId)")
             
-            guard let ssKeyId = try await self.secretStore?.getDefaultKeyId(),
-                  let ssKey = try await self.secretStore?.getKey(keyId: ssKeyId)
+            guard let pickleKey = try self.crypto.getBackupKeys()?.recoveryKey().toBase58()
             else {
                 self.dehydrateRequestTask = nil
-                cryptoLogger.error("Could not access SS key for device dehydration")
-                throw Matrix.Error("Could not access SS key for device dehydration")
+                cryptoLogger.error("Could not access backup recovery key for device dehydration")
+                throw Matrix.Error("Could not access backup recovery key for device dehydration")
             }
             
             struct DehydratedDeviceResponseBody: Codable {
@@ -1048,7 +1047,7 @@ extension Matrix {
                 }
                 
                 let deviceId = responseBody.deviceId
-                let rehydrator = try crypto.dehydratedDevices().rehydrate(pickleKey: ssKey, deviceId: deviceId, deviceData: deviceDataString)
+                let rehydrator = try crypto.dehydratedDevices().rehydrate(pickleKey: Data(pickleKey.utf8), deviceId: deviceId, deviceData: deviceDataString)
                 var next_batch = ""
                 
                 struct DehydratedDeviceEventsResponseBody: Codable {
@@ -1088,7 +1087,7 @@ extension Matrix {
             
             // Device dehydration
             let dehydrator = try crypto.dehydratedDevices().create()
-            let keysUploadRequest = try dehydrator.keysForUpload(deviceDisplayName: "\(self.creds.deviceId) (dehydrated)", pickleKey: ssKey)
+            let keysUploadRequest = try dehydrator.keysForUpload(deviceDisplayName: "\(self.creds.deviceId) (dehydrated)", pickleKey: Data(pickleKey.utf8))
             
             (data, response) = try await self.call(method: "PUT",
                                                    path: "/_matrix/client/unstable/org.matrix.msc3814.v1/dehydrated_device",
