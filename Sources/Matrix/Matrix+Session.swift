@@ -1002,7 +1002,8 @@ extension Matrix {
         public func dehydrateDeviceTaskOperation() async throws -> String? {
             cryptoLogger.debug("Dehydrating device \(self.creds.deviceId)")
             
-            guard let pickleKey = try self.crypto.getBackupKeys()?.recoveryKey().toBase58()
+            guard let recoveryKey = try self.crypto.getBackupKeys()?.recoveryKey().toBase58(),
+                  let pickleKey = KeyBackup.RecoveryKey.extractCurveKeyFromRecoveryKey(recoveryKey: recoveryKey)
             else {
                 self.dehydrateRequestTask = nil
                 cryptoLogger.error("Could not access backup recovery key for device dehydration")
@@ -1048,7 +1049,7 @@ extension Matrix {
                 
                 let deviceId = responseBody.deviceId
                 do {
-                    let rehydrator = try crypto.dehydratedDevices().rehydrate(pickleKey: Data(pickleKey.utf8), deviceId: deviceId, deviceData: deviceDataString)
+                    let rehydrator = try crypto.dehydratedDevices().rehydrate(pickleKey: Data(pickleKey), deviceId: deviceId, deviceData: deviceDataString)
                     var next_batch = ""
                     
                     struct DehydratedDeviceEventsResponseBody: Codable {
@@ -1092,7 +1093,7 @@ extension Matrix {
             
             // Device dehydration
             let dehydrator = try crypto.dehydratedDevices().create()
-            let keysUploadRequest = try dehydrator.keysForUpload(deviceDisplayName: "\(self.creds.deviceId) (dehydrated)", pickleKey: Data(pickleKey.utf8))
+            let keysUploadRequest = try dehydrator.keysForUpload(deviceDisplayName: "\(self.creds.deviceId) (dehydrated)", pickleKey: Data(pickleKey))
             
             (data, response) = try await self.call(method: "PUT",
                                                    path: "/_matrix/client/unstable/org.matrix.msc3814.v1/dehydrated_device",
