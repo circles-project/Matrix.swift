@@ -148,4 +148,5 @@ public let M_RESOURCE_LIMIT_EXCEEDED = "M_RESOURCE_LIMIT_EXCEEDED"
 public let M_CANNOT_LEAVE_SERVER_NOTICE_ROOM = "M_CANNOT_LEAVE_SERVER_NOTICE_ROOM"
 
 // MARK: FUTO types
-public let ORG_FUTO_SSSS_KEY_DEHYDRATION = "org.futo.ssss.key.dehydration"
+// Keys are already prefixed with ORG_FUTO_SSSS_KEY_PREFIX
+public let ORG_FUTO_SSSS_KEY_DEHYDRATION = "dehydration"
