@@ -214,12 +214,12 @@ extension Matrix {
                     }
                     
                     // Create dehydration key if does not exist
-                    if try await self.secretStore?.getKey(keyId: ORG_FUTO_SSSS_KEY_DEHYDRATION) == nil {
+                    if try await self.secretStore?.getKey(keyId: ORG_FUTO_SSSS_KEY_DEHYDRATED_DEVICE) == nil {
                         let bytes = try Random.generateBytes(byteCount: 32)
                         let data = Data(bytes)
                         
-                        let description = try SecretStore.generateKeyDescription(key: data, keyId: ORG_FUTO_SSSS_KEY_DEHYDRATION)
-                        let key = SecretStorageKey(key: data, keyId: ORG_FUTO_SSSS_KEY_DEHYDRATION, description: description)
+                        let description = try SecretStore.generateKeyDescription(key: data, keyId: ORG_FUTO_SSSS_KEY_DEHYDRATED_DEVICE)
+                        let key = SecretStorageKey(key: data, keyId: ORG_FUTO_SSSS_KEY_DEHYDRATED_DEVICE, description: description)
                         try await self.secretStore?.addNewSecretStorageKey(key)
                     }
                 }
@@ -1012,7 +1012,7 @@ extension Matrix {
         public func dehydrateDeviceTaskOperation() async throws -> String? {
             cryptoLogger.debug("Dehydrating device \(self.creds.deviceId)")
             
-            guard let ssKey = try await self.secretStore?.getKey(keyId: ORG_FUTO_SSSS_KEY_DEHYDRATION)
+            guard let ssKey = try await self.secretStore?.getKey(keyId: ORG_FUTO_SSSS_KEY_DEHYDRATED_DEVICE)
             else {
                 self.dehydrateRequestTask = nil
                 cryptoLogger.error("Could not access SS key for device dehydration")
