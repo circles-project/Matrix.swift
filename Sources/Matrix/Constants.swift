@@ -149,4 +149,4 @@ public let M_CANNOT_LEAVE_SERVER_NOTICE_ROOM = "M_CANNOT_LEAVE_SERVER_NOTICE_ROO
 
 // MARK: FUTO types
 // Keys are already prefixed with ORG_FUTO_SSSS_KEY_PREFIX
-public let ORG_FUTO_SSSS_KEY_DEHYDRATION = "dehydration"
+public let ORG_FUTO_SSSS_KEY_DEHYDRATION = "dehydrated_device"
