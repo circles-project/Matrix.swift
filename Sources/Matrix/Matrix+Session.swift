@@ -176,6 +176,10 @@ extension Matrix {
             // Phase 1 init is done -- Now we can reference `self`
             // Ok now we're initialized as a valid Matrix.Client (super class)
             
+            // Populate our own User in the users dictionary
+            // This is to mitigate a race condition later when we start up the session and multiple pieces of the app call getUser() at (nearly) the same time
+            let _ = self.getUser(userId: creds.userId)
+            
             // Set up crypto stuff
             // Secret storage
             cryptoLogger.debug("Setting up secret storage")
