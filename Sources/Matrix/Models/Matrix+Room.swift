@@ -1184,7 +1184,7 @@ extension Matrix {
         
         // MARK: Pagination
         
-        private(set) public var canPaginate: Bool = true
+        @Published private(set) public var canPaginate: Bool = true
         
         public func paginate(limit: UInt?=nil) async throws {
             let response = try await self.session.getMessages(roomId: roomId, forward: false, from: self.backwardToken, limit: limit)
