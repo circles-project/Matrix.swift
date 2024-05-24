@@ -1750,7 +1750,11 @@ extension Matrix {
                 throw Matrix.Error("Failed to encrypt and hash")
             }
             let ciphertext = Data(encryptedBytes)
-            let mxc = try await self.uploadData(data: ciphertext, contentType: contentType)
+            guard let mxc = try? await self.uploadData(data: ciphertext, contentType: contentType)
+            else {
+                logger.error("Failed to upload encrypted data")
+                throw Matrix.Error("Failed to upload encrypted data")
+            }
             
             guard let unpaddedSHA256 = Base64.unpadded(sha256sum),
                   let unpaddedIV = Base64.unpadded(iv),
