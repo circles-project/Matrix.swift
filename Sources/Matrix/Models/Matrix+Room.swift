@@ -33,7 +33,7 @@ extension Matrix {
         public let session: Session
         private var dataStore: DataStore?
         
-        @Published private(set) public var avatar: NativeImage?
+        @Published private(set) public var avatar: NativeImage? = nil
         private var currentAvatarUrl: MXC?          // Remember where we got our current avatar image, so we can know when to fetch a new one (or not)
         
         private(set) public var timeline: OrderedDictionary<EventId,Message> //[ClientEventWithoutRoomId]
@@ -116,6 +116,7 @@ extension Matrix {
             ]
             self.replies = [:]
             self.state = [:]
+            self.avatar = nil
             self.accountData = [:]
             self.myReadReceipt = initialReadReceipt
             self.onLeave = onLeave
