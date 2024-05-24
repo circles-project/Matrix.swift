@@ -37,7 +37,7 @@ extension Matrix {
         @Published public var invitations: [RoomId: Matrix.InvitedRoom]
         @Published public var spaceChildRooms: [RoomId: Matrix.SpaceChildRoom]
         
-        public private(set) var users: [UserId: Matrix.User]
+        public private(set) var users: ConcurrentDictionary<UserId,Matrix.User> //[UserId: Matrix.User]
         
         // cvw: Stuff that we need to add, but haven't got to yet
         public typealias AccountDataFilter = (String) -> Bool
@@ -132,7 +132,7 @@ extension Matrix {
             self.rooms = [:]
             self.invitations = [:]
             self.spaceChildRooms = [:]
-            self.users = [:]
+            self.users = .init(n: 16)
             self.accountData = [:]
             
             self.syncToken = syncToken
@@ -2635,7 +2635,7 @@ extension Matrix {
                 self.syncRequestTask?.cancel()
                 self.dehydrateRequestTask?.cancel()
                 self.backgroundSyncTask?.cancel()
-                self.users = [:]
+                self.users = .init(n: 16)
                 self.rooms = [:]
                 self.invitations = [:]
                 self.spaceChildRooms = [:]
