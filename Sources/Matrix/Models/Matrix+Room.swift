@@ -1285,8 +1285,9 @@ extension Matrix {
                                                                   originServerTS: UInt64(1000*Date().timeIntervalSince1970),
                                                                   sender: session.creds.userId,
                                                                   type: M_ROOM_MESSAGE)
+                let newLocalEchoMessage = Matrix.Message(event: localEchoEvent, room: self)
                 await MainActor.run {
-                    self.localEchoMessage = Matrix.Message(event: localEchoEvent, room: self)
+                    self.localEchoMessage = newLocalEchoMessage
                 }
             }
             return eventId
