@@ -75,6 +75,7 @@ public let M_SECRET_STORAGE_DEFAULT_KEY = "m.secret_storage.default_key"
 public let ORG_FUTO_SSSS_KEY_PREFIX = "org.futo.ssss.key" // This one is like M_SECRET_STORAGE_KEY_PREFIX but we use it to store encrypted keys as secrets, whereas the other one is only for storing the key descriptions
 // We already have M_TAG = "m.tag"
 public let M_MEGOLM_BACKUP_V1 = "m.megolm_backup.v1" // For storing the private half of the recovery key, as an encrypted secret
+public let M_DEHYDRATED_DEVICE = "m.dehydrated_device"
 
 // MARK: Room types
 public let M_SPACE = "m.space"
@@ -146,7 +147,3 @@ public let M_TOO_LARGE = "M_TOO_LARGE"
 public let M_EXCLUSIVE = "M_EXCLUSIVE"
 public let M_RESOURCE_LIMIT_EXCEEDED = "M_RESOURCE_LIMIT_EXCEEDED"
 public let M_CANNOT_LEAVE_SERVER_NOTICE_ROOM = "M_CANNOT_LEAVE_SERVER_NOTICE_ROOM"
-
-// MARK: FUTO types
-// Keys are already prefixed with ORG_FUTO_SSSS_KEY_PREFIX
-public let ORG_FUTO_SSSS_KEY_DEHYDRATED_DEVICE = "dehydrated_device"
