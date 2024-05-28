@@ -737,7 +737,7 @@ public class UIAuthSession: UIASession, ObservableObject {
         savePasswordToKeychain()
     }
     
-    private func savePasswordToKeychain() {
+    public func savePasswordToKeychain() {
         if let password = self.storage["password"] as? String,
            let userId = self.creds?.userId ?? self.storage["userId"] as? UserId
         {
