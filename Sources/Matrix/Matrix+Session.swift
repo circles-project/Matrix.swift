@@ -1006,14 +1006,6 @@ extension Matrix {
         public func dehydrateDeviceTaskOperation() async throws -> String? {
             cryptoLogger.debug("Dehydrating device \(self.creds.deviceId)")
             
-            guard let ssKeyId = try await self.secretStore?.getDefaultKeyId(),
-                  let ssKey = try await self.secretStore?.getKey(keyId: ssKeyId)
-            else {
-                self.dehydrateRequestTask = nil
-                cryptoLogger.error("Could not access SS key for device dehydration")
-                throw Matrix.Error("Could not access SS key for device dehydration")
-            }
-            
             struct DehydratedDeviceResponseBody: Codable {
                 var deviceId: String
                 var deviceData: [String: String]?
@@ -1034,7 +1026,8 @@ extension Matrix {
                                                        body: nil,
                                                        expectedStatuses: [200,404])
             
-            if response.statusCode != 404 {
+            if response.statusCode != 404,
+               let ssKey = try await self.secretStore?.getSecretData(type: M_DEHYDRATED_DEVICE) {
                 cryptoLogger.debug("Rehydrating device \(self.creds.deviceId)")
                 
                 // Sigh... device ids may contain '/' characters which are also allowed in url paths
@@ -1052,45 +1045,54 @@ extension Matrix {
                 }
                 
                 let deviceId = responseBody.deviceId
-                let rehydrator = try crypto.dehydratedDevices().rehydrate(pickleKey: ssKey, deviceId: deviceId, deviceData: deviceDataString)
-                var next_batch = ""
-                
-                struct DehydratedDeviceEventsResponseBody: Codable {
-                    var events: [ToDeviceEvent]
-                    var nextBatch: String
+                do {
+                    let rehydrator = try crypto.dehydratedDevices().rehydrate(pickleKey: ssKey, deviceId: deviceId, deviceData: deviceDataString)
+                    var next_batch = ""
                     
-                    enum CodingKeys: String, CodingKey {
-                        case events = "events"
-                        case nextBatch = "next_batch"
+                    struct DehydratedDeviceEventsResponseBody: Codable {
+                        var events: [ToDeviceEvent]
+                        var nextBatch: String
+                        
+                        enum CodingKeys: String, CodingKey {
+                            case events = "events"
+                            case nextBatch = "next_batch"
+                        }
+                    }
+                    
+                    while true {
+                        (data, response) = try await self.call(method: "POST",
+                                                               path: "/_matrix/client/unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events",
+                                                               body: "{\"next_batch\": \"\(next_batch)\"}",
+                                                               disableUrlEncoding: true)
+                        
+                        guard let responseBody = try? decoder.decode(DehydratedDeviceEventsResponseBody.self, from: data),
+                              let eventsJson = try? encoder.encode(responseBody.events),
+                              let eventsString = String(data: eventsJson, encoding: .utf8)
+                        else {
+                            self.dehydrateRequestTask = nil
+                            cryptoLogger.error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events response")
+                            throw Matrix.Error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events response")
+                        }
+                        
+                        if responseBody.events.count == 0 {
+                            break
+                        }
+                        
+                        next_batch = responseBody.nextBatch
+                        cryptoLogger.debug("Device rehydration \(deviceId): Received event batch \(eventsString) for batch \(next_batch)")
+                        try rehydrator.receiveEvents(events: eventsString)
                     }
                 }
-                
-                while true {
-                    (data, response) = try await self.call(method: "POST",
-                                                           path: "/_matrix/client/unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events",
-                                                           body: "{\"next_batch\": \"\(next_batch)\"}",
-                                                           disableUrlEncoding: true)
-                    
-                    guard let responseBody = try? decoder.decode(DehydratedDeviceEventsResponseBody.self, from: data),
-                          let eventsJson = try? encoder.encode(responseBody.events),
-                          let eventsString = String(data: eventsJson, encoding: .utf8)
-                    else {
-                        self.dehydrateRequestTask = nil
-                        cryptoLogger.error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events response")
-                        throw Matrix.Error("Failed to process /unstable/org.matrix.msc3814.v1/dehydrated_device/\(deviceIdUrlEncoded)/events response")
-                    }
-                    
-                    if responseBody.events.count == 0 {
-                        break
-                    }
-                    
-                    next_batch = responseBody.nextBatch
-                    cryptoLogger.debug("Device rehydration \(deviceId): Received event batch \(eventsString) for batch \(next_batch)")
-                    try rehydrator.receiveEvents(events: eventsString)
+                catch {
+                    cryptoLogger.error("Failed to rehydrate device, discarding and creating new one...")
                 }
             }
             
             // Device dehydration
+            let bytes = try Random.generateBytes(byteCount: 32)
+            let ssKey = Data(bytes)
+            try await self.secretStore?.saveSecretData(ssKey, type: M_DEHYDRATED_DEVICE)
+            
             let dehydrator = try crypto.dehydratedDevices().create()
             let keysUploadRequest = try dehydrator.keysForUpload(deviceDisplayName: "\(self.creds.deviceId) (dehydrated)", pickleKey: ssKey)
             
