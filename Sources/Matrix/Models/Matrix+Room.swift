@@ -1197,7 +1197,10 @@ extension Matrix {
             // The timeline messages are in the "chunk" piece of the response
             try await self.updateTimeline(from: response.chunk)
             self.backwardToken = response.end ?? self.backwardToken
-            self.canPaginate = response.end != nil
+            // Now that canPaginate is @Published, we have to use MainActor to update it
+            await MainActor.run {
+                self.canPaginate = response.end != nil
+            }
         }
         
         // MARK: Encryption
