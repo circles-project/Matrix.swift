@@ -197,12 +197,14 @@ extension Matrix {
             }
         }
         
+        // https://spec.matrix.org/v1.10/client-server-api/#conditions-1
         public enum Kind: String, Codable, Equatable {
-            case override
-            case underride
-            case sender
-            case room
-            case content
+            case eventMatch = "event_match"
+            case eventPropertyIs = "event_property_is"
+            case eventPropertyContains = "event_property_contains"
+            case containsDisplayName = "contains_display_name"
+            case roomMemberCount = "room_member_count"
+            case senderNotificationPermission = "sender_notification_permission"
         }
     }
 }
