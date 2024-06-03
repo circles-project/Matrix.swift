@@ -124,6 +124,16 @@ extension Matrix {
                 public var kind: Kind
                 public var pattern: String?
                 public var value: Value?
+                
+                // https://spec.matrix.org/v1.10/client-server-api/#conditions-1
+                public enum Kind: String, Codable, Equatable {
+                    case eventMatch = "event_match"
+                    case eventPropertyIs = "event_property_is"
+                    case eventPropertyContains = "event_property_contains"
+                    case containsDisplayName = "contains_display_name"
+                    case roomMemberCount = "room_member_count"
+                    case senderNotificationPermission = "sender_notification_permission"
+                }
 
                 public enum Value: Codable {
                     case boolean(Bool)
@@ -184,27 +194,25 @@ extension Matrix {
                     self.key = try container.decodeIfPresent(String.self, forKey: .key)
 
                     PushRules.logger?.debug("Decoding PushRule.kind")
-                    self.kind = try container.decode(Matrix.PushRules.Kind.self, forKey: .kind)
+                    self.kind = try container.decode(PushCondition.Kind.self, forKey: .kind)
 
                     PushRules.logger?.debug("Decoding PushRule.pattern")
                     self.pattern = try container.decodeIfPresent(String.self, forKey: .pattern)
 
                     PushRules.logger?.debug("Decoding PushRule.value")
-                    self.value = try container.decodeIfPresent(Matrix.PushRules.PushRule.PushCondition.Value.self, forKey: .value)
+                    self.value = try container.decodeIfPresent(PushCondition.Value.self, forKey: .value)
                     
                     PushRules.logger?.debug("Done decoding PushRule")
                 }
             }
         }
         
-        // https://spec.matrix.org/v1.10/client-server-api/#conditions-1
         public enum Kind: String, Codable, Equatable {
-            case eventMatch = "event_match"
-            case eventPropertyIs = "event_property_is"
-            case eventPropertyContains = "event_property_contains"
-            case containsDisplayName = "contains_display_name"
-            case roomMemberCount = "room_member_count"
-            case senderNotificationPermission = "sender_notification_permission"
+            case override
+            case underride
+            case sender
+            case room
+            case content
         }
     }
 }
