@@ -6,9 +6,16 @@
 //
 
 import Foundation
+import os
 
 extension Matrix {
     public enum PushRules {
+        
+        private(set) public static var logger: os.Logger?
+        
+        public static func setLogger(_ logger: os.Logger?) {
+            self.logger = logger
+        }
         
         public enum Action: Codable, Equatable {
             case notify
@@ -24,7 +31,7 @@ extension Matrix {
             }
             
             public init(from decoder: Decoder) throws {
-                //Matrix.logger.debug("Decoding push rule action")
+                PushRules.logger?.debug("Decoding push rule action")
                                 
                 struct ActionDecodingError: Swift.Error {
                     var msg: String
@@ -116,12 +123,86 @@ extension Matrix {
                 public var key: String?
                 public var kind: Kind
                 public var pattern: String?
+                public var value: Value?
+                
+                // https://spec.matrix.org/v1.10/client-server-api/#conditions-1
+                public enum Kind: String, Codable, Equatable {
+                    case eventMatch = "event_match"
+                    case eventPropertyIs = "event_property_is"
+                    case eventPropertyContains = "event_property_contains"
+                    case containsDisplayName = "contains_display_name"
+                    case roomMemberCount = "room_member_count"
+                    case senderNotificationPermission = "sender_notification_permission"
+                }
+
+                public enum Value: Codable {
+                    case boolean(Bool)
+                    case integer(Int)
+                    case string(String)
+
+                    public init(from decoder: Decoder) throws {
+                        PushRules.logger?.debug("Decoding PushCondition.Value")
+                        if let bool = try? Bool(from: decoder) {
+                            self = .boolean(bool)
+                            return
+                        } else if let int = try? Int(from: decoder) {
+                            self = .integer(int)
+                            return
+                        } else if let string = try? String(from: decoder) {
+                            self = .string(string)
+                            return
+                        } else {
+                            Matrix.logger.error("Failed to decode PushRule PushCondition value")
+                            throw Matrix.Error("Failed to decode PushRule PushCondition value")
+                        }
+                    }
+
+                    public enum CodingKeys: CodingKey {
+                        case boolean
+                        case integer
+                        case string
+                    }
+
+                    public func encode(to encoder: Encoder) throws {
+                        switch self {
+                        case .boolean(let bool):
+                            try bool.encode(to: encoder)
+                        case .integer(let int):
+                            try int.encode(to: encoder)
+                        case .string(let string):
+                            try string.encode(to: encoder)
+                        }
+                    }
+                }
                 
                 public enum CodingKeys: String, CodingKey {
                     case isA = "is"
                     case key
                     case kind
                     case pattern
+                    case value
+                }
+                
+                public init(from decoder: Decoder) throws {
+                    PushRules.logger?.debug("Decoding PushRule")
+                    let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+
+                    PushRules.logger?.debug("Decoding PushRule.isA")
+                    self.isA = try container.decodeIfPresent(String.self, forKey: .isA)
+
+                    PushRules.logger?.debug("Decoding PushRule.key")
+                    self.key = try container.decodeIfPresent(String.self, forKey: .key)
+
+                    PushRules.logger?.debug("Decoding PushRule.kind")
+                    self.kind = try container.decode(PushCondition.Kind.self, forKey: .kind)
+
+                    PushRules.logger?.debug("Decoding PushRule.pattern")
+                    self.pattern = try container.decodeIfPresent(String.self, forKey: .pattern)
+
+                    PushRules.logger?.debug("Decoding PushRule.value")
+                    self.value = try container.decodeIfPresent(PushCondition.Value.self, forKey: .value)
+                    
+                    PushRules.logger?.debug("Done decoding PushRule")
                 }
             }
         }

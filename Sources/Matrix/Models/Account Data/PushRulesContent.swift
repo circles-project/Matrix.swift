@@ -8,7 +8,7 @@
 import Foundation
 import AnyCodable
 
-// https://spec.matrix.org/v1.5/client-server-api/#push-rules
+// https://spec.matrix.org/v1.10/client-server-api/#push-rules
 // This is some of the messiest crap in the entire Matrix spec.
 // And that is saying something.
 public struct PushRulesContent: Codable {
