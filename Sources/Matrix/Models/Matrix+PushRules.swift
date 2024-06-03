@@ -116,12 +116,53 @@ extension Matrix {
                 public var key: String?
                 public var kind: Kind
                 public var pattern: String?
+                public var value: Value?
+
+                public enum Value: Codable {
+                    case boolean(Bool)
+                    case integer(Int)
+                    case string(String)
+
+                    public init(from decoder: Decoder) throws {
+                        if let bool = try? Bool(from: decoder) {
+                            self = .boolean(bool)
+                            return
+                        } else if let int = try? Int(from: decoder) {
+                            self = .integer(int)
+                            return
+                        } else if let string = try? String(from: decoder) {
+                            self = .string(string)
+                            return
+                        } else {
+                            Matrix.logger.error("Failed to decode PushRule PushCondition value")
+                            throw Matrix.Error("Failed to decode PushRule PushCondition value")
+                        }
+                    }
+
+                    public enum CodingKeys: CodingKey {
+                        case boolean
+                        case integer
+                        case string
+                    }
+
+                    public func encode(to encoder: Encoder) throws {
+                        switch self {
+                        case .boolean(let bool):
+                            try bool.encode(to: encoder)
+                        case .integer(let int):
+                            try int.encode(to: encoder)
+                        case .string(let string):
+                            try string.encode(to: encoder)
+                        }
+                    }
+                }
                 
                 public enum CodingKeys: String, CodingKey {
                     case isA = "is"
                     case key
                     case kind
                     case pattern
+                    case value
                 }
             }
         }
