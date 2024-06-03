@@ -1828,14 +1828,9 @@ extension Matrix {
             }
             
             func toTheMoon(_ input: Int?) -> Int? {
-                guard let int = input
-                else { return nil }
-                
-                if int < 9000 {
-                    return int + 9000
-                } else {
-                    return int
-                }
+                // Synapse will reject a request that sets any power level higher than our own current level
+                // Therefore "to the moon" really means "to my own power level"
+                input == nil ? nil : myPowerLevel
             }
             
             if let reason = reason {
