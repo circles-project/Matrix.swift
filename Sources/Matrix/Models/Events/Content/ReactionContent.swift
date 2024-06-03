@@ -6,9 +6,16 @@
 //
 
 import Foundation
+import os
 
 /// m.reaction: https://github.com/uhoreg/matrix-doc/blob/aggregations-reactions/proposals/2677-reactions.md
 public struct ReactionContent: RelatedEventContent {
+    
+    private(set) public static var logger: os.Logger?
+
+    public static func setLogger(_ logger: os.Logger?) {
+        Self.logger = logger
+    }
 
     public var relatesTo: mRelatesTo
     
@@ -22,6 +29,13 @@ public struct ReactionContent: RelatedEventContent {
     
     public init(relatesTo: mRelatesTo) {
         self.relatesTo = relatesTo
+    }
+    
+    public init(from decoder: Decoder) throws {
+        Self.logger?.debug("Decoding ReactionContent")
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        Self.logger?.debug("Decoding ReactionContent.relatesTo")
+        self.relatesTo = try container.decode(mRelatesTo.self, forKey: .relatesTo)
     }
     
     public var relationType: String? {
