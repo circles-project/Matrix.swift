@@ -25,7 +25,7 @@ extension Matrix {
         public var sender: User
         
         @Published public var thumbnail: NativeImage?
-        @Published private(set) public var reactions: [String:Set<UserId>]
+        @Published private(set) public var reactions: [String:Set<Message>]
         @Published private(set) public var replies: OrderedDictionary<EventId,Message>
         @Published private(set) public var replacement: Message?
         private var replacementPublisher: Cancellable?
@@ -96,11 +96,8 @@ extension Matrix {
                        let key = content.relatesTo.key
                     {
                         // Ok, this is one we can use
-                        if self.reactions[key] == nil {
-                            self.reactions[key] = [reaction.sender.userId]
-                        } else {
-                            self.reactions[key]!.insert(reaction.sender.userId)
-                        }
+                        let existingReactions = self.reactions[key] ?? []
+                        self.reactions[key] = existingReactions.union([reaction])
                     }
                 }
             }
@@ -190,9 +187,10 @@ extension Matrix {
         
         // MARK: Reactions
         
-        // https://github.com/uhoreg/matrix-doc/blob/aggregations-reactions/proposals/2677-reactions.md
-        public func addReaction(event: ClientEventWithoutRoomId) async {
+        public func addReaction(message: Message) async {
+            let event = message.event
             logger.debug("Adding reaction message \(event.eventId)")
+            
             guard let content = event.content as? ReactionContent,
                   content.relatesTo.eventId == self.eventId,
                   let key = content.relatesTo.key
@@ -200,64 +198,32 @@ extension Matrix {
                 logger.error("Not adding reaction: Couldn't parse reaction message content")
                 return
             }
+            
             await MainActor.run {
-                if reactions[key] == nil {
-                    reactions[key] = [event.sender]
-                } else {
-                    reactions[key]!.insert(event.sender)
-                }
+                let existingReactions = self.reactions[key] ?? []
+                self.reactions[key] = existingReactions.union([message])
             }
             logger.debug("Now we have \(self.reactions.keys.count) distinct reactions")
         }
-        
-        public func addReaction(message: Message) async {
-            await self.addReaction(event: message.event)
-        }
-        
-        public func removeReaction(event: ClientEventWithoutRoomId) async {
-            guard let content = event.content as? ReactionContent,
-                  let key = content.relatesTo.key
-            else {
-                logger.error("Can't remove reaction: Event \(event.eventId) is not a reaction")
-                return
-            }
-            
-            await MainActor.run {
-                reactions[key]?.remove(event.sender)
-            }
-        }
                 
         public func removeReaction(message: Message) async {
-            await self.removeReaction(event: message.event)
+            guard let content = message.content as? ReactionContent,
+                  let key = content.relatesTo.key
+            else {
+                logger.error("Can't remove reaction: Message \(message.eventId) is not a reaction")
+                return
+            }
+            await MainActor.run {
+                let existingReactions = self.reactions[key] ?? []
+                self.reactions[key] = existingReactions.subtracting([message])
+            }
         }
         
         public func sendRemoveReaction(_ emoji: String) async throws {
             let userId = room.session.creds.userId
-            guard reactions[emoji]?.contains(userId) ?? false
+            guard let myMessage = self.reactions[emoji]?.first(where: {$0.sender.userId == userId})
             else {
                 logger.error("Can't remove reaction \(emoji) because there isn't one from us")
-                return
-            }
-            
-            // Now we have to go digging in the room's data to find the original event
-            guard let messages = room.relations[M_ANNOTATION]?[eventId]?.filter({$0.type == M_REACTION})
-            else {
-                logger.error("Can't find any reaction events")
-                return
-            }
-            logger.debug("Found \(messages.count) reactions")
-            
-            guard let myMessage = messages.first(where: { message in
-                      guard message.sender.userId == userId,
-                            let content = message.content as? ReactionContent,
-                            content.relatesTo.key == emoji
-                      else {
-                          return false
-                      }
-                      return true
-                  })
-            else {
-                logger.error("Can't find my reaction message for \(emoji)")
                 return
             }
             
@@ -269,7 +235,7 @@ extension Matrix {
         public func loadReactions() {
             logger.debug("Loading reactions")
             
-            if let task = self.loadReactionsTask {
+            if self.loadReactionsTask != nil {
                 logger.debug("Load reactions task is already running.  Not starting a new one.")
                 return
             }
@@ -280,7 +246,8 @@ extension Matrix {
                 logger.debug("Loaded \(reactionEvents.count) reactions")
                 
                 for event in reactionEvents {
-                    await addReaction(event: event)
+                    let message = Message(event: event, room: room)
+                    await addReaction(message: message)
                 }
                 
                 logger.debug("Load reactions task is done")

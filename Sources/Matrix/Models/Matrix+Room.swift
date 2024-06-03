@@ -306,7 +306,7 @@ extension Matrix {
                                                                                     let key = reactionContent.relatesTo.key */
                             {
                                 logger.debug("Adding event \(event.eventId) as a reaction to message \(relatedEventId)")
-                                await relatedMessage.addReaction(event: event)
+                                await relatedMessage.addReaction(message: message)
                             }
                             else if relType == M_THREAD && (event.type == M_ROOM_MESSAGE || event.type == M_ROOM_ENCRYPTED) {
                                 logger.debug("THREAD Adding event \(event.eventId) as a reply to \(relatedEventId)")
