@@ -10,6 +10,7 @@ import Foundation
 extension Matrix {
     
     public static func decodeEventContent(of eventType: String, from data: Data) throws -> Codable {
+        logger.debug("Decoding event of type \(eventType, privacy: .public)")
         let decoder = JSONDecoder()
         if let codableType = eventTypes[eventType] {
             let content = try decoder.decode(codableType.self, from: data)
@@ -38,7 +39,7 @@ extension Matrix {
     }
     
     public static func decodeEventContent(of eventType: String, from decoder: Decoder) throws -> Codable {
-        //logger.debug("Decoding event of type \(eventType, privacy: .public)")
+        logger.debug("Decoding event of type \(eventType, privacy: .public)")
         
         let container = try decoder.container(keyedBy: MinimalEvent.CodingKeys.self)
 
@@ -72,6 +73,8 @@ extension Matrix {
     }
     
     public static func decodeAccountData(of dataType: String, from decoder: Decoder) throws -> Codable {
+        logger.debug("Decoding account data event of type \(dataType, privacy: .public)")
+
         enum CodingKeys: String, CodingKey {
             case content
         }
