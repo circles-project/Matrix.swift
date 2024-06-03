@@ -168,6 +168,7 @@ public enum Matrix {
         M_CROSS_SIGNING_USER_SIGNING : SecretStore.Secret.self,
         M_CROSS_SIGNING_SELF_SIGNING : SecretStore.Secret.self,
         M_MEGOLM_BACKUP_V1: SecretStore.Secret.self,
+        M_DEHYDRATED_DEVICE: SecretStore.Secret.self,
     ]
     static var cryptoKeyTypes: [String: Codable.Type] = [
         : // FIXME
