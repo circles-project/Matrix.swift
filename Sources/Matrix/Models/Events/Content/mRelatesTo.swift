@@ -6,8 +6,15 @@
 //
 
 import Foundation
+import os
 
 public struct mRelatesTo: Codable {
+    
+    private(set) public static var logger: os.Logger?
+    
+    public static func setLogger(_ logger: os.Logger?) {
+        Self.logger = logger
+    }
 
     public struct mInReplyTo: Codable {
         var eventId: EventId
@@ -18,7 +25,7 @@ public struct mRelatesTo: Codable {
             self.eventId = eventId
         }
         public init(from decoder: Decoder) throws {
-            let container: KeyedDecodingContainer<mRelatesTo.mInReplyTo.CodingKeys> = try decoder.container(keyedBy: mRelatesTo.mInReplyTo.CodingKeys.self)
+            let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: mRelatesTo.mInReplyTo.CodingKeys.self)
             self.eventId = try container.decode(EventId.self, forKey: mRelatesTo.mInReplyTo.CodingKeys.eventId)
         }
     }
@@ -70,12 +77,25 @@ public struct mRelatesTo: Codable {
     }
     
     public init(from decoder: Decoder) throws {
+        Self.logger?.debug("Decoding mRelatesTo")
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        Self.logger?.debug("Decoding mRelatesTo.relType")
         self.relType = try container.decodeIfPresent(String.self, forKey: .relType)
+
+        Self.logger?.debug("Decoding mRelatesTo.eventId")
         self.eventId = try container.decodeIfPresent(EventId.self, forKey: .eventId)
+
+        Self.logger?.debug("Decoding mRelatesTo.key")
         self.key = try container.decodeIfPresent(String.self, forKey: .key)
+
+        Self.logger?.debug("Decoding mRelatesTo.inReplyTo")
         self.inReplyTo = try container.decodeIfPresent(mRelatesTo.mInReplyTo.self, forKey: .inReplyTo)
+
+        Self.logger?.debug("Decoding mRelatesTo.isFallingBack")
         self.isFallingBack = try container.decodeIfPresent(Bool.self, forKey: .isFallingBack)
+        
+        Self.logger?.debug("Done decoding mRelatesTo")
     }
 }
 
