@@ -67,7 +67,7 @@ extension Matrix {
             info.mimetype
         }
         
-        public var caption: String? {
+        public var captionMessage: String? {
             nil
         }
         

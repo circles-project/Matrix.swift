@@ -40,7 +40,7 @@ extension Matrix {
             nil
         }
         
-        public var caption: String? {
+        public var captionMessage: String? {
             nil
         }
         

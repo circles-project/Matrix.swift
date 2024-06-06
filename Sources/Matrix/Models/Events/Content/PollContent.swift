@@ -269,7 +269,7 @@ public struct PollStartContent: Matrix.MessageContent {
         nil
     }
     
-    public var caption: String? {
+    public var captionMessage: String? {
         nil
     }
     
@@ -403,7 +403,7 @@ public struct PollResponseContent: Matrix.MessageContent {
         nil
     }
     
-    public var caption: String? {
+    public var captionMessage: String? {
         nil
     }
     
@@ -551,7 +551,7 @@ public struct PollEndContent: Matrix.MessageContent {
         nil
     }
     
-    public var caption: String? {
+    public var captionMessage: String? {
         nil
     }
     
