@@ -80,6 +80,8 @@ extension Matrix {
             self.syncLogger = nil
         }
         
+        private var propagateProfileUpdates = false
+        
         public var ignoredUserIds: [UserId] {
             guard let content = self.accountData[M_IGNORED_USER_LIST] as? IgnoredUserListContent
             else {
@@ -264,22 +266,35 @@ extension Matrix {
         
         // MARK: Profile management
         
-        override public func setMyDisplayName(_ name: String) async throws {
-            try await super.setMyDisplayName(name)
+        public func inhibitProfilePropagation() {
+            self.propagateProfileUpdates = false
+        }
+        
+        public func enableProfilePropagation() {
+            self.propagateProfileUpdates = true
+        }
+        
+        override public func setMyDisplayName(_ name: String, propagate: Bool? = nil) async throws {
+            let propagate = propagate ?? self.propagateProfileUpdates
+            try await super.setMyDisplayName(name, propagate: propagate)
             
             // FIXME: Until we can make Synapse conform to the spec and send m.presence events, we're just going to fake them ourselves
             await self.me.update(PresenceContent(displayname: name))
         }
         
-        override public func setMyAvatarUrl(_ mxc: MXC) async throws {
-            try await super.setMyAvatarUrl(mxc)
+        override public func setMyAvatarUrl(_ mxc: MXC, propagate: Bool? = nil) async throws {
+            let propagate = propagate ?? self.propagateProfileUpdates
+
+            try await super.setMyAvatarUrl(mxc, propagate: propagate)
             
             // FIXME: Until we can make Synapse conform to the spec and send m.presence events, we're just going to fake them ourselves
             await self.me.update(PresenceContent(avatarUrl: mxc))
         }
         
-        override public func setMyAvatarImage(_ image: Matrix.NativeImage) async throws -> MXC {
-            let mxc = try await super.setMyAvatarImage(image)
+        override public func setMyAvatarImage(_ image: Matrix.NativeImage, propagate: Bool? = nil) async throws -> MXC {
+            let propagate = propagate ?? self.propagateProfileUpdates
+
+            let mxc = try await super.setMyAvatarImage(image, propagate: propagate)
             
             // FIXME: Until we can make Synapse conform to the spec and send m.presence events, we're just going to fake them ourselves
             await self.me.update(PresenceContent(avatarUrl: mxc))

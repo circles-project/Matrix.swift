@@ -394,27 +394,45 @@ public class Client {
     // MARK: My User Profile
     
     // https://spec.matrix.org/v1.2/client-server-api/#put_matrixclientv3profileuseriddisplayname
-    public func setMyDisplayName(_ name: String) async throws {
+    public func setMyDisplayName(_ name: String, propagate: Bool? = nil) async throws {
+        let params: [String:String]?
+        if let propagate = propagate {
+            params = [
+                "propagate": propagate.description
+            ]
+        } else {
+            params = nil
+        }
         let (_, _) = try await call(method: "PUT",
                                     path: "/_matrix/client/v3/profile/\(creds.userId)/displayname",
+                                    params: params,
                                     body: [
                                         "displayname": name,
                                     ])
     }
     
-    public func setMyAvatarImage(_ image: NativeImage) async throws -> MXC {
+    public func setMyAvatarImage(_ image: NativeImage, propagate: Bool? = nil) async throws -> MXC {
         // First upload the image
         let mxc = try await uploadImage(image, maxSize: CGSize(width: 256, height: 256))
         // Then set that as our avatar
-        try await setMyAvatarUrl(mxc)
+        try await setMyAvatarUrl(mxc, propagate: propagate)
         // And return the mxc:// URL to the caller
         return mxc
     }
 
     
-    public func setMyAvatarUrl(_ mxc: MXC) async throws {
+    public func setMyAvatarUrl(_ mxc: MXC, propagate: Bool? = nil) async throws {
+        let params: [String:String]?
+        if let propagate = propagate {
+            params = [
+                "propagate": propagate.description
+            ]
+        } else {
+            params = nil
+        }
         let (_,_) = try await call(method: "PUT",
                                    path: "_matrix/client/v3/profile/\(creds.userId)/avatar_url",
+                                   params: params,
                                    body: [
                                      "avatar_url": "\(mxc)",
                                    ])
