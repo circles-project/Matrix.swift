@@ -269,6 +269,10 @@ public struct PollStartContent: Matrix.MessageContent {
         nil
     }
     
+    public var caption: String? {
+        nil
+    }
+    
     public var thumbnail_info: Matrix.mThumbnailInfo? {
         nil
     }
@@ -396,6 +400,10 @@ public struct PollResponseContent: Matrix.MessageContent {
     
     // Protocol required implementations
     public var mimetype: String? {
+        nil
+    }
+    
+    public var caption: String? {
         nil
     }
     
@@ -540,6 +548,10 @@ public struct PollEndContent: Matrix.MessageContent {
     
     // Protocol required implementations
     public var mimetype: String? {
+        nil
+    }
+    
+    public var caption: String? {
         nil
     }
     

@@ -201,6 +201,7 @@ public protocol _MatrixMessageContent: Codable, RelatedEventContent {
     var msgtype: String {get}
     
     var mimetype: String? {get}
+    var caption: String? {get}
     
     var thumbnail_info: Matrix.mThumbnailInfo? {get}
     var thumbnail_file: Matrix.mEncryptedFile? {get}

@@ -94,6 +94,10 @@ extension Matrix {
             info.mimetype
         }
         
+        public var caption: String? {
+            caption
+        }
+        
         public var thumbnail_info: Matrix.mThumbnailInfo? {
             info.thumbnail_info
         }

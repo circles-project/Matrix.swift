@@ -40,6 +40,10 @@ extension Matrix {
             nil
         }
         
+        public var caption: String? {
+            nil
+        }
+        
         public var thumbnail_info: Matrix.mThumbnailInfo? {
             info.thumbnail_info
         }
