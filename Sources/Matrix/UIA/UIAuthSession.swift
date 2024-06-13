@@ -395,17 +395,24 @@ public class UIAuthSession: UIASession, ObservableObject {
         if let completed = newUiaaState.completed {
             if completed.contains(AUTH_TYPE) {
                 logger.debug("\(tag, privacy: .public)\tComplete")
-                let newStages: [String] = Array(stages.suffix(from: 1))
-                await MainActor.run {
-                    state = .inProgress(newUiaaState,newStages)
+                
+                // We need to check whether we just completed this stage for the first time (in which case we move on to the next stage)
+                // or if we just repeated a stage that was already completed (in which case we do not modify the list of remaining stages)
+                if uiaState.hasCompleted(stage: AUTH_TYPE) {
+                    logger.debug("\(tag, privacy: .public)\tCompleted stage \(AUTH_TYPE, privacy: .public) is a repeat")
+                } else {
+                    let newStages: [String] = Array(stages.suffix(from: 1))
+                    await MainActor.run {
+                        state = .inProgress(newUiaaState,newStages)
+                    }
+                    logger.debug("New UIA state:")
+                    logger.debug("\tFlows:\t\(newUiaaState.flows, privacy: .public)")
+                    logger.debug("\tCompleted:\t\(completed, privacy: .public)")
+                    if let params = newUiaaState.params {
+                        logger.debug("\tParams:\t\(params)")
+                    }
+                    logger.debug("\tStages:\t\(newStages, privacy: .public)")
                 }
-                logger.debug("New UIA state:")
-                logger.debug("\tFlows:\t\(newUiaaState.flows, privacy: .public)")
-                logger.debug("\tCompleted:\t\(completed, privacy: .public)")
-                if let params = newUiaaState.params {
-                    logger.debug("\tParams:\t\(params)")
-                }
-                logger.debug("\tStages:\t\(newStages, privacy: .public)")
 
             } else {
                 logger.debug("\(tag, privacy: .public)\tStage isn't complete???  Completed = \(completed, privacy: .public)")
