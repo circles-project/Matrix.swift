@@ -448,7 +448,7 @@ public class Client {
     
     // MARK: Threepids
 
-    public func get3Pids() async throws -> [Threepid] {
+    public func getThreepids() async throws -> [Threepid] {
         let (data, response) = try await call(method: "GET", path: "/_matrix/client/v3/account/3pid")
         
         struct ResponseBody: Codable {
