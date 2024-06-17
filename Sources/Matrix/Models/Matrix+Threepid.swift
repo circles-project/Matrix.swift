@@ -9,9 +9,9 @@ import Foundation
 
 extension Matrix {
     public struct Threepid: Codable {
-        var addedAt: UInt
-        var address: String
-        var medium: String
-        var validatedAt: UInt
+        public var addedAt: UInt
+        public var address: String
+        public var medium: String
+        public var validatedAt: UInt
     }
 }
