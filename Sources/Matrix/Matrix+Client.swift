@@ -455,6 +455,10 @@ public class Client {
             var threepids: [Threepid]?
         }
         
+        if let raw = String(data: data, encoding: .utf8) {
+            logger.debug("GET /_matrix/client/v3/account/3pid - Got raw response: \(raw)")
+        }
+        
         let decoder = JSONDecoder()
         guard let responseBody = try? decoder.decode(ResponseBody.self, from: data)
         else {
