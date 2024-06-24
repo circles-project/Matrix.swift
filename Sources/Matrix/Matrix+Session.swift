@@ -309,6 +309,23 @@ extension Matrix {
             await self.me.update(PresenceContent(statusMessage: message))
         }
 
+        
+        // MARK: Threepids
+        
+        public func deleteThreepid(medium: String,
+                                   address: String,
+                                   completion handler: UiaCompletionHandler? = nil
+        ) async throws -> UIASession? {
+
+            return try await uiaCall(method: "POST",
+                                     path: "/_matrix/client/v3/account/3pid/delete",
+                                     requestDict: [
+                                        "medium": medium,
+                                        "address": address
+                                     ],
+                                     completion: handler)
+
+        }
 
         
         // MARK: Sync
