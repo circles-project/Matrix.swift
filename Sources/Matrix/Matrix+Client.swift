@@ -469,6 +469,17 @@ public class Client {
         return responseBody.threepids ?? []
     }
     
+    public func deleteThreepid(medium: String, address: String) async throws {
+        struct RequestBody: Codable {
+            var medium: String
+            var address: String
+        }
+        let body = RequestBody(medium: medium, address: address)
+        let (data, response) = try await call(method: "POST", path: "/_matrix/client/v3/account/3pid/delete", body: body)
+        
+        // And we just ignore the response - as long as we make it back here, it must have been HTTP 200 OK
+    }
+    
     // MARK: Other User Profiles
     
     public func getDisplayName(userId: UserId) async throws -> String? {
