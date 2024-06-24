@@ -446,6 +446,26 @@ public class Client {
         try await call(method: "PUT", path: "/_matrix/client/v3/presence/\(creds.userId)/status", body: body)
     }
     
+    // MARK: Threepids
+
+    public func getThreepids() async throws -> [Threepid] {
+        let (data, response) = try await call(method: "GET", path: "/_matrix/client/v3/account/3pid")
+        
+        struct ResponseBody: Codable {
+            var threepids: [Threepid]?
+        }
+        
+        let decoder = JSONDecoder()
+        guard let responseBody = try? decoder.decode(ResponseBody.self, from: data)
+        else {
+            logger.error("Failed to decode /account/3pid response body")
+            throw Matrix.Error("Failed to decode /account/3pid response body")
+        }
+        
+        return responseBody.threepids ?? []
+    }
+
+    
     // MARK: Other User Profiles
     
     public func getDisplayName(userId: UserId) async throws -> String? {
