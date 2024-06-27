@@ -1072,6 +1072,7 @@ public class Client {
     
     // MARK: Room Metadata
 
+    @discardableResult
     public func setAvatarImage(roomId: RoomId,
                                image: NativeImage,
                                size: CGSize = .init(width: 400, height: 400),
