@@ -501,6 +501,7 @@ public class UIAuthSession: UIASession, ObservableObject {
         return clientSecret
     }
     
+    @discardableResult
     public func redoEmailLoginRequestTokenStage() async throws -> String? {
         guard let email = self.storage[AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN+".email"] as? String
         else {
