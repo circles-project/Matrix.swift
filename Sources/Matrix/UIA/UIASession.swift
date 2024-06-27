@@ -45,6 +45,7 @@ public protocol UIASession {
     func doTermsStage() async throws
  
     func doEmailEnrollRequestTokenStage(email: String, subscribeToList: Bool?) async throws -> String?
+    @discardableResult
     func redoEmailEnrollRequestTokenStage() async throws -> String?
     func doEmailEnrollSubmitTokenStage(token: String, secret: String) async throws
     
