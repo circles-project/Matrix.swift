@@ -289,6 +289,7 @@ extension Matrix {
             }
         }
         
+        @discardableResult
         public func sendReaction(_ reaction: String) async throws -> EventId {
             try await self.room.addReaction(reaction, to: eventId)
         }

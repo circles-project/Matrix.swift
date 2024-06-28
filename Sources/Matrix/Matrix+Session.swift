@@ -291,6 +291,7 @@ extension Matrix {
             await self.me.update(PresenceContent(avatarUrl: mxc))
         }
         
+        @discardableResult
         override public func setMyAvatarImage(_ image: Matrix.NativeImage, propagate: Bool? = nil) async throws -> MXC {
             let propagate = propagate ?? self.propagateProfileUpdates
 
@@ -312,6 +313,7 @@ extension Matrix {
         
         // MARK: Threepids
         
+        @discardableResult
         public func deleteThreepid(medium: String,
                                    address: String,
                                    completion handler: UiaCompletionHandler? = nil
@@ -1383,7 +1385,7 @@ extension Matrix {
             return events
         }
         
-        
+        @discardableResult
         public func getRoom<T: Matrix.Room>(roomId: RoomId,
                                             as type: T.Type = Matrix.Room.self,
                                             onLeave: (() async throws ->Void)? = nil
@@ -2176,6 +2178,7 @@ extension Matrix {
         
         // MARK: Cross Signing
         
+        @discardableResult
         public func setupCrossSigning() async throws -> UIAuthSession? {
             let logger: os.Logger = Logger(subsystem: "matrix", category: "XSIGN")
             logger.debug("Setting up")
