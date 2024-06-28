@@ -1556,6 +1556,7 @@ extension Matrix {
         
         // MARK: Users
         
+        @discardableResult
         public func getUser(userId: UserId) -> Matrix.User {
             if let existingUser = self.users[userId] {
                 return existingUser
