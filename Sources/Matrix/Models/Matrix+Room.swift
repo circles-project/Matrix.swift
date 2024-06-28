@@ -1351,6 +1351,7 @@ extension Matrix {
         
         // MARK: sendImage
         
+        @discardableResult
         public func sendImage(image: NativeImage,
                               thumbnailSize: (Int,Int)?=(800,600),
                               caption: String?=nil,
@@ -1540,6 +1541,7 @@ extension Matrix {
         
         // MARK: sendVideo
         
+        @discardableResult
         public func sendVideo(url: URL,
                               thumbnail: NativeImage,
                               caption: String? = nil
@@ -1729,6 +1731,7 @@ extension Matrix {
             return try await self.session.sendMessageEvent(to: self.roomId, type: M_ROOM_MESSAGE, content: content)
         }
         
+        @discardableResult
         public func redact(eventId: EventId, reason: String? = nil) async throws -> EventId {
             let redactionEventId = try await self.session.sendRedactionEvent(to: self.roomId, for: eventId, reason: reason)
             //self.timeline.removeValue(forKey: eventId)
