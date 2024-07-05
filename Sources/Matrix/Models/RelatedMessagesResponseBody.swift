@@ -8,11 +8,11 @@
 import Foundation
 
 public struct RelatedMessagesResponseBody: Codable {
-    var chunk: [ClientEvent]
-    var nextBatch: String?
-    var prevBatch: String?
+    public var chunk: [ClientEvent]
+    public var nextBatch: String?
+    public var prevBatch: String?
     
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case chunk
         case nextBatch = "next_batch"
         case prevBatch = "prev_batch"

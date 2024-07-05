@@ -8,8 +8,8 @@
 import Foundation
 
 public struct RoomMessagesResponseBody: Codable {
-    var chunk: [ClientEventWithoutRoomId]
-    var end: String?
-    var start: String
-    var state: [ClientEventWithoutRoomId]?
+    public var chunk: [ClientEventWithoutRoomId]
+    public var end: String?
+    public var start: String
+    public var state: [ClientEventWithoutRoomId]?
 }
