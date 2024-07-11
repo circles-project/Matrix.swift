@@ -1526,11 +1526,14 @@ public class Client {
         var nextBatch: String? = nil
         
         repeat {
-            var path = "/_matrix/client/v1/rooms/\(roomId)/hierarchy?max_depth=1"
+            var path = "/_matrix/client/v1/rooms/\(roomId)/hierarchy"
+            var params = [
+                "max_depth": "1"
+            ]
             if let start = nextBatch {
-                path += "&from=\(start)"
+                params["from"] = start
             }
-            let (data, response) = try await call(method: "GET", path: path)
+            let (data, response) = try await call(method: "GET", path: path, params: params)
             
             struct SpaceHierarchyResponseBody: Decodable {
                 var nextBatch: String?
