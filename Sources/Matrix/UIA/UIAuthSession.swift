@@ -400,6 +400,10 @@ public class UIAuthSession: UIASession, ObservableObject {
                 // or if we just repeated a stage that was already completed (in which case we do not modify the list of remaining stages)
                 if uiaState.hasCompleted(stage: AUTH_TYPE) {
                     logger.debug("\(tag, privacy: .public)\tCompleted stage \(AUTH_TYPE, privacy: .public) is a repeat")
+                    // Still send a combine update so that any observing SwiftUI Views will re-render
+                    await MainActor.run {
+                        self.objectWillChange.send()
+                    }
                 } else {
                     let newStages: [String] = Array(stages.suffix(from: 1))
                     await MainActor.run {
