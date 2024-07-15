@@ -398,7 +398,12 @@ public class UIAuthSession: UIASession, ObservableObject {
                 
                 // We need to check whether we just completed this stage for the first time (in which case we move on to the next stage)
                 // or if we just repeated a stage that was already completed (in which case we do not modify the list of remaining stages)
-                let newStages: [String] = uiaState.hasCompleted(stage: AUTH_TYPE) ? stages : Array(stages.suffix(from: 1))
+                let newStages: [String]
+                if stages.starts(with: [AUTH_TYPE]) {
+                    newStages = Array(stages.suffix(from: 1))
+                } else {
+                    newStages = stages
+                }
                 await MainActor.run {
                     state = .inProgress(newUiaaState,newStages)
                 }
