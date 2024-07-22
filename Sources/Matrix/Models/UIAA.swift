@@ -117,7 +117,7 @@ public enum UIAA {
     }
     
     private(set) public static var parameterTypes: [String: UiaStageParams.Type] = [
-        AUTH_TYPE_TERMS : TermsParams.self,
+//        AUTH_TYPE_TERMS : TermsParams.self,
         AUTH_TYPE_ENROLL_PASSWORD : PasswordEnrollParams.self,
         AUTH_TYPE_LOGIN_EMAIL_REQUEST_TOKEN : EmailLoginParams.self,
         AUTH_TYPE_ENROLL_BSSPEKE_OPRF : BSSpekeOprfParams.self,
