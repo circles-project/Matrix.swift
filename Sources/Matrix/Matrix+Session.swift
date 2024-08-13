@@ -614,6 +614,7 @@ extension Matrix {
                         }
                     }
 
+                    let accountDataEvents = info.accountData?.events
 
                     if let room = self.rooms[roomId] {
                         //logger.debug("\tWe know this room already: \(stateEvents.count) new state events, \(timelineEvents.count) new timeline events")
@@ -629,7 +630,7 @@ extension Matrix {
                             await room.updateUnreadCounts(notifications: unread.notificationCount, highlights: unread.highlightCount)
                         }
                         
-                        if let roomAccountDataEvents = info.accountData?.events {
+                        if let roomAccountDataEvents = accountDataEvents {
                             await room.updateAccountData(events: roomAccountDataEvents)
                         }
                         
@@ -637,6 +638,15 @@ extension Matrix {
                             await room.updateEphemeral(events: ephemeralEvents)
                         }
 
+                    } else if let room = try? Matrix.Room(roomId: roomId,
+                                                          session: self,
+                                                          initialState: allStateEvents,
+                                                          initialTimeline: timelineEvents,
+                                                          initialAccountData: accountDataEvents ?? [])
+                    {
+                        await MainActor.run {
+                            self.rooms[roomId] = room
+                        }
                     }
                     
                     if invitations[roomId] != nil {
