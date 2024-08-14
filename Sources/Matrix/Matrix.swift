@@ -173,6 +173,10 @@ public enum Matrix {
     static var cryptoKeyTypes: [String: Codable.Type] = [
         : // FIXME
     ]
+    static var roomTypes: [String: Room.Type] = [
+        M_SPACE : SpaceRoom.self,
+    ]
+    static var defaultRoomType: Room.Type = ChatRoom.self
     
     public static func registerEventType(_ string: String, _ codable: Codable.Type) {
         eventTypes[string] = codable
