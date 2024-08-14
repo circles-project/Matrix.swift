@@ -10,10 +10,11 @@ import Foundation
 extension Matrix {
     // Contains a series of messages all from the same sender,
     // for easier rendering into a chat timeline with SwiftUI
-    public class MessageBurst: ObservableObject {
+    public class MessageBurst: ObservableObject, Identifiable {
         @Published public var messages: [Matrix.Message]
         public var room: Matrix.Room
         public var sender: Matrix.User
+        public var startingEventId: EventId
         
         public init?(messages: [Matrix.Message]) {
             guard let firstMessage = messages.first
@@ -24,6 +25,7 @@ extension Matrix {
             self.messages = messages
             self.room = firstMessage.room
             self.sender = firstMessage.sender
+            self.startingEventId = firstMessage.eventId
         }
         
         public func append(_ message: Matrix.Message) async throws {
@@ -92,6 +94,10 @@ extension Matrix {
             }
             
             return start <= date && date <= end
+        }
+        
+        public var id: String {
+            self.startingEventId
         }
     }
     
