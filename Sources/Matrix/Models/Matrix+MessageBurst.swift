@@ -12,13 +12,18 @@ extension Matrix {
     // for easier rendering into a chat timeline with SwiftUI
     public class MessageBurst: ObservableObject {
         @Published public var messages: [Matrix.Message]
+        public var room: Matrix.Room
+        public var sender: Matrix.User
         
-        public init(messages: [Matrix.Message]) {
+        public init?(messages: [Matrix.Message]) {
+            guard let firstMessage = messages.first
+            else {
+                return nil
+            }
+            
             self.messages = messages
-        }
-        
-        public var sender: Matrix.User? {
-            messages.last?.sender
+            self.room = firstMessage.room
+            self.sender = firstMessage.sender
         }
         
         public func append(_ message: Matrix.Message) async throws {

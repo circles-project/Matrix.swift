@@ -35,16 +35,16 @@ extension Matrix {
                     .sorted { $0.timestamp < $1.timestamp }
                 for message in topLevelMessages {
                     if let burst = currentBurst,
-                       let sender = burst.sender,
-                       message.sender == sender
+                       message.sender == burst.sender
                     {
                         try? await burst.append(message)
                     } else {
-                        let newBurst = MessageBurst(messages: [message])
-                        await MainActor.run {
-                            self.bursts.append(newBurst)
+                        if let newBurst = MessageBurst(messages: [message]) {
+                            await MainActor.run {
+                                self.bursts.append(newBurst)
+                            }
+                            currentBurst = newBurst
                         }
-                        currentBurst = newBurst
                     }
                 }
             }
@@ -74,8 +74,9 @@ extension Matrix {
                     try? await burstAfter.prepend(message)
                 }
                 else {
-                    let newBurst = MessageBurst(messages: [message])
-                    self.bursts.append(newBurst)
+                    if let newBurst = MessageBurst(messages: [message]) {
+                        self.bursts.append(newBurst)
+                    }
                 }
             }
         }
