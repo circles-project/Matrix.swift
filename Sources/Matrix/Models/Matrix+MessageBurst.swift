@@ -1,0 +1,93 @@
+//
+//  Matrix+MessageBurst.swift
+//
+//
+//  Created by Charles Wright on 8/14/24.
+//
+
+import Foundation
+
+extension Matrix {
+    // Contains a series of messages all from the same sender,
+    // for easier rendering into a chat timeline with SwiftUI
+    public class MessageBurst: ObservableObject {
+        @Published public var messages: [Matrix.Message]
+        
+        public init(messages: [Matrix.Message]) {
+            self.messages = messages
+        }
+        
+        public var sender: Matrix.User? {
+            messages.last?.sender
+        }
+        
+        public func append(_ message: Matrix.Message) async throws {
+            guard message.sender == self.sender
+            else {
+                Matrix.logger.error("Can't append message to burst - sender does not match")
+                throw Matrix.Error("Can't append message to burst")
+            }
+            
+            await MainActor.run {
+                messages.append(message)
+            }
+        }
+        
+        public func prepend(_ message: Matrix.Message) async throws {
+            guard message.sender == self.sender
+            else {
+                Matrix.logger.error("Can't prepend message to burst - sender does not match")
+                throw Matrix.Error("Can't prepend message to burst")
+            }
+            
+            await MainActor.run {
+                messages.insert(message, at: 0)
+            }
+        }
+        
+        public var isEmpty: Bool {
+            messages.isEmpty
+        }
+        
+        public var startTime: Date? {
+            messages.first?.timestamp
+        }
+        
+        public var endTime: Date? {
+            messages.last?.timestamp
+        }
+        
+        public func isBefore(date: Date) -> Bool {
+            if let end = self.endTime,
+               end < date
+            {
+                return true
+            }
+            else {
+                return false
+            }
+        }
+        
+        public func isAfter(date: Date) -> Bool {
+            if let start = self.startTime,
+               start > date
+            {
+                return true
+            }
+            else {
+                return false
+            }
+        }
+        
+        public func contains(date: Date) -> Bool {
+            guard let start = self.startTime,
+                  let end = self.endTime
+            else {
+                return false
+            }
+            
+            return start <= date && date <= end
+        }
+    }
+    
+}

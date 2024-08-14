@@ -638,14 +638,29 @@ extension Matrix {
                             await room.updateEphemeral(events: ephemeralEvents)
                         }
 
-                    } else if let room = try? Matrix.Room(roomId: roomId,
-                                                          session: self,
-                                                          initialState: allStateEvents,
-                                                          initialTimeline: timelineEvents,
-                                                          initialAccountData: accountDataEvents ?? [])
-                    {
-                        await MainActor.run {
-                            self.rooms[roomId] = room
+                    } else {
+                        
+                        let T: Matrix.Room.Type
+                        
+                        if let creationEvent = stateEvents.first(where: {$0.type == M_ROOM_CREATE}),
+                           let creationContent = creationEvent.content as? RoomCreateContent,
+                           let roomTypeString = creationContent.type,
+                           let type = Matrix.roomTypes[roomTypeString]
+                        {
+                            T = type
+                        } else {
+                            T = Matrix.defaultRoomType
+                        }
+                        
+                        if let room = try? T.init(roomId: roomId,
+                                                  session: self,
+                                                  initialState: allStateEvents,
+                                                  initialTimeline: timelineEvents,
+                                                  initialAccountData: accountDataEvents ?? [])
+                        {
+                            await MainActor.run {
+                                self.rooms[roomId] = room
+                            }
                         }
                     }
                     
