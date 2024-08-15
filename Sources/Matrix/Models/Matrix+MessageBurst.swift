@@ -13,7 +13,7 @@ extension Matrix {
     // for easier rendering into a chat timeline with SwiftUI
     public class MessageBurst: ObservableObject, Identifiable {
         @Published public var messages: [Matrix.Message]
-        public var room: Matrix.Room
+        public var room: Matrix.ChatRoom
         public var sender: Matrix.User
         public var startingEventId: EventId
         
@@ -21,13 +21,14 @@ extension Matrix {
         private var sinks: [EventId: Cancellable] = [:]
         
         public init?(messages: [Matrix.Message]) {
-            guard let firstMessage = messages.first
+            guard let firstMessage = messages.first,
+                  let chatRoom = firstMessage.room as? ChatRoom
             else {
                 return nil
             }
             
             self.messages = messages
-            self.room = firstMessage.room
+            self.room = chatRoom
             self.sender = firstMessage.sender
             self.startingEventId = firstMessage.eventId
             
