@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 
 extension Matrix {
     // Contains a series of messages all from the same sender,
@@ -15,6 +16,9 @@ extension Matrix {
         public var room: Matrix.Room
         public var sender: Matrix.User
         public var startingEventId: EventId
+        
+        // Combine framework stuff, so we can re-publish updates from our Messages and get re-drawn when one of them updates
+        private var sinks: [EventId: Cancellable] = [:]
         
         public init?(messages: [Matrix.Message]) {
             guard let firstMessage = messages.first
@@ -26,6 +30,15 @@ extension Matrix {
             self.room = firstMessage.room
             self.sender = firstMessage.sender
             self.startingEventId = firstMessage.eventId
+            
+            for message in messages {
+                // Also re-publish changes from this message
+                self.sinks[message.eventId] = message.objectWillChange
+                                                     .receive(on: DispatchQueue.main)
+                                                     .sink { _ in
+                                                         self.objectWillChange.send()
+                                                     }
+            }
         }
         
         public func append(_ message: Matrix.Message) async throws {
@@ -38,6 +51,13 @@ extension Matrix {
             await MainActor.run {
                 messages.append(message)
             }
+            
+            // Also re-publish changes from this message
+            self.sinks[message.eventId] = message.objectWillChange
+                                                 .receive(on: DispatchQueue.main)
+                                                 .sink { _ in
+                                                     self.objectWillChange.send()
+                                                 }
         }
         
         public func prepend(_ message: Matrix.Message) async throws {
@@ -50,6 +70,13 @@ extension Matrix {
             await MainActor.run {
                 messages.insert(message, at: 0)
             }
+            
+            // Also re-publish changes from this message
+            self.sinks[message.eventId] = message.objectWillChange
+                                                 .receive(on: DispatchQueue.main)
+                                                 .sink { _ in
+                                                     self.objectWillChange.send()
+                                                 }
         }
         
         public var isEmpty: Bool {
