@@ -41,6 +41,7 @@ extension Matrix {
             }
         }
         
+        @MainActor
         public func append(_ message: Matrix.Message) async throws {
             guard message.sender == self.sender
             else {
@@ -48,9 +49,7 @@ extension Matrix {
                 throw Matrix.Error("Can't append message to burst")
             }
             
-            await MainActor.run {
-                messages.append(message)
-            }
+            messages.append(message)
             
             // Also re-publish changes from this message
             self.sinks[message.eventId] = message.objectWillChange
@@ -60,6 +59,7 @@ extension Matrix {
                                                  }
         }
         
+        @MainActor
         public func prepend(_ message: Matrix.Message) async throws {
             guard message.sender == self.sender
             else {
@@ -67,9 +67,7 @@ extension Matrix {
                 throw Matrix.Error("Can't prepend message to burst")
             }
             
-            await MainActor.run {
-                messages.insert(message, at: 0)
-            }
+            messages.insert(message, at: 0)
             
             // Also re-publish changes from this message
             self.sinks[message.eventId] = message.objectWillChange
