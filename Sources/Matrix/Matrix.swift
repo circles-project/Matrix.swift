@@ -189,6 +189,10 @@ public enum Matrix {
     public static func registerAccountDataType(_ string: String, _ codable: Codable.Type) {
         accountDataTypes[string] = codable
     }
+    
+    public static func registerRoomType(_ string: String, _ room: Matrix.Room.Type) {
+        roomTypes[string] = room
+    }
 }
 
 
