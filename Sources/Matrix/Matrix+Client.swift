@@ -327,7 +327,7 @@ public class Client {
         
         guard let url = components.url
         else {
-            logger.error("Failed to construct URL from components")
+            logger.error("CALL \(method, privacy: .public) \(path, privacy: .public) Failed to construct URL from components")
             throw Matrix.Error("Failed to construct URL from components")
         }
                
