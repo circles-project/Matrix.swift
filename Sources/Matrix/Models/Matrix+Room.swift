@@ -1186,16 +1186,30 @@ extension Matrix {
         // MARK: Pagination
         
         @Published private(set) public var canPaginate: Bool = true
+        private var paginationErrorCount = 0
         
         public func paginate(limit: UInt?=nil) async throws {
-            guard self.canPaginate,
-                  let response = try? await self.session.getMessages(roomId: roomId, forward: false, from: self.backwardToken, limit: limit)
+            guard self.canPaginate
             else {
-                await MainActor.run {
-                    self.canPaginate = false
+                logger.debug("Paginate: Can't paginate - bailing out")
+                return
+            }
+            
+            guard let response = try? await self.session.getMessages(roomId: roomId, forward: false, from: self.backwardToken, limit: limit)
+            else {
+                logger.error("Paginate failed")
+                self.paginationErrorCount += 1
+                if paginationErrorCount > 3 {
+                    await MainActor.run {
+                        self.canPaginate = false
+                    }
                 }
                 throw Matrix.Error("Paginate failed")
             }
+            
+            // Re-set the error count upon a successful pagination
+            self.paginationErrorCount = 0
+            
             // The timeline messages are in the "chunk" piece of the response
             try await self.updateTimeline(from: response.chunk)
             self.backwardToken = response.end ?? self.backwardToken
