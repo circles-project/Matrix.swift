@@ -78,7 +78,7 @@ extension Matrix {
             
             // Now this is a bit clunky because we have to find which of our Messages are new
             let eventIds = Set(events.map { $0.eventId })
-            let newMessages = self.messages.filter { !eventIds.contains($0.eventId) }
+            let newMessages = self.messages.filter { eventIds.contains($0.eventId) }
                                            .sorted { $0.timestamp < $1.timestamp }
             
             logger.debug("ChatRoom: Assigning \(newMessages.count) new messages to bursts")
