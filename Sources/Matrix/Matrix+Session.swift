@@ -264,6 +264,83 @@ extension Matrix {
 
         }
         
+        public func loadJoinedRooms() async throws {
+            let joinedRoomIds = try await self.getJoinedRoomIds()
+            
+            let missingRoomIds = joinedRoomIds.filter { self.rooms[$0] == nil }
+            
+            for roomId in missingRoomIds {
+                if let storedRoom = try? await self.loadRoomFromStorage(roomId: roomId)
+                {
+                    await MainActor.run {
+                        if rooms[roomId] == nil {
+                            rooms[roomId] = storedRoom
+                        }
+                    }
+                }
+                else if let stateEvents = try? await self.getRoomStateEvents(roomId: roomId),
+                        let newRoom = await self.roomFromEvents(roomId: roomId, stateEvents: stateEvents, timelineEvents: [], accountDataEvents: [])
+                {
+                    await MainActor.run {
+                        if rooms[roomId] == nil {
+                            rooms[roomId] = newRoom
+                        }
+                    }
+                }
+                else {
+                    logger.warning("Failed to load joined room \(roomId)")
+                }
+            }
+        }
+        
+        private func loadRoomFromStorage(roomId: RoomId) async throws -> Matrix.Room? {
+            if let store = self.dataStore {
+                do {
+                    let stateEvents = try await store.loadEssentialState(for: roomId)
+                    let timelineEvents = try await store.loadTimeline(for: roomId, limit: 25, offset: 0)
+                    let accountDataEvents = try await store.loadAccountDataEvents(roomId: roomId, limit: 0, offset: 0)
+                    let room = await self.roomFromEvents(roomId: roomId, stateEvents: stateEvents, timelineEvents: timelineEvents, accountDataEvents: accountDataEvents)
+                    return room
+                }
+                catch {
+                    logger.error("Failed to load room \(roomId) from storage")
+                    throw Matrix.Error("Failed to load room from storage")
+                }
+            }
+            else {
+                return nil
+            }
+        }
+                        
+        private func roomFromEvents(roomId: RoomId,
+                                    stateEvents: [ClientEventWithoutRoomId],
+                                    timelineEvents: [ClientEventWithoutRoomId],
+                                    accountDataEvents: [AccountDataEvent]
+        ) async -> Matrix.Room? {
+            let T: Matrix.Room.Type
+            
+            if let creationEvent = stateEvents.first(where: {$0.type == M_ROOM_CREATE}),
+               let creationContent = creationEvent.content as? RoomCreateContent,
+               let roomTypeString = creationContent.type,
+               let type = Matrix.roomTypes[roomTypeString]
+            {
+                T = type
+            } else {
+                T = Matrix.defaultRoomType
+            }
+            
+            if let room = try? T.init(roomId: roomId,
+                                      session: self,
+                                      initialState: stateEvents,
+                                      initialTimeline: timelineEvents,
+                                      initialAccountData: accountDataEvents)
+            {
+                return room
+            }
+            
+            return nil
+        }
+        
         // MARK: Profile management
         
         public func inhibitProfilePropagation() {
