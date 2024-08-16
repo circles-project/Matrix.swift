@@ -74,14 +74,19 @@ extension Matrix {
             // Use the parent class'es implementation to transform Events into Messages
             try await super.updateTimeline(from: events)
             
+            logger.debug("ChatRoom: updating timeline")
+            
             // Now this is a bit clunky because we have to find which of our Messages are new
             let eventIds = Set(events.map { $0.eventId })
-            let newMessages = self.messages.filter { eventIds.contains($0.eventId) }
+            let newMessages = self.messages.filter { !eventIds.contains($0.eventId) }
                                            .sorted { $0.timestamp < $1.timestamp }
             
+            logger.debug("ChatRoom: Assigning \(newMessages.count) new messages to bursts")
             // For each new message, find which burst it might go with
             for message in newMessages {
                 // FIXME: Python's array bisect would be great here, but :sigh: instead we're just going to do it the dumb and simple way
+                
+                logger.debug("ChatRoom: Assigning message \(message.eventId)")
                 
                 // First, let's see which thread we are on
                 let threadId = message.threadId ?? ""
@@ -110,6 +115,8 @@ extension Matrix {
                         }
                     }
                 }
+                
+                logger.debug("ChatRoom: Done assigning message \(message.eventId)")
             }
         }
     }
