@@ -50,6 +50,12 @@ extension Matrix {
                 throw Matrix.Error("Can't append message to burst")
             }
             
+            guard messages.filter({$0.eventId == message.eventId}).isEmpty
+            else {
+                // Don't need to add this one - it's already here!
+                return
+            }
+            
             messages.append(message)
             
             // Also re-publish changes from this message
@@ -66,6 +72,12 @@ extension Matrix {
             else {
                 Matrix.logger.error("Can't prepend message to burst - sender does not match")
                 throw Matrix.Error("Can't prepend message to burst")
+            }
+            
+            guard messages.filter({$0.eventId == message.eventId}).isEmpty
+            else {
+                // Don't need to add this one - it's already here!
+                return
             }
             
             messages.insert(message, at: 0)
