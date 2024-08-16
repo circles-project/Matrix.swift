@@ -1197,8 +1197,8 @@ extension Matrix {
             
             guard let response = try? await self.session.getMessages(roomId: roomId, forward: false, from: self.backwardToken, limit: limit)
             else {
-                logger.error("Paginate failed")
                 self.paginationErrorCount += 1
+                logger.error("Paginate failed (\(self.paginationErrorCount) failures in a row)")
                 if paginationErrorCount > 3 {
                     await MainActor.run {
                         self.canPaginate = false
