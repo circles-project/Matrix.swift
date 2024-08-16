@@ -341,7 +341,12 @@ public class Client {
             request.httpBody = bodyData
             request.setValue("Bearer \(creds.accessToken)", forHTTPHeaderField: "Authorization")
             
-            let (data, response) = try await apiUrlSession.data(for: request)
+            guard let (data, response) = try? await apiUrlSession.data(for: request)
+            else {
+                count += 1
+                logger.error("CALL \(method, privacy: .public) \(url, privacy: .public) URLSession failed to get data")
+                continue
+            }
             
             guard let httpResponse = response as? HTTPURLResponse
             else {
