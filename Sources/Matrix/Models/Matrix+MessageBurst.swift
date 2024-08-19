@@ -90,6 +90,50 @@ extension Matrix {
                                                  }
         }
         
+        public func splitOn(message: Message) throws -> [MessageBurst] {
+            let messagesBefore = self.messages.filter {
+                $0.timestamp <= message.timestamp
+            }.sorted(by: {
+                $0.timestamp < $1.timestamp
+            })
+            let messagesAfter = self.messages.filter {
+                $0.timestamp > message.timestamp
+            }.sorted(by: {
+                $0.timestamp < $1.timestamp
+            })
+            
+            var bursts: [MessageBurst] = []
+            
+            if !messagesBefore.isEmpty {
+                guard let burstBefore = MessageBurst(messages: messagesBefore)
+                else
+                {
+                    logger.error("Failed to create message burst")
+                    throw Matrix.Error("Failed to create message burst")
+                }
+                
+                bursts.append(burstBefore)
+            }
+            
+            guard let newBurst = MessageBurst(messages: [message])
+            else {
+                logger.error("Failed to create MessageBurst for message \(message.eventId)")
+                throw Matrix.Error("Failed to create MessageBurst")
+            }
+            bursts.append(newBurst)
+            
+            if !messagesAfter.isEmpty {
+                guard let burstAfter = MessageBurst(messages: messagesAfter)
+                else {
+                    logger.error("Failed to create message burst")
+                    throw Matrix.Error("Failed to create message burst")
+                }
+                bursts.append(burstAfter)
+            }
+            
+            return bursts
+        }
+        
         public var isEmpty: Bool {
             messages.isEmpty
         }
@@ -100,6 +144,19 @@ extension Matrix {
         
         public var endTime: Date? {
             messages.last?.timestamp
+        }
+        
+        public func includes(date: Date) -> Bool {
+            if let start = startTime,
+               let end = endTime,
+               start <= date,
+               date <= end
+            {
+                return true
+            }
+            else {
+                return false
+            }
         }
         
         public func isBefore(date: Date) -> Bool {

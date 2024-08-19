@@ -91,28 +91,70 @@ extension Matrix {
                 // First, let's see which thread we are on
                 let threadId = message.threadId ?? ""
                 
+                if let bestMatchBurst = self.bursts[threadId]?.first(where: {$0.includes(date: message.timestamp)}) {
+                    logger.debug("ChatRoom: Found a burst that contains our message")
+                    if bestMatchBurst.sender == message.sender {
+                        logger.debug("ChatRoom: Sender matches")
+                        try? await bestMatchBurst.append(message)
+                        continue
+                    } else {
+                        logger.debug("ChatRoom: Best match burst doesn't match")
+                        // Now we have a problem - Our bursts are not in a nice chronological, non-overlapping order
+                        // We thought we had an unbroken burst of messages from bestMatchBurst.sender but now message.sender is butting in
+                        // The fix is to split this existing burst in two, and insert a new burst, containing the new message, in between
+                                                
+                        let startBursts: [MessageBurst] = self.bursts[threadId]?.prefix(while: {$0.isBefore(date: message.timestamp)}) ?? []
+                        
+                        guard let middleBursts = try? bestMatchBurst.splitOn(message: message)
+                        else {
+                            Matrix.logger.error("Failed to split a burst of messages")
+                            continue
+                        }
+                        
+                        let endBursts = Array( self.bursts[threadId]?.suffix(from: startBursts.count) ?? [])
+                        
+                        let newBursts = startBursts + middleBursts + endBursts
+                        
+                        await MainActor.run {
+                            self.bursts[threadId] = newBursts
+                        }
+                    }
+                    
+                }
+                
                 // Check to see if we have a burst from this user just before this message
-                if let burstBefore = self.bursts[threadId]?.last(where: { $0.isBefore(date: message.timestamp) }),
-                   burstBefore.sender == message.sender
+                if let burstBefore = self.bursts[threadId]?.last(where: { $0.isBefore(date: message.timestamp) })
                 {
-                    try? await burstBefore.append(message)
+                    logger.debug("ChatRoom: Found burst before the message")
+                    if burstBefore.sender == message.sender {
+                        logger.debug("ChatRoom: Sender matches")
+                        try? await burstBefore.append(message)
+                        continue
+                    } else {
+                        logger.debug("ChatRoom: Burst before doesn't match")
+                    }
                 }
                 // Or maybe this is an older message, and we have a burst from this user right after it?
-                else if let burstAfter = self.bursts[threadId]?.first(where: { $0.isAfter(date: message.timestamp) }),
-                        burstAfter.sender == message.sender
+                if let burstAfter = self.bursts[threadId]?.first(where: { $0.isAfter(date: message.timestamp) })
                 {
-                    try? await burstAfter.prepend(message)
+                    logger.debug("ChatRoom: Found burst before the message")
+                    if burstAfter.sender == message.sender {
+                        logger.debug("ChatRoom: Burst after matches")
+                        try? await burstAfter.prepend(message)
+                        continue
+                    } else {
+                        logger.debug("ChatRoom: Burst after doesn't match")
+                    }
                 }
                 // Looks like this message doesn't fit with any existing burst
-                else {
-                    // Find the list of bursts in its thread
-                    let threadBursts = self.bursts[threadId] ?? []
-                    // Create a new burst sent from this user on this thread
-                    if let newBurst = MessageBurst(messages: [message]) {
-                        // And add it to the current list for the thread
-                        await MainActor.run {
-                            self.bursts[threadId] = threadBursts + [newBurst]
-                        }
+                logger.debug("ChatRoom: Looks like we need a new burst")
+                // Find the list of bursts in its thread
+                let threadBursts = self.bursts[threadId] ?? []
+                // Create a new burst sent from this user on this thread
+                if let newBurst = MessageBurst(messages: [message]) {
+                    // And add it to the current list for the thread
+                    await MainActor.run {
+                        self.bursts[threadId] = threadBursts + [newBurst]
                     }
                 }
                 
