@@ -99,6 +99,25 @@ extension Matrix {
                         continue
                     } else {
                         logger.debug("ChatRoom: Best match burst doesn't match")
+                        // Now we have a problem - Our bursts are not in a nice chronological, non-overlapping order
+                        // We thought we had an unbroken burst of messages from bestMatchBurst.sender but now message.sender is butting in
+                        // The fix is to split this existing burst in two, and insert a new burst, containing the new message, in between
+                                                
+                        let startBursts: [MessageBurst] = self.bursts[threadId]?.prefix(while: {$0.isBefore(date: message.timestamp)}) ?? []
+                        
+                        guard let middleBursts = try? bestMatchBurst.splitOn(message: message)
+                        else {
+                            Matrix.logger.error("Failed to split a burst of messages")
+                            continue
+                        }
+                        
+                        let endBursts = Array( self.bursts[threadId]?.suffix(from: startBursts.count) ?? [])
+                        
+                        let newBursts = startBursts + middleBursts + endBursts
+                        
+                        await MainActor.run {
+                            self.bursts[threadId] = newBursts
+                        }
                     }
                     
                 }
