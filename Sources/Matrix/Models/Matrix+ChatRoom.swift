@@ -91,6 +91,18 @@ extension Matrix {
                 // First, let's see which thread we are on
                 let threadId = message.threadId ?? ""
                 
+                if let bestMatchBurst = self.bursts[threadId]?.first(where: {$0.includes(date: message.timestamp)}) {
+                    logger.debug("ChatRoom: Found a burst that contains our message")
+                    if bestMatchBurst.sender == message.sender {
+                        logger.debug("ChatRoom: Sender matches")
+                        try? await bestMatchBurst.append(message)
+                        continue
+                    } else {
+                        logger.debug("ChatRoom: Best match burst doesn't match")
+                    }
+                    
+                }
+                
                 // Check to see if we have a burst from this user just before this message
                 if let burstBefore = self.bursts[threadId]?.last(where: { $0.isBefore(date: message.timestamp) })
                 {

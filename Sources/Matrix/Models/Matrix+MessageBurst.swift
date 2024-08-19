@@ -102,6 +102,19 @@ extension Matrix {
             messages.last?.timestamp
         }
         
+        public func includes(date: Date) -> Bool {
+            if let start = startTime,
+               let end = endTime,
+               start <= date,
+               date <= end
+            {
+                return true
+            }
+            else {
+                return false
+            }
+        }
+        
         public func isBefore(date: Date) -> Bool {
             if let end = self.endTime,
                end < date
