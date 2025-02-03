@@ -140,7 +140,7 @@ public struct GRDBDataStore: DataStore {
     public init(userId: UserId, type: StorageType) async throws {
         switch type {
         case .inMemory:
-            self.database = DatabaseQueue()
+            self.database = try DatabaseQueue()
         case .persistent(let preserve):
             
             let appSupportUrl = try FileManager.default.url(for: .applicationSupportDirectory,

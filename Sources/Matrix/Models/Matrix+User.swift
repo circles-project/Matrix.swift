@@ -7,7 +7,6 @@
 
 import Foundation
 import SipHash
-import JdenticonSwift
 
 extension Matrix {
     public class User: ObservableObject {
@@ -131,12 +130,7 @@ extension Matrix {
         }()
         
         public lazy var jdenticon: Matrix.NativeImage? = {
-            let generator = IconGenerator(size: 120, hash: Data(self.siphash.bytes))
-            if let cgImage = generator.render() {
-                return Matrix.NativeImage(cgImage: cgImage)
-            } else {
-                return nil
-            }
+            return nil
         }()
     }
 }

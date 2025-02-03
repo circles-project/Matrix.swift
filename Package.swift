@@ -21,9 +21,9 @@ let package = Package(
         // Dependencies declare other packages that this package depends on.
         // .package(url: /* package url */, from: "1.0.0"),
         .package(url: "https://github.com/stephencelis/SQLite.swift.git", from: "0.13.3"),
-        .package(url: "https://github.com/groue/GRDB.swift.git", from: "5.24.0"),
+        .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0"),
         .package(url: "https://github.com/Flight-School/AnyCodable", from: "0.6.0"),
-        .package(url: "https://gitlab.futo.org/cvwright/BlindSaltSpeke.git", from: "0.4.2"),
+        .package(url: "https://github.com/circles-project/BlindSaltSpeke.git", from: "0.4.2"),
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0"),
         .package(url: "https://github.com/circles-project/MatrixSDKCrypto.git", revision: "18cfbabe8e5b597d44099f5131cf87f71ebc2ed9"),
         .package(url: "https://github.com/iosdevzone/IDZSwiftCommonCrypto.git", from: "0.13.0"),
@@ -31,7 +31,6 @@ let package = Package(
         .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", from: "4.2.2"),
         .package(url: "https://github.com/keefertaylor/Base58Swift.git", exact: "2.1.7"),
         .package(url: "https://github.com/attaswift/SipHash.git", exact: "1.2.2"),
-        .package(url: "https://github.com/cvwright/jdenticon-swift.git", branch: "master"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -49,7 +48,6 @@ let package = Package(
                 .product(name: "KeychainAccess", package: "KeychainAccess"),
                 .product(name: "Base58Swift", package: "Base58Swift"),
                 .product(name: "SipHash", package: "SipHash"),
-                .product(name: "JdenticonSwift", package: "jdenticon-swift"),
             ]),
         .testTarget(
             name: "MatrixTests",
